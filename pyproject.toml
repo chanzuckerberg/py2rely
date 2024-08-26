@@ -1,0 +1,75 @@
+[build-system]
+requires = ["hatchling", "hatch-vcs"]
+build-backend = "hatchling.build"
+
+[project]
+name = "relion_sta_pipeline"
+requires-python = ">=3.9"
+version = "0.1.0"
+dependencies = [
+    "click",
+    "mrcfile",
+    "starfile",
+    "pydantic",
+    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@tomo-pipeline"
+]
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+authors = [
+  {name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org"},
+]
+description = "Command line tools to Run Automated Sub-Tomogram Averaging with Relion and CCPEM Pipeline."
+readme = "README.md"
+license = {file = "LICENSE"}
+
+[project.scripts]
+create_parameters = "relion_sta_pipeline.generate_parameters:cli"
+prepare_relion5 = "relion_sta_pipeline.prepare_relion5_input:cli"
+run_relion5 = "relion_sta_pipeline.relion5_pipeline:cli"
+select = "relion_sta_pipeline.routines.select:cli"
+report = "relion_sta_pipeline.routines.report:cli"
+
+[tool.hatch.version]
+source = "vcs"
+
+[tool.semantic_release]
+version_variables = ["__init__.py:__version__"]
+build_command = "pip install build && python -m build"
+
+[tool.black]
+line-length = 120
+target_version = ['py39']
+
+[tool.ruff]
+select = [
+    "E", "W",  # pycodestyle
+    "F",  # pyflakes
+    "B",  # bugbear
+    "I",  # isort
+    "N",  # pep8-naming
+    "ASYNC",  # async
+    "COM",  # commas
+    "C4",  # comprehensions
+    "DTZ",  # datetimez
+    "ISC",  # implicit-str-concat
+    "G",  # logging-format
+    "T20",  # print
+    "SIM",  # simplify
+]
+
+line-length = 120
+target-version = "py310"
+
+[tool.ruff.isort]
+known-first-party =["common"]
+
+[tool.ruff.flake8-quotes]
+docstring-quotes = "double"
+
+[tool.mypy]
+show_error_codes = true
+ignore_missing_imports = true
+warn_unreachable = true
+strict = true
