@@ -1,0 +1,35 @@
+from pipeliner.api.manage_project import PipelinerProject
+from relion_sta_pipeline.utils import relion5_tools
+import click
+
+@click.group()
+@click.pass_context
+def cli(ctx):
+    pass
+
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--parameter-path",
+    type=str,
+    required=True,
+    default='sta_parameters.json',
+    help="The Saved Parameter Path",
+)
+def binnings(
+    parameter_path: str,
+    ):
+    """
+    This command reads and processes the pipeline parameter file to report 
+    relevant binning factors and box sizes. The parameter file path must be provided.
+    
+    Parameters:
+        parameter_path (str): Path to the JSON file containing pipeline parameters.
+    """    
+
+    # Print Input Parameters
+    print(f'\nPipeline Parameters: \nParameter-Path: {parameter_path}\n')
+
+    # Create Pipeliner Project
+    my_project = PipelinerProject(make_new_project=True)
+    utils = relion5_tools.Relion5Pipeline(my_project)
+    utils.read_json_params_file(parameter_path)
