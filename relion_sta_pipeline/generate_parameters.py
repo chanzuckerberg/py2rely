@@ -501,5 +501,79 @@ def relion5(
     with open(file_path, "w") as f:
         json.dump(default_config.dict(), f, indent=4)
 
+def validate_num_gpus(ctx, param, value):
+    if value is not None and (value < 1 or value > 4):
+        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
+    return value
+
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--shell-path",
+    type=str,
+    required=False,
+    default='pipeline_sta.sh',
+    help="The Saved Parameter Path",
+)
+@click.option(
+    "--job-name",
+    type=str,
+    required=False,
+    default="sta_relion",
+    help="Job Name Displayed by Slurm Scheduler"
+)
+@click.option(
+    "--output-file",
+    type=str,
+    required=False,
+    default="outputs_sta_relion.out",
+    help="Output Text File that Results"
+)
+@click.option(
+    "--num-gpus",
+    type=int,
+    required=False,
+    default=2,
+    callback=validate_num_gpus,
+    help="Number of GPUs for Processing"
+)
+def shell_script(
+    shell_path: str,
+    job_name: str,
+    output_file: str,
+    num_gpus: int
+    ):
+
+    shell_script_content = f"""#!/bin/bash
+
+    #SBATCH --nodes=1
+    #SBATCH --gpus={num_gpus}
+    #SBATCH --ntasks={num_gpus+1}
+    #SBATCH --time=36:00:00
+    #SBATCH --cpus-per-task=16
+    #SBATCH --mem-per-cpu=48G
+    #SBATCH --partition=gpu
+    #SBATCH --job-name={job_name}
+    #SBATCH --output={output_file}
+
+    # Load Modules
+    ml relion/ver5.0-git-CU80 anaconda
+
+    # Generate Template (Optional)
+    # conda activate /hpc/projects/group.czii/krios1.processing/software/pipeline-3D-template-match/pyMatch
+    # pytom_create_template.py -i /hpc/projects/group.czii/krios1.processing/pytom/scripts/model_templates/ribo80S_emd_3883.map \\
+    # -o ribosome-template-flipped.mrc --input-voxel-size 0.85 --output-voxel-size 9.48 --low-pass 40 -b 64 -m
+
+    # Run Relion Pipeline
+    conda activate /hpc/projects/group.czii/krios1.processing/software/relion-sub-tomogram-pipelines/pyRelion/
+    run_relion5 sta-pipeline --parameter-path sta_parameter.json --reference-template ribosome-template-flipped.mrc
+    """
+
+    # Save to file
+    with open(shell_path, "w") as file:
+        file.write(shell_script_content)
+
+    print(f"Shell script has been created successfully as '{shell_path}'")
+
+
 if __name__ == "__main__":
     cli()
