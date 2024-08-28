@@ -11,6 +11,7 @@ dependencies = [
     "mrcfile",
     "starfile",
     "pydantic",
+    "tqdm",
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@tomo-pipeline"
 ]
 
@@ -28,7 +29,7 @@ license = {file = "LICENSE"}
 create_parameters = "relion_sta_pipeline.generate_parameters:cli"
 prepare_relion5 = "relion_sta_pipeline.prepare_relion5_input:cli"
 run_relion5 = "relion_sta_pipeline.relion5_pipeline:cli"
-select = "relion_sta_pipeline.routines.select:cli"
+classes = "relion_sta_pipeline.routines.select:cli"
 report = "relion_sta_pipeline.routines.report:cli"
 
 [tool.hatch.version]

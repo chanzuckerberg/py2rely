@@ -366,7 +366,7 @@ def import_particles(
     #     inputDF["rlnTomoName"] = name
 
     # Remove '_Vol' substring
-    # inputDF['rlnTomoName'] = inputDF['rlnTomoName'].str.replace('_Vol', '')
+    inputDF['rlnTomoName'] = inputDF['rlnTomoName'].str.replace('_Vol', '')
 
     # Assign a default optics group value to all particles
     inputDF['rlnOpticsGroup'] = [1] * len(inputDF['rlnTomoName'])

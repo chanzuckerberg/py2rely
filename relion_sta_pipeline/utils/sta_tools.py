@@ -38,6 +38,13 @@ class PipelineHelper:
         # Initialize binning factor
         self.binning = None      
 
+        # Initialize Jobs
+        self.reconstruct_job = None
+        self.pseudo_subtomo_job = None
+        self.mask_create_job = None
+        self.post_process_job = None
+        self.tomo_select_job = None
+
     def check_if_relion_is_available(self):
         """
         Check if Relion is available on the system by attempting to run `relion --help`.
@@ -137,10 +144,11 @@ class PipelineHelper:
             job.joboptions[key].value = value
         return job
     
-    def run_job(self, job, 
+    def run_job(self, 
+                job, 
                 jobName: str, 
                 jobTag: str, 
-                classifyStep: str = None, 
+                classifyStep: bool = False, 
                 keepClasses: list = None):
         """
         Run a job and handle its completion status.
@@ -164,20 +172,37 @@ class PipelineHelper:
             # Wait up to 24 hours for the job to finish
             result = job_manager.wait_for_job_to_finish(job)
 
+            # Print Results
             print('[{}] Job Complete!'.format(jobTag))
             print('[{}] Job Result :: '.format(jobTag) + result)
 
+            # Exit If Job Fails
             if result == 'Failed': print(f'{jobTag} Failed!...\n'); exit()
 
-            self.outputDirectories[jobName] = job.output_dir
+            # Only Tomogram Reconstruction Doesn't Occur at a Specific Resolution
+            if jobName == 'reconstruct_tomograms':
+                self.outputDirectories[jobName] = job.output_dir
+            else:
+                # Ensure the binning key exists before assigning the job output directory
+                bin_key = f'bin{self.binning}'
+                if bin_key not in self.outputDirectories:
+                    self.outputDirectories[bin_key] = {}
+                # Save Job Name to Output Directory
+                self.outputDirectories[bin_key][jobName] = job.output_dir
             self.save_new_output_directory()
 
             # Automatically Exit if We're Performing Several Rounds of Classification
-            if classifyStep is not None:
+            if classifyStep:
                 exit()         
 
             if keepClasses is not None: 
-                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)    
+                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
+        else: 
+            try:
+                job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
+            except:
+                job.output_dir = self.outputDirectories[jobName]
+         
 
     def get_resolution(self,job, job_name: str):
         """
@@ -206,7 +231,7 @@ class PipelineHelper:
         
         return resolution
 
-    def find_final_iteration(self):
+    def find_final_iteration(self, class3D_job):
         """
         Find the final iteration file based on the highest iteration number.
 
@@ -215,12 +240,12 @@ class PipelineHelper:
         """        
 
         # Find the Final Iteration 
-        iterationStarFiles = glob.glob(self.tomo_class3D_job.output_dir + 'run_*_data.star')
+        iterationStarFiles = glob.glob(class3D_job.output_dir + 'run_*_data.star')
         maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
         self.maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
         return maxIterationStarFile
     
-    def find_best_particle_class(self):
+    def find_best_particle_class(self, class3D_job):
         """
         Find the best particle class based on the maximum class distribution.
 
@@ -229,7 +254,7 @@ class PipelineHelper:
         """        
 
         # Find the Final Iteration Model Star File and Pull out the Iteraiton Number 
-        iterationStarFiles = glob.glob(self.tomo_class3D_job.output_dir + 'run_*_model.star')
+        iterationStarFiles = glob.glob(class3D_job.output_dir + 'run_*_model.star')
         maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
         maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
 
@@ -238,11 +263,14 @@ class PipelineHelper:
 
         # Pull out the Max Class Index and Corresponding MRC - Reconstruction 
         maxClassIndex = classification['model_classes']['rlnClassDistribution'].idxmax() + 1
-        maxClassMrc = self.tomo_class3D_job.output_dir  + 'run_it{:03}_class{:03}.mrc'.format(maxIter,maxClassIndex)
+        maxClassMrc = class3D_job.output_dir  + 'run_it{:03}_class{:03}.mrc'.format(maxIter,maxClassIndex)
 
         return (maxClassIndex, maxClassMrc)
 
-    def update_job_binning_box_size(self, binInd: int):
+    def update_job_binning_box_size(self,
+                                    reconstruct_particle_job,
+                                    pseudo_subtomo_job, 
+                                    binInd: int):
         """
         Update jobs with new binning and box size parameters.
 
@@ -255,35 +283,33 @@ class PipelineHelper:
         boxSize = self.return_new_box_size(self.binning)
 
         # Update Job with New Binning
-        self.reconstruct_job.joboptions['binfactor'].value = self.binning
-        self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning        
+        reconstruct_particle_job.joboptions['binfactor'].value = self.binning
+        pseudo_subtomo_job.joboptions['binfactor'].value = self.binning        
 
         # Define New Box Size Based on User Defined Incremental Scaling
-        self.reconstruct_job.joboptions['box_size'].value = boxSize
-        self.pseudo_subtomo_job.joboptions['box_size'].value = boxSize        
+        reconstruct_particle_job.joboptions['box_size'].value = boxSize
+        pseudo_subtomo_job.joboptions['box_size'].value = boxSize        
 
         # Set Crop Box Size to Half of Box Size
-        if self.reconstruct_job.joboptions['crop_size'].value > 0: 
-            self.reconstruct_job.joboptions['crop_size'].value = int(boxSize / 2)
-            self.pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)        
+        if reconstruct_particle_job.joboptions['crop_size'].value > 0: 
+            reconstruct_particle_job.joboptions['crop_size'].value = int(boxSize / 2)
+            pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)   
 
-    def get_new_sampling(self,currentSampling: str):
+    def get_new_sampling(self, currentSampling: str, offset: int = 0):
         """
         Get the next finer sampling angle based on the current one.
 
         Returns:
             str: The next finer sampling angle.
-        """        
-
+        """
         currentSamplingIndex = self.sampling.index(currentSampling)
 
-        return self.sampling[currentSamplingIndex + 1]
+        return self.sampling[currentSamplingIndex + 1 + offset]
         
     def save_new_output_directory(self):
         """
         Save the updated output directories to the JSON file.
-        """        
-
+        """
         with open('output_directories.json', 'w') as outFile: 
             json.dump(self.outputDirectories,outFile,indent=4)  
 
@@ -297,12 +323,14 @@ class PipelineHelper:
 
         Returns:
             bool: True if the job is already completed, False otherwise.
-        """        
-
-        try: 
-            job.output_dir = self.outputDirectories[job_name]
+        """
+        # Check if the job_name exists at the top level
+        if job_name in self.outputDirectories:
             return True
-        except: 
+        # Check if the binning key exists and then if the job_name exists within that binning
+        elif f'bin{self.binning}' in self.outputDirectories and job_name in self.outputDirectories[f'bin{self.binning}']:
+            return True
+        else:
             return False
 
     def check_custom_job_name(self,
@@ -317,32 +345,29 @@ class PipelineHelper:
 
         Returns:
             str: The generated job name.
-        """        
-
+        """
         if customStep is not None:
-            jobName = f'{customStep}_{baseJobName}_bin{self.binning}'
-            customStep = customStep + '_'
+            jobName = f'{baseJobName}_{customStep}'
+            customStep = '_' + customStep 
         else:
-            jobName = f'{baseJobName}_bin{self.binning}'
+            jobName = f'{baseJobName}'
             customStep = ''
         
         return jobName            
 
     # Subset Selection Job
-    def initialize_selection(self,selectStep: str =' '):
+    def initialize_selection(self, selectStep: str =' '):
         """
         Initialize the selection job for selecting particles.
 
         Args:
             selectStep (optional): An optional step name for the selection process.
-        """        
-
+        """
         self.tomo_select_job = select_job.RelionSelectOnValue()
         self.tomo_select_job.joboptions['select_label'].value = "rlnClassNumber" 
 
-        try: self.tomo_select_job.output_dir = self.outputDirectories[self.check_custom_job_name('select',selectStep)]
+        try: self.tomo_select_job.output_dir = self.outputDirectories[f'bin{self.binning}'][self.check_custom_job_name('select',selectStep)]
         except: pass
-
 
     # Select Class Job - Pick class with Largest Distribution
     def run_subset_select(self, 
@@ -354,23 +379,22 @@ class PipelineHelper:
         Args:
             keepClasses (optional): List of classes to keep after selection.
             selectStep (optional): An optional step name for the selection process.
-        """        
-
+        """
         jobName = self.check_custom_job_name('select',selectStep) 
         self.run_job(self.tomo_select_job, jobName, f'Subset Selection', keepClasses=keepClasses)            
 
     # Edit the Selection Job For the Pre-defined Best Class and Apply top 
     def custom_select(self, 
                      classPath: str, 
-                     keepClasses: list ):
+                     keepClasses: list,
+                     uniqueExport: str = None ):
         """
         Perform a custom selection based on the pre-defined best class and selected classes.
 
         Args:
             classPath: Path to the class file to select from.
             keepClasses: List of classes to keep.
-        """        
-
+        """
         particlesFile = starfile.read(classPath)
 
         optics = particlesFile['optics']
@@ -378,60 +402,69 @@ class PipelineHelper:
 
         # I need to Pull out Data Optics
         filteredParticles = particles[particles['rlnClassNumber'].isin(keepClasses)]
+        
+        # Relion5 Output - See if General Exists (Specifies Whether Sub-Tomograms is 2D MRCs Stacks)
+        try:
+            general = particlesFile['general']
+            newParticles = pd.DataFrame({'general': general, 'optics':optics, 'particles':filteredParticles})
+        # Relion4 Output 
+        except:
+            newParticles = {'optics':optics, 'particles':filteredParticles}       
 
-        starfile.write({'optics':optics, 'particles':filteredParticles}, self.tomo_select_job.output_dir + 'particles.star')            
+        if uniqueExport is not None:
+            uniqueExport = self.tomo_select_job.output_dir + 'particles.star'
 
-    # Mask Creation Job
-    def initialize_mask_create(self):   
-        """
-        Initialize the mask creation job with parameters from the JSON file.
-        """        
+        os.remove(self.tomo_select_job.output_dir + 'particles.star')
+        starfile.write( newParticles, uniqueExport)            
 
-        self.mask_create_job = maskcreate_job.RelionMaskCreate()
-        self.mask_create_job = self.parse_params(self.mask_create_job,'mask_create')
-
-        try: self.mask_create_job.output_dir = self.outputDirectories[f"mask_create_bin{self.binning}"]
-        except: pass    
-
-        self.initialize_post_process()
-
+    # Post Processing Job
     def initialize_post_process(self):
         """
         Initialize the post-processing job with default settings.
         """        
-
         self.post_process_job = postprocess_job.PostprocessJob()
         self.post_process_job.joboptions['angpix'].value = -1
 
+    # Post Processing Job
     def run_post_process(self):
         """
         Run the post-processing job to finalize the results.
         """        
+        self.run_job(self.post_process_job, 'post_process', 'Post Process')  
 
-        jobName = f'post_process_bin{self.binning}'
-        self.run_job(self.post_process_job, jobName, 'Post Process')              
+    # Mask Creation Job
+    def initialize_mask_create(self):
+        """
+        Initialize the mask creation job with parameters from the JSON file.
+        """
+        self.mask_create_job = maskcreate_job.RelionMaskCreate()
+        self.mask_create_job = self.parse_params(self.mask_create_job,'mask_create')
+
+        try: self.mask_create_job.output_dir = self.outputDirectories[f'bin{self.binning}'][f"mask_create"]
+        except: pass    
+
+        self.initialize_post_process()                    
 
     # Create Mask with Estimated Isonet Contour Value
-    def run_mask_create(self):
+    def run_mask_create(self, refine3D_job, class3D_job):
         """
         Run the mask creation job with an automatically estimated isocontour value.
         Also update related jobs with the newly created mask.
         """        
-
         # Estimate Mask Isocontour
         with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
             autoContour = np.percentile( file.data.flatten(), 98)
             self.mask_create_job.joboptions['inimask_threshold'].value = str(autoContour)
 
-        jobName = f'mask_create_bin{self.binning}'
-        self.run_job(self.mask_create_job, jobName, 'Mask Create')   
+        # Run Mask Create Job
+        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create')   
 
         # Update The Reconstruction, Refinement and Classification Job with the New Mask    
-        self.tomo_refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
+        refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
         try:    
-            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'            
-            self.tomo_class3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'              
-        except: pass        
+            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
+            class3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'
+        except: pass
 
     def write_mrc(self, tomo, fname, voxelSize=1, dtype=None, no_saxes=True):
         """

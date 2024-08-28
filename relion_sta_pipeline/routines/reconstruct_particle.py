@@ -26,6 +26,7 @@ def cli(ctx):
 def run(
     parameter_path: str,
     refine_path: str, 
+
     ):
 
     # Define Rules For Classify Iteration:
@@ -38,18 +39,19 @@ def run(
     utils.read_json_directories_file('output_directories.json')
 
     # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
-    utils.update_resolution(binFactor+1)    
+    utils.update_resolution(binFactor)
 
-    # Print Input Parameters
-    print(f'Pipeline Parameters: \nParameter-Path: {parameter_path}\nRefine-Path: {refine_path}\n')
+    # Reconstruct Particle at New Binning and Create mask From That Resolution
+    utils.reconstruct_job.joboptions['in_particles'].value = utils.tomo_select_job.output_dir + 'particles.star'  
+    utils.reconstruct_job.joboptions['fn_mask'].value = ''
+    utils.run_reconstruct()    
+    refine_reference = utils.reconstruct_job.output_dir + 'merged.mrc'
 
-    # 3D Refinement Job and Update Input Parameters 
-    utils.initialize_tomo_class3D()
+    # Create Mask for Reconstruction and Next Stages of Refinement
+    utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_job.output_dir + 'merged.mrc'
+    utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
+    utils.run_mask_create()
 
-    # I need to make sure I reference the correct pseudo_subtomo, and associated refinement parameters.
-    utils.tomo_class3D_job.joboptions['tomograms_star'].value = utils.tomo_reconstruct_job.output_dir + 'tomograms.star'      
-    utils.tomo_class3D_job.joboptions['fn_ref'].value = os.path.join('Refine', refine_path, 'run_class001.mrc')
-    utils.tomo_class3D_job.joboptions['fn_img'].value = os.path.join('Refine', refine_path, 'run_class001.mrc')      
-    
-    # Run
-    utils.run_tomo_class3D()
+    # Post-Process to Estimate Resolution     
+    utils.post_process_job.joboptions['fn_in'].value = utils.reconstruct_job.output_dir + 'half1.mrc'
+    utils.run_post_process()
