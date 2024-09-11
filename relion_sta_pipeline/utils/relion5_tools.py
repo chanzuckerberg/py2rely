@@ -46,6 +46,45 @@ class Relion5Pipeline(PipelineHelper):
         """        
         self.run_job(self.tomo_reconstruct_job, 'reconstruct_tomograms', 'Reconstruct Tomograms')
 
+    def initialize_pseudo_tomos(self):
+        """
+        Initialize the job for generating pseudo-subtomograms. The job parameters are 
+        parsed and set according to the configuration specified in the 'pseudo_subtomo' 
+        section of the JSON file.
+        """        
+        self.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
+        self.pseudo_subtomo_job = self.parse_params(self.pseudo_subtomo_job,'pseudo_subtomo')
+        
+        self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning
+        self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)        
+        self.pseudo_subtomo_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
+
+        # Apply Output Directories from Previous Job       
+        try: self.pseudo_subtomo_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/pseudo_subtomo') 
+        except: pass
+
+    def run_pseudo_subtomo(self):
+        """
+        Run the pseudo-subtomogram generation job and handle its execution.
+        """        
+        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}')
+
+    def initialize_initial_model(self):
+        """
+        Initialize the job for generating the initial 3D model. The job parameters are 
+        parsed and set according to the configuration specified in the 'initial_model' 
+        section of the JSON file.
+        """        
+        self.initial_model_job = tomo_initialmodel_job.RelionTomoInimodelJob()
+        self.initial_model_job = self.parse_params(self.initial_model_job,'initial_model')
+        self.initial_model_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'         
+
+    def run_initial_model(self):
+        """
+        Run the initial 3D model generation job and handle its execution.
+        """
+        self.run_job(self.initial_model_job, 'initial_model', '3D Initial Model')  
+
     def initialize_reconstruct_particle(self, includeSphereMask: bool = False):
         """
         Initialize the job for reconstructing particles. The job parameters are parsed 
@@ -64,86 +103,59 @@ class Relion5Pipeline(PipelineHelper):
         self.reconstruct_particle_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'  
 
         # Apply Output Directories from Previous Job       
-        try: self.pseudo_subtomo_job.output_dir = self.outputDirectories[f'bin{self.binning}']['reconstruct']
+        try: self.reconstruct_particle_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/reconstruct')
         except: pass            
 
         # Create Spherical Mask for Initial Reconstruction 
         if includeSphereMask: 
             self.create_initial_spherical_mask()        
 
-    def run_reconstruct_particle(self):
+    def run_reconstruct_particle(self, rerunReconstruct: bool = False):
         """
         Run the particle reconstruction job and handle its execution.
-        """            
-        self.run_job(self.reconstruct_particle_job, 'reconstruct', 'Reconstruct Particles')
+        """          
+        # If Completed Refine Process Already Exists, Start Logging New Iterations if rerunRefine is True. 
+        if rerunReconstruct: reconstructJobIter = self.return_job_iter(f'bin{self.binning}', 'reconstruct') 
+        else:                reconstructJobIter = None    
+        self.run_job(self.reconstruct_particle_job, 'reconstruct', 'Reconstruct Particles', jobIter = reconstructJobIter)        
 
-    def initialize_pseudo_tomos(self):
-        """
-        Initialize the job for generating pseudo-subtomograms. The job parameters are 
-        parsed and set according to the configuration specified in the 'pseudo_subtomo' 
-        section of the JSON file.
-        """        
-        self.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
-        self.pseudo_subtomo_job = self.parse_params(self.pseudo_subtomo_job,'pseudo_subtomo')
-        
-        self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning
-        self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)        
-        self.pseudo_subtomo_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
-
-        # Apply Output Directories from Previous Job       
-        try: self.pseudo_subtomo_job.output_dir = self.outputDirectories[f'bin{self.binning}']['pseudo_subtomo']
-        except: pass
-
-    def run_pseudo_subtomo(self):
-        """
-        Run the pseudo-subtomogram generation job and handle its execution.
-        """        
-        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}')
-
-    def initialize_initial_model(self):
-        """
-        Initialize the job for generating the initial 3D model. The job parameters are 
-        parsed and set according to the configuration specified in the 'initial_model' 
-        section of the JSON file.
-        """        
-        self.initial_model_job = tomo_initialmodel_job.RelionTomoInimodelJob()
-        self.initial_model_job = self.parse_params(self.initial_model_job,'initial_model')
-
-    def run_initial_model(self):
-        """
-        Run the initial 3D model generation job and handle its execution.
-        """
-        self.run_job(self.initial_model_job, 'initial_model', '3D Initial Model')  
-
-    def initialize_auto_refine(self, refineStep: str = None):
+    def initialize_auto_refine(self):
         """
         Initialize the job for automatic 3D refinement. The job parameters are parsed 
         and set according to the configuration specified in the 'refine3D' section of 
         the JSON file.
-
-        Args:
-            refineStep (optional): Custom step name for the refinement process. Defaults to an empty string.
         """
         self.tomo_refine3D_job = tomo_refine3D_job.TomoRelionRefine3D()
-        self.tomo_refine3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
         self.tomo_refine3D_job = self.parse_params(self.tomo_refine3D_job,'refine3D')
 
+        self.tomo_refine3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
+        self.tomo_refine3D_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'        
+
         # Apply Output Directories from Previous Job  
-        self.tomo_refine3D_iter = 0
-        try: self.tomo_refine3D_job.output_dir = self.outputDirectories[f'bin{self.binning}'][self.check_custom_job_name('refine3D',refineStep)]
+        try: self.tomo_refine3D_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/refine3D')
         except: pass  
 
-    def run_auto_refine(self, refineStep: str = None):
+    def run_auto_refine(self, 
+                        rerunRefine: bool = False,
+                        generateInitialModel: bool = False):
         """
         Run the automatic 3D refinement job and handle its execution.
 
         Args:
-            refineStep (optional): Custom step name for the refinement process. Defaults to None.
+            rerunRefine (optional): For the Pipeline to Re-Run this step.
         """
-        jobName = self.check_custom_job_name('refine3D',refineStep)    
-        self.run_job(self.tomo_refine3D_job, jobName, f'3D Auto Refine @ bin={self.binning}')                              
 
-    def initialize_tomo_class3D(self,classStep=None):
+        # If Completed Refine Process Already Exists, Start Logging New Iterations if rerunRefine is True. 
+        if rerunRefine: refineJobIter = self.return_job_iter(f'bin{self.binning}', 'refine3D') 
+        else:           refineJobIter = None        
+        
+        # Assuming Class3D is Used to Generate the Initial Reference
+        if generateInitialModel: refine3Dname = 'initialmodel_refine3D'
+        else:                    refine3Dname = 'refine3D'
+
+        self.run_job(self.tomo_refine3D_job, refine3Dname, f'3D Auto Refine @ bin={self.binning}', jobIter=refineJobIter)            
+
+    def initialize_tomo_class3D(self):
         """
         Initialize the job for 3D classification of tomograms. The job parameters are 
         parsed and set according to the configuration specified in the 'class3D' section 
@@ -154,15 +166,71 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_class3D_job = self.parse_params(self.tomo_class3D_job,'class3D')
         
         # Apply Output Directories from Previous Job  
-        self.tomo_class3D_iter = 0
-        try: self.tomo_class3D_job.output_dir = self.outputDirectories[f'bin{self.binning}'][self.check_custom_job_name('class3D',classStep)]
-        except: pass          
+        self.next_tomo_class3D_iter = self.return_job_iter(f'bin{self.binning}','class3D')
+        try: self.tomo_class3D_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'class3D', classStep)       
+        except: pass
 
-    def run_tomo_class3D(self):
+    def run_tomo_class3D(self, 
+                         rerunClassify: bool = False,
+                         isClassifyStep: bool = True,
+                         generateInitialModel: bool = False):
         """
         Run the 3D classification job and handle its execution.
-        """              
-        self.run_job(self.tomo_class3D_job, 'class3D', '3D Classification', classifyStep=True)            
+        """
+
+        # If Completed Classify Process Already Exists, Start Logging New Iterations if rerunClassify is True. 
+        if rerunClassify: classifyJobIter = self.return_job_iter(f'bin{self.binning}', 'class3D') 
+        else:             classifyJobIter = None    
+
+        # Assuming Class3D is Used to Generate the Initial Reference
+        if generateInitialModel: class3Dname = 'initialmodel_class3D'
+        else:                    class3Dname = 'class3D'
+
+        self.run_job(self.tomo_class3D_job, class3Dname, f'3D Classification @ bin={self.binning}', classifyStep=isClassifyStep, jobIter=classifyJobIter)            
+
+    def run_initial_model_class3D(self,
+                                  reference_template: str,
+                                  nClasses: int = 1,
+                                  nr_iter: int = 5,
+                                  tau_fudge: int = 3):
+        """
+        Apply Default Options for Generating an Initial Model with Class3D Job
+        """
+
+        # I/O 
+        self.tomo_class3D_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'
+        self.tomo_class3D_job.joboptions['fn_ref'].value = reference_template
+
+        # In this Case Reference isn't On Correct GrayScale
+        self.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = "no"
+        self.tomo_class3D_job.joboptions['dont_skip_align'].value = "yes"
+        self.tomo_class3D_job.joboptions['do_local_ang_searches'].value = 'no'        
+        self.tomo_class3D_job.joboptions['allow_coarser'].value = 'yes'
+        self.tomo_class3D_job.joboptions['use_gpu'].value = 'yes' 
+        self.tomo_class3D_job.joboptions['ini_high'].value *= 1.5
+
+        # Swap Tau_Fudge and NClasses for Initial Model Generation
+        (nr_iter, self.tomo_class3D_job.joboptions['nr_iter'].value) = (self.tomo_class3D_job.joboptions['nr_iter'].value, nr_iter)
+        (nClasses, self.tomo_class3D_job.joboptions['nr_classes'].value) = (self.tomo_class3D_job.joboptions['nr_classes'].value, nClasses)
+        (tau_fudge, self.tomo_class3D_job.joboptions['tau_fudge'].value) = (self.tomo_class3D_job.joboptions['tau_fudge'].value, tau_fudge)
+        self.run_tomo_class3D(isClassifyStep=False, generateInitialModel=True)
+
+        # Restore Original Classification Parameters Parameters
+        self.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = "yes"
+        self.tomo_class3D_job.joboptions['dont_skip_align'].value = "no"        
+        self.tomo_class3D_job.joboptions['do_local_ang_searches'].value = 'yes'                
+        self.tomo_class3D_job.joboptions['allow_coarser'].value = 'no'   
+        self.tomo_class3D_job.joboptions['use_gpu'].value = 'no'  
+        self.tomo_class3D_job.joboptions['ini_high'].value /= 1.5          
+
+        # Swap Tau_Fudge, Niter, and NClasses for Future Classification Jobs
+        nIter = self.tomo_class3D_job.joboptions['nr_iter'].value         
+        (nr_iter, self.tomo_class3D_job.joboptions['nr_iter'].value) = (self.tomo_class3D_job.joboptions['nr_iter'].value, nr_iter)        
+        (tau_fudge, self.tomo_class3D_job.joboptions['tau_fudge'].value) = (self.tomo_class3D_job.joboptions['tau_fudge'].value, tau_fudge)
+        (nClasses, self.tomo_class3D_job.joboptions['nr_classes'].value) = (self.tomo_class3D_job.joboptions['nr_classes'].value, nClasses)                  
+
+        # Return Refinement Template Path       
+        return self.tomo_class3D_job.output_dir + f'run_it{nIter:03}_class001.mrc' 
 
     def update_resolution(self, binFactorIndex: int):
         """
@@ -173,14 +241,37 @@ class Relion5Pipeline(PipelineHelper):
         """        
 
         # Update the binning and box size based on the provided binning factor index.
+        if self.pseudo_subtomo_job is None:
+            self.initialize_pseudo_tomos()
+        if self.reconstruct_particle_job is None:
+            self.initialize_reconstruct_particle()
         self.update_job_binning_box_size(self.reconstruct_particle_job, self.pseudo_subtomo_job, binFactorIndex)
 
         # Update Refinement Parameters (Should I increase sampling for Classification? )
-        self.tomo_refine3D_job.joboptions['sampling'].value = self.get_new_sampling(self.tomo_refine3D_job.joboptions['sampling'].value )
-        self.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
+        if self.tomo_refine3D_job is not None:
+            self.get_new_sampling(self.tomo_refine3D_job)
+            self.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
 
-        # Print the current reconstruction crop size, box size, and sampling to the console for verification.
-        # These values are essential for monitoring the progress and correctness of the reconstruction process.
-        print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
-        print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
-        print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
+            # Print the current reconstruction crop size, box size, and sampling to the console for verification.
+            # These values are essential for monitoring the progress and correctness of the reconstruction process.
+            print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
+            print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
+            print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
+
+        if self.tomo_class3D_job is not None: 
+            self.get_new_sampling(self.tomo_class3D_job)
+
+    def check_and_create_symlink(symlink_path, target_path):
+        """
+        Check if a symbolic link exists at symlink_path, and create it if it doesn't.
+
+        Args:
+            symlink_path (str): The path where the symbolic link should be created.
+            target_path (str): The target path that the symbolic link should point to.
+        """
+        if not os.path.islink(symlink_path):
+            # If the symlink does not exist, create it
+            os.symlink(target_path, symlink_path)
+            print(f"Created symbolic link: {symlink_path} -> {target_path}")
+        else:
+            print(f"Symbolic link already exists: {symlink_path}")

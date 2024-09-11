@@ -43,20 +43,24 @@ def sta_pipeline(
     run_class3d: bool, 
     ):
 
-    # Print Input Parameters
-    print(f'\nPipeline Parameters: \nParameter-Path: {parameter_path}\nRun-Denovo: {run_denovo_generation}\nRun-Class-3D: {run_class3d}\nReference Template: {reference_template}\n')
-
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
     utils.read_json_params_file(parameter_path)
     utils.read_json_directories_file('output_directories.json')
 
+    # Print Input Parameters
+    utils.print_pipeline_parameters('STA Pipeline', Parameter_Path = parameter_path,
+                                    Run_Denovo = run_denovo_generation, Run_Class3D = run_class3d,
+                                    Reference_Template = reference_template)
+
     ############################################################################################
+
+    # TODO: Assume Symlink Path for Reconstructed Tomograms Exists Tangential to Specimen (e.g., Tomograms/, ribosome-80S/runXXX/,)
 
     # Recontruct Tomograms 
     utils.initialize_reconstruct_tomograms()
-    utils.run_reconstruct_tomograms()
+    utils.run_reconstruct_tomograms() 
 
     #############################################################################################
 
@@ -64,26 +68,27 @@ def sta_pipeline(
     utils.initialize_pseudo_tomos()
     utils.run_pseudo_subtomo()
 
+    #############################################################################################    
+
     # Generate Initial Reference Model for Sub-sequent Refinement
     utils.initialize_auto_refine()
+    utils.initialize_tomo_class3D()
+    utils.initialize_reconstruct_particle()
+
     if run_denovo_generation:
         # Initialize and I/O for Denovo Initial Model Generation
-        utils.initialize_initial_model()
-        utils.initial_model_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'        
+        utils.initialize_initial_model()       
         utils.run_initial_model()
+        print(f'\nGenerating Initial Model with "Denovo Reconstruction"\n')        
         refine_reference = utils.initial_model_job.output_dir + 'initial_model.mrc'
     elif reference_template is not None:
-        # I/O and In this Case Reference isn't On Correct GrayScale
-        utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
-        utils.tomo_refine3D_job.joboptions['fn_ref'].value = reference_template
-        utils.tomo_refine3D_job.joboptions['ref_correct_greyscale'].value = "no"
-        utils.run_auto_refine()
-
-        refine_reference = None # Reset Refinement Parameters 
-        utils.tomo_refine3D_job.joboptions['ref_correct_greyscale'].value = "yes"        
+        # Use Classification to Generate Initial Reference 
+        print(f'\nGenerating Initial Model with "Class3D"\n')
+        refine_reference = utils.run_initial_model_class3D(reference_template, nClasses = 1, nr_iter = 5)
     else: 
         # Reconstruct with Template Matching Parameters
-        utils.run_reconstruct_particle()
+        print(f'\nGenerating Initial Model with "Reconstruct Particle"\n')
+        utils.run_reconstruct_particle()  
         refine_reference = utils.reconstruct_job.output_dir + 'merged.mrc'
 
     #############################################################################################        
@@ -96,18 +101,17 @@ def sta_pipeline(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if refine_reference is not None:
-            utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
-            utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
-            utils.run_auto_refine()
+        utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
+        utils.run_auto_refine()
 
         #########################################################################################            
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if run_class3d:        
-            utils.initialize_tomo_class3D()
+        if run_class3d:         
             utils.tomo_class3D_job.joboptions['fn_img'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-            utils.tomo_class3D_job.joboptions['fn_ref'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'           
+            utils.tomo_class3D_job.joboptions['fn_ref'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
+            utils.tomo_class3D_job.joboptions['ini_high'].value = utils.get_resolution( utils.tomo_refine3D_job ) * 1.15
             utils.run_tomo_class3D()
 
         #########################################################################################
@@ -118,7 +122,6 @@ def sta_pipeline(
             # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
             utils.update_resolution(binFactor+1)
 
-            # TODO: Get Last Refinement Iteration 
             # Reconstruct Particle at New Binning and Create mask From That Resolution
             utils.reconstruct_particle_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'  
             utils.run_reconstruct_particle()    
@@ -140,6 +143,6 @@ def sta_pipeline(
             #########################################################################################
 
             # Create PseudoTomogram Generation Job and Update Input Parameters
-            utils.pseudo_subtomo_job.joboptions['in_particles'].value = utils.tomo_select_job.output_dir + 'particles.star' 
+            utils.pseudo_subtomo_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
             utils.run_pseudo_subtomo()
 

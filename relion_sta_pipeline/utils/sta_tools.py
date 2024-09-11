@@ -13,7 +13,7 @@ class PipelineHelper:
     A helper class for managing and running a Relion-based pipeline in a cryo-EM project.
     """    
 
-    def __init__(self, inProject):
+    def __init__(self, inProject, requireRelion = True):
         """
         Initialize the PipelineHelper with the given project.
 
@@ -21,13 +21,17 @@ class PipelineHelper:
             inProject: The project instance that manages the pipeline.
         """
 
-        self.check_if_relion_is_available()
+        if requireRelion:
+            self.check_if_relion_is_available()
 
         self.myProject = inProject
 
         # Define sampling angles and box sizes for various stages of the pipeline.
         self.sampling = ['30 degrees', '15 degrees', '7.5 degrees', '3.7 degrees', '1.8 degrees', '0.9 degrees',\
                          '0.5 degrees', '0.2 degrees', '0.1 degrees']
+
+        # Extract numeric values from self.sampling and convert them to floats
+        self.sampling_degrees = [float(angle.split()[0]) for angle in self.sampling]                         
 
         self.boxSizes = [24, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 84, 96, 100, 104, 112, 120, 128,\
                          132, 140, 168, 180, 192, 196, 208, 216, 220, 224, 256, 288, 300, 320, 352, 360,\
@@ -44,6 +48,44 @@ class PipelineHelper:
         self.mask_create_job = None
         self.post_process_job = None
         self.tomo_select_job = None
+
+    def print_pipeline_parameters(self, process, header=None, **kwargs):
+        """
+        Print pipeline parameters to the console and optionally save them to a JSON file
+        under a specific header.
+
+        Args:
+            process: The name of the process or step in the pipeline.
+            header: An optional header name under which the parameters will be saved in the JSON file.
+            **kwargs: Arbitrary keyword arguments representing parameters to print or save.
+                    If 'file_name' is provided in kwargs, parameters will be saved to a JSON file.
+        """
+        # Check if 'file_name' is provided in kwargs. If so, extract it and save the parameters to a JSON file.
+        file_name = kwargs.pop('file_name', None)
+
+        # Prepare the dictionary for saving or printing.
+        json_data = {header: kwargs} if header else kwargs
+
+        if file_name:
+
+            # Read JSON File If Available
+            if os.path.exists(file_name):
+                with open(file_name, 'r') as json_file:
+                    existing_data = json.load(json_file)
+            else: 
+                existing_data = {}
+            existing_data.update(json_data)
+
+            # Save the parameters to the specified JSON file with the same indentation.
+            with open(file_name, 'w') as json_file:
+                json.dump(existing_data, json_file, indent=4)
+
+            # Print the file name and a confirmation message.
+            print(f"\nParameters saved to {file_name} under the header '{header}'" if header else f"\nParameters saved to {file_name}")
+        
+        # Print the parameters in a JSON-formatted string with the same indentation.
+        print(f"\n[{process}] Parameters (JSON format):\n")
+        print(json.dumps(json_data, indent=4))
 
     def check_if_relion_is_available(self):
         """
@@ -90,8 +132,17 @@ class PipelineHelper:
             json_fname: Path to the JSON file containing pipeline parameters.
         """        
 
+        # Check if the provided JSON file path exists. If not, raise a FileNotFoundError 
+        # with a message to notify the user to check the path.
+        if not os.path.exists(json_fname):
+            raise FileNotFoundError(f"The file '{json_fname}' does not exist. Please check the path and try again.")
+
+        #  Read the contents of the JSON file and store it in the 'params' attribute.
+        # This assumes the method `read_json` is defined elsewhere to handle reading the file.
         self.params = self.read_json(json_fname)
 
+        # Extract the binning list from the 'resolutions' section of the parameters.
+        # The binning list is stored as a JSON-formatted string, so it's parsed using `json.loads`.
         self.binningList = json.loads(self.params['resolutions']['binning_list'])
         self.binning = self.binningList[0]
 
@@ -122,7 +173,8 @@ class PipelineHelper:
         try:
             readFile = open(json_fname)
             outData = json.load(readFile)
-        except:
+        except Exception as e:
+            print(f"Error Reading JSON File {json_fname}: {e}")
             outData = {}
 
         return outData
@@ -148,6 +200,7 @@ class PipelineHelper:
                 job, 
                 jobName: str, 
                 jobTag: str, 
+                jobIter: str = None,
                 classifyStep: bool = False, 
                 keepClasses: list = None):
         """
@@ -161,7 +214,8 @@ class PipelineHelper:
             keepClasses (optional): List of classes to keep after classification.
         """        
 
-        if not self.check_if_job_already_completed(job,jobName):
+        # Assume We Are Re-Running a Job if JobIter is not None
+        if not self.check_if_job_already_completed(job,jobName) or jobIter:
 
             # Run Import Tomograms Job
             print(f'\n[{jobTag}] Starting Job...')
@@ -187,13 +241,18 @@ class PipelineHelper:
                 bin_key = f'bin{self.binning}'
                 if bin_key not in self.outputDirectories:
                     self.outputDirectories[bin_key] = {}
-                # Save Job Name to Output Directory
-                self.outputDirectories[bin_key][jobName] = job.output_dir
+                # Save Job Name to Output Directory (Main Pipeline)
+                self.outputDirectories[bin_key][jobName] = job.output_dir                
+                # Log All the Repititions for Each Process
+                if jobIter is not None:
+                    self.outputDirectories[bin_key][jobName+'_history'][jobIter] = job.output_dir
+                
+            # Save the new output directory
             self.save_new_output_directory()
 
-            # Automatically Exit if We're Performing Several Rounds of Classification
+            # Automatically Exit if Classification (User Needs to Export Best Class)
             if classifyStep:
-                exit()         
+                    exit()
 
             if keepClasses is not None: 
                 self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
@@ -204,7 +263,8 @@ class PipelineHelper:
                 job.output_dir = self.outputDirectories[jobName]
          
 
-    def get_resolution(self,job, job_name: str):
+    def get_resolution(self, job, 
+                      job_name: str = None):
         """
         Extract the resolution from the job output logs.
 
@@ -226,12 +286,19 @@ class PipelineHelper:
         with open(job.output_dir + 'run.out','r') as file:
             for line in file:
                 if sub_string in line:
-                    resolution = int(float(re.search(pattern, line).group()))
-                    print(line)
-        
-        return resolution
+                    new_resolution = int(float(re.search(pattern, line).group()))
+                    print(line) 
 
-    def find_final_iteration(self, class3D_job):
+        # Check to See if Resolution is Improving. If not, terminate the pipeline early
+        if job_name == 'post_process' and new_resolution >= self.current_resolution:
+            # Exit Condition, tell user resolution is divering. Consider more classification.
+            raise ValueError("Resolution is diverging. Consider more classification.")
+        elif job_name == 'post_process':
+            self.current_resolution = new_resolution
+        
+        return new_resolution
+
+    def find_final_iteration(self):
         """
         Find the final iteration file based on the highest iteration number.
 
@@ -240,7 +307,7 @@ class PipelineHelper:
         """        
 
         # Find the Final Iteration 
-        iterationStarFiles = glob.glob(class3D_job.output_dir + 'run_*_data.star')
+        iterationStarFiles = glob.glob(self.tomo_class3D_job.output_dir + 'run_*_data.star')
         maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
         self.maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
         return maxIterationStarFile
@@ -270,7 +337,8 @@ class PipelineHelper:
     def update_job_binning_box_size(self,
                                     reconstruct_particle_job,
                                     pseudo_subtomo_job, 
-                                    binInd: int):
+                                    binInd: int,
+                                    binningFactor: int = None):
         """
         Update jobs with new binning and box size parameters.
 
@@ -279,7 +347,8 @@ class PipelineHelper:
         """        
 
         # Update New Binning / Resolution 
-        self.binning = self.binningList[binInd]
+        if binningFactor is None:   self.binning = self.binningList[binInd]
+        else:                       self.binning  = binningFactor
         boxSize = self.return_new_box_size(self.binning)
 
         # Update Job with New Binning
@@ -295,16 +364,30 @@ class PipelineHelper:
             reconstruct_particle_job.joboptions['crop_size'].value = int(boxSize / 2)
             pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)   
 
-    def get_new_sampling(self, currentSampling: str, offset: int = 0):
+    def get_new_sampling(self, job):
         """
         Get the next finer sampling angle based on the current one.
 
         Returns:
             str: The next finer sampling angle.
         """
-        currentSamplingIndex = self.sampling.index(currentSampling)
 
-        return self.sampling[currentSamplingIndex + 1 + offset]
+        # Estimate Angular Sampling
+        resolution = self.binning * self.params['resolutions']['angpix'] * 4
+        radians = np.arctan(resolution / self.params['refine3D']['particle_diameter'])
+        degrees = np.degrees(radians)
+
+        # Find the smallest sampling angle that rounds up to or is greater than the computed degrees
+        rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees])
+        local_rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees/4])
+
+        # We Only Need to Scale Sampling if It's Less than Course Value
+        if rounded_angle < 7.5:
+            job.joboptions['sampling'].value = f"{rounded_angle} degrees"
+            job.joboptions['auto_local_sampling'].value = f"{local_rounded_angle} degrees"
+
+        # Get the corresponding sampling string
+        return f"{rounded_angle} degrees"
         
     def save_new_output_directory(self):
         """
@@ -313,7 +396,9 @@ class PipelineHelper:
         with open('output_directories.json', 'w') as outFile: 
             json.dump(self.outputDirectories,outFile,indent=4)  
 
-    def check_if_job_already_completed(self, job, job_name: str):
+    def check_if_job_already_completed(self, 
+                                      job, 
+                                      job_name: str):
         """
         Check if a job has already been completed by looking for its output directory.
 
@@ -372,7 +457,8 @@ class PipelineHelper:
     # Select Class Job - Pick class with Largest Distribution
     def run_subset_select(self, 
                           keepClasses: list = None, 
-                          selectStep: str = None ):
+                          selectStep: str = None,
+                          rerunSelect: bool = False ):
         """
         Run the subset selection job to pick classes with the largest distribution.
 
@@ -380,8 +466,9 @@ class PipelineHelper:
             keepClasses (optional): List of classes to keep after selection.
             selectStep (optional): An optional step name for the selection process.
         """
-        jobName = self.check_custom_job_name('select',selectStep) 
-        self.run_job(self.tomo_select_job, jobName, f'Subset Selection', keepClasses=keepClasses)            
+        if rerunSelect: selectJobIter = self.return_job_iter(f'bin{self.binning}', 'select')
+        else:           selectJobIter = None
+        self.run_job(self.tomo_select_job, 'select', f'Subset Selection', keepClasses=keepClasses, jobIter = selectJobIter )            
 
     # Edit the Selection Job For the Pre-defined Best Class and Apply top 
     def custom_select(self, 
@@ -395,25 +482,28 @@ class PipelineHelper:
             classPath: Path to the class file to select from.
             keepClasses: List of classes to keep.
         """
-        particlesFile = starfile.read(classPath)
 
+        # Read Particles File and Parse Optics + Particles Group
+        particlesFile = starfile.read(classPath)
         optics = particlesFile['optics']
         particles = particlesFile['particles']
 
-        # I need to Pull out Data Optics
+        # Only Extract the Particles with Desired Class
         filteredParticles = particles[particles['rlnClassNumber'].isin(keepClasses)]
         
         # Relion5 Output - See if General Exists (Specifies Whether Sub-Tomograms is 2D MRCs Stacks)
         try:
             general = particlesFile['general']
-            newParticles = pd.DataFrame({'general': general, 'optics':optics, 'particles':filteredParticles})
+            newParticles = {'general': general, 'optics':optics, 'particles':filteredParticles}
         # Relion4 Output 
         except:
             newParticles = {'optics':optics, 'particles':filteredParticles}       
 
-        if uniqueExport is not None:
-            uniqueExport = self.tomo_select_job.output_dir + 'particles.star'
+        # Define Write Directory if Not intended to be written in new directory
+        if uniqueExport is None:
+            uniqueExport = self.tomo_select_job.output_dir + 'particles.star' 
 
+        # Remove Old Particles Directory to Be used for next process
         os.remove(self.tomo_select_job.output_dir + 'particles.star')
         starfile.write( newParticles, uniqueExport)            
 
@@ -425,12 +515,20 @@ class PipelineHelper:
         self.post_process_job = postprocess_job.PostprocessJob()
         self.post_process_job.joboptions['angpix'].value = -1
 
+        # Initialize Current Resolution as 1 micron
+        self.current_resolution = 999
+
     # Post Processing Job
-    def run_post_process(self):
+    def run_post_process(self,
+                         rerunPostProcess: bool = False):
         """
         Run the post-processing job to finalize the results.
         """        
-        self.run_job(self.post_process_job, 'post_process', 'Post Process')  
+        # If Completed Post Process Already Exists, Start Logging New Iterations if rerunPostProcess is True. 
+        if rerunPostProcess: postProcessJobIter = self.return_job_iter(f'bin{self.binning}', 'post_process')
+        else:                postProcessJobIter = None
+        self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
+        self.run_job(self.post_process_job, 'post_process', 'Post Process', jobIter = postProcessJobIter)  
 
     # Mask Creation Job
     def initialize_mask_create(self):
@@ -446,7 +544,10 @@ class PipelineHelper:
         self.initialize_post_process()                    
 
     # Create Mask with Estimated Isonet Contour Value
-    def run_mask_create(self, refine3D_job, class3D_job):
+    def run_mask_create(self, 
+                        refine3D_job, 
+                        class3D_job,
+                        rerunMaskCreate: bool = False):
         """
         Run the mask creation job with an automatically estimated isocontour value.
         Also update related jobs with the newly created mask.
@@ -456,15 +557,19 @@ class PipelineHelper:
             autoContour = np.percentile( file.data.flatten(), 98)
             self.mask_create_job.joboptions['inimask_threshold'].value = str(autoContour)
 
-        # Run Mask Create Job
-        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create')   
+        # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
+        if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
+        else:               maskCreateJobIter = None
+        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create', jobIter = maskCreateJobIter)   
 
-        # Update The Reconstruction, Refinement and Classification Job with the New Mask    
-        refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
         try:    
             self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
+
+            # Update The Refinement and Classification Job with the New Mask (If Available)    
+            refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
             class3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'
-        except: pass
+        except Exception as e: 
+            pass
 
     def write_mrc(self, tomo, fname, voxelSize=1, dtype=None, no_saxes=True):
         """
@@ -493,4 +598,31 @@ class PipelineHelper:
             mrc.voxel_size = (voxelSize, voxelSize, voxelSize)
             mrc.set_volume()         
             
-    
+    # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
+    def get_subgroup(self, data, key_path, optional_path=None, delimiter='/'):
+        key_path = f'{key_path}{"/" + optional_path if optional_path else ""}'
+        keys = key_path.split(delimiter)
+        subgroup = data
+        for key in keys:
+            subgroup = subgroup[key]
+        return subgroup
+
+    # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
+    def return_job_iter(self, binKey, jobName):
+
+        # Check if the binKey and jobName exist in the outputDirectories
+        if binKey in self.outputDirectories and jobName in self.outputDirectories[binKey]:
+            # If jobName is a string (e.g., 'job002'), set it as the first iteration
+            if isinstance(self.outputDirectories[binKey][jobName], str):
+                # Assign the current job to 'iter1'
+                self.outputDirectories[binKey][jobName+'_history'] = {'iter1': self.outputDirectories[binKey][jobName]}
+                return 'iter2'
+            
+            # If jobName is already a dictionary, find the next iteration
+            current_iters = sorted(self.outputDirectories[binKey][jobName].keys())
+            last_iter = current_iters[-1]
+            last_iter_num = int(last_iter.replace('iter', ''))
+            return f'iter{last_iter_num + 1}'
+        else:
+            # If the jobName or binKey doesn't exist, return None
+            return None

@@ -1,5 +1,7 @@
-import os, glob, argparse
-import starfile, click
+import os, glob, argparse, starfile, click, copick
+from scipy.spatial.transform import Rotation as R
+from relion_sta_pipeline.utils import sta_tools
+from typing import List
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
@@ -93,6 +95,15 @@ def import_tilt_series(
     amplitude_contrast: float
     ):
 
+    tiltSeriesHeader = output.split('/')[-1]
+
+    utils = sta_tools.PipelineHelper(None, requireRelion=False)
+    utils.print_pipeline_parameters('Importing Tilt-Series', base_project = base_project, session = session, 
+                                    output = output, pixel_size = pixel_size, total_dose = total_dose, 
+                                    voltage = voltage, spherical_aberration = spherical_aberration,
+                                    amplitude_contrast = amplitude_contrast, header = tiltSeriesHeader, 
+                                    file_name='input/import.json')                               
+    
     inputPath = os.path.join( '/hpc/projects/group.czii', base_project, 'aretomo3', session, run, '*_CTF.txt')
     tiltSeries = np.array(glob.glob(inputPath), dtype=str)
 
@@ -107,7 +118,7 @@ def import_tilt_series(
     aln_column_names = ['SEC', 'ROT', 'GMAG', 'TX', 'TY', 'SMEAN', 'SFIT', 'SCALE', 'BASE', 'TILT']
 
     # Image Names
-    tomoNames = [];
+    tomoNames = []
     tiltSeriesStarNames = []
 
     # Create Each Tilt Series
@@ -124,7 +135,7 @@ def import_tilt_series(
         if len(xfDF.shape) < 2 or xfDF.shape[1] < 6:
             continue
 
-        tomoNames.append(tomoID)
+        tomoNames.append(session + '_' + tomoID)
 
         # Read the CTF Parameters
         ctfPath = os.path.join(tomoPath, tomoID + '_CTF.txt')
@@ -270,7 +281,7 @@ def import_tilt_series(
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
 
     # Inform the user that the file has been written successfully
-    print(f"Relion5 Tomograms STAR file saved to: {fn}")    
+    print(f"\nRelion5 Tomograms STAR file saved to: {fn}\n")    
 
 ###########################################################################################
 
@@ -337,6 +348,20 @@ def import_tilt_series(
     default=0.07,
     help="Microscope Amplitude Contrast"
 )
+@click.option(
+    "--optics-group",
+    type=int,
+    required=False,
+    default=1,
+    help="Optics Group"
+)
+@click.option(
+    "--optics-group-name",
+    type=str,
+    required=False,
+    default="opticsGroup1",
+    help="Optics Group"
+)
 def import_particles(
     input: str,
     output: str,
@@ -346,8 +371,16 @@ def import_particles(
     pixel_size: float,
     voltage: float, 
     spherical_aberration: float, 
-    amplitude_contrast: float
+    amplitude_contrast: float,
+    optics_group: int,
+    optics_group_name: str
     ):
+
+    utils = sta_tools.PipelineHelper(None, requireRelion=False)
+    utils.print_pipeline_parameters('Importing Particles', input = input, output = output, 
+                                    x = x, y = y, z = z, pixel_size = pixel_size, voltage = voltage, 
+                                    spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast,
+                                    header = f'particles', file_name=f'input/import.json')                               
 
     # Read the input STAR file into a DataFrame
     inputDF = starfile.read(input)
@@ -377,8 +410,8 @@ def import_particles(
 
     # Create optics group metadata as a dictionary
     optics = {
-        'rlnOpticsGroup': '1',
-        'rlnOpticsGroupName': 'opticsGroup1',
+        'rlnOpticsGroup': optics_group,
+        'rlnOpticsGroupName': optics_group_name,
         'rlnSphericalAberration': spherical_aberration,
         'rlnVoltage': voltage,
         'rlnAmplitudeContrast': amplitude_contrast,
@@ -389,7 +422,278 @@ def import_particles(
     starfile.write({'optics': pd.DataFrame(optics), "particles": inputDF}, output)
 
     # Inform the user that the file has been written successfully
-    print(f"Relion5 Particles STAR file saved to: {output}")
+    print(f"\nRelion5 Particles STAR file saved to: {output}\n")
+
+###########################################################################################
+
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--config",
+    type=str,
+    required=True,
+    help="Path to Copick Config",    
+)
+@click.option(
+    "--session",
+    type=str,
+    required=True,
+    help="Experiment Session For When the Data was Collected"
+)
+@click.option(
+    "--output-path",
+    type=str,
+    required=False,
+    default="input",
+    help="Path to Write Star File"
+)
+@click.option(
+    "--pixel-size",
+    type=float,
+    required=False, 
+    default = 1.54,
+    help="Pixel Size of the Tilt Series"
+)
+@click.option(
+    "--copick-name",
+    type=str,
+    required=True,
+    help="Protein Name to Query Data"
+)
+@click.option(
+    "--copick-session-id",
+    type=str,
+    required=False,
+    default=None,
+    help="session_id to Query Picks"
+)
+@click.option(
+    "--copick-user-id",
+    type=str,
+    required=False, 
+    default=None,
+    help="UserID to Query Picks"
+)
+@click.option(
+    "--x",
+    type=float,
+    required=True,
+    default='4096',
+    help="Box size along x-axis in the picked tomogram",
+)
+@click.option(
+    "--y",
+    type=float,
+    required=True,
+    default='4096',
+    help="Box size along y-axis in the picked tomogram",
+)
+@click.option(
+    "--z",
+    type=float,
+    required=True,
+    default='1200',
+    help="Box size along z-axis in the picked tomogram",
+)
+@click.option(
+    "--voltage",
+    type=float,
+    required=False,
+    default=300,
+    help="Microscope Acceleration Voltage  (kV)"
+)
+@click.option(
+    "--spherical-aberration",
+    type=float,
+    required=False,
+    default=2.7,
+    help="Estimated Microscope Aberrations (mm)"
+)
+@click.option(
+    "--amplitude-contrast",
+    type=float,
+    required=False,
+    default=0.07,
+    help="Microscope Amplitude Contrast"
+)
+@click.option(
+    "--optics-group",
+    type=int,
+    required=False,
+    default=1,
+    help="Optics Group"
+)
+@click.option(
+    "--optics-group-name",
+    type=str,
+    required=False,
+    default="opticsGroup1",
+    help="Optics Group"
+)
+def gather_copick_particles(
+    config: str, 
+    session: str,
+    copick_name: str, 
+    output_path: str = 'input',
+    pixel_size: float = 1.54, 
+    copick_session_id: str = None, 
+    copick_user_id: str = None,
+    x: float = 4096,
+    y: float = 4096, 
+    z: float = 4096,
+    voltage: float = 300,
+    spherical_aberration: float = 2.7,
+    amplitude_contrast: float = 0.07,
+    optics_group: int = 1,
+    optics_group_name: str = 'opticsGroup1'
+    ):
+
+    # Determine Which Write Path Based On Copick Query
+    if copick_session_id is not None and copick_user_id is not None:
+        fname = f'{copick_user_id}_{copick_session_id}_{copick_name}'
+    elif copick_session_id is not None:
+        fname = f'{copick_user_id}_{copick_name}'
+    else: # Assume copick_user_id is not None
+        fname = f'{copick_session_id}_{copick_name}'
+
+    # Specify Output Path
+    os.makedirs(output_path, exist_ok=True)
+    writePath = os.path.join( output_path, f'{fname}.star' )          
+
+    utils = sta_tools.PipelineHelper(None, requireRelion=False)
+    utils.print_pipeline_parameters('Gathering Copick Particles', config = config, output_path = writePath, 
+                                    copick_name = copick_name, copick_session_id = copick_session_id, copick_user_id = copick_user_id, 
+                                    pixel_size = pixel_size, tomo_dim_x = x, tomo_dim_y = y, tomo_dim_z = z, voltage = voltage, 
+                                    spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast, 
+                                    optics_group = optics_group, optics_group_name = optics_group_name, 
+                                    header = fname, file_name=f'{output_path}/import.json')       
+
+    # Gather Copick Root from Config File 
+    root = copick.from_file(config)
+
+    # Dictionary That Will Be Exported As a StarFile
+    myStarFile = {} 
+    myStarFile['rlnTomoName'] = []
+    myStarFile['rlnCoordinateX'] = []
+    myStarFile['rlnCoordinateY'] = []
+    myStarFile['rlnCoordinateZ'] = []
+    myStarFile['rlnAngleRot'] = []
+    myStarFile['rlnAngleTilt'] = []
+    myStarFile['rlnAnglePsi'] = []
+
+    # Load tomo_ids
+    run_ids = [run.name for run in root.runs] 
+
+    for runID in tqdm(run_ids):
+
+        # Query CopickRun and Picks
+        run = root.get_run(runID)
+        picks = run.get_picks(object_name = copick_name, session_id = copick_session_id, user_id = copick_user_id)
+
+        # Iterate Through All Available Picks Based On Query
+        nPicks = len(picks)
+        for ii in range(nPicks):       
+
+            # Extract All Points Per Pick
+            points = picks[ii].points
+            nPoints = len(points)             
+            coordinates = np.zeros([nPoints, 3])
+            orientations = np.zeros([nPoints, 3])            
+            for ii in range(nPoints):
+
+                # Extract 3D Coordinates (Scale By Tilt-Series Pixel Size)
+                coordinates[ii,] = [points[ii].location.x / pixel_size,   
+                                    points[ii].location.y / pixel_size,
+                                    points[ii].location.z / pixel_size]
+                
+                # Convert from Rotation to Euler Angles
+                rot = np.array(points[ii].transformation_)[:3,:3] # Ignore Translation Vector
+                r = R.from_matrix(rot)
+                orientations[ii,] = r.inv().as_euler('ZYZ',degrees=True)
+            
+            # Write Outputs to StarFile Dictionary
+            myStarFile['rlnTomoName'].extend([session + '_' + runID]*nPoints)
+            myStarFile['rlnCoordinateX'].extend(coordinates[:,0])
+            myStarFile['rlnCoordinateY'].extend(coordinates[:,1])
+            myStarFile['rlnCoordinateZ'].extend(coordinates[:,2]) 
+            myStarFile['rlnAngleRot'].extend(orientations[:,0])
+            myStarFile['rlnAngleTilt'].extend(orientations[:,1])
+            myStarFile['rlnAnglePsi'].extend(orientations[:,2])
+        
+    # Convert coordinates to centered values in Angstroms and Add new columns for centered coordinates in Angstroms
+    myStarFile["rlnCenteredCoordinateXAngst"] = (np.array(myStarFile["rlnCoordinateX"]) - x / 2) * pixel_size
+    myStarFile["rlnCenteredCoordinateYAngst"] = (np.array(myStarFile["rlnCoordinateY"]) - y / 2) * pixel_size
+    myStarFile["rlnCenteredCoordinateZAngst"] = (np.array(myStarFile["rlnCoordinateZ"]) - z / 2) * pixel_size
+
+    # Convert From Dictionary to DataFrame
+    myStarFile = pd.DataFrame(myStarFile)
+
+    # Remove '_Vol' substring
+    myStarFile['rlnTomoName'] = myStarFile['rlnTomoName'].str.replace('_Vol', '')
+
+    # Assign a default optics group value to all particles
+    myStarFile['rlnOpticsGroup'] = [1] * len(myStarFile['rlnTomoName'])
+
+    # Create optics group metadata as a dictionary
+    optics = {
+        'rlnOpticsGroup': optics_group,
+        'rlnOpticsGroupName': optics_group_name,
+        'rlnSphericalAberration': spherical_aberration,
+        'rlnVoltage': voltage,
+        'rlnAmplitudeContrast': amplitude_contrast,
+        'rlnTomoTiltSeriesPixelSize': [pixel_size]
+    }    
+
+    # Write the optics and particles data to a new STAR file
+    starfile.write({'optics': pd.DataFrame(optics), "particles": myStarFile}, writePath)
+
+    # # Inform the user that the file has been written successfully
+    print(f"\nRelion5 Particles STAR file saved to: {writePath}\n")      
+
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--input",
+    type=str,
+    required=True,
+    multiple=True,    
+    help="StarFiles to Merge for STA Pipeline"
+)
+@click.option(
+    "--output",
+    type=str,
+    required=False,
+    default="input/full_picks.star",
+    help="Output Filename to Write Merged Starfile"
+)
+def combine_star_files(
+    input: List[str],
+    output: str
+    ):
+
+    # Iterate Through all Input StarFiles
+    for ii in range(len(input)):
+
+        filename = input[ii]
+        print(f'Adding {filename} to the Merged StarFile')
+        file = starfile.read(filename)
+
+        if ii == 0:
+            merged_optics = file['optics']
+            merged_particles = file['particles']           
+        else:
+            merged_particles = pd.concat([merged_particles, file['particles']], axis=0)
+            if merged_optics['rlnOpticsGroup'].iloc[0] != file['optics']['rlnOpticsGroup'].iloc[0]:
+                merged_optics = pd.concat([merged_optics, file['optics']], axis=0)
+
+    # TODO: Add All the Starfiles to the input/import.json
+
+    # Write the Merged DataFrame to New StarFile
+    if os.path.exists(output):
+
+    starfile.write({'optics': merged_optics, 'particles': merged_particles}, output)
+
+    # Inform the user that the file has been written successfully
+    print(f"\nRelion5 Particles STAR file Merged to: {output}\n")
+      
 
 if __name__ == "__main__":
     cli()

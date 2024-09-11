@@ -26,10 +26,10 @@ def binnings(
         parameter_path (str): Path to the JSON file containing pipeline parameters.
     """    
 
-    # Print Input Parameters
-    print(f'\nPipeline Parameters: \nParameter-Path: {parameter_path}\n')
-
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
     utils.read_json_params_file(parameter_path)
+
+    # Print Input Parameters
+    utils.print_pipeline_parameters('Binning',Parameter_Path=parameter_path)    

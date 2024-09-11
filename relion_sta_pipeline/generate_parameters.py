@@ -18,7 +18,9 @@ class ReconstructTomograms(BaseModel):
     height: float
     thickness: float
     binned_pixel_size: float
+    do_fourierinversion_filter: str 
     do_need_denoising: str
+    do_write_centralslices: str 
     nr_threads: int
 
 class ImportTomograms(BaseModel):
@@ -49,7 +51,6 @@ class InitialModel(BaseModel):
 
 class Reconstruct(BaseModel):
     in_particles: Optional[str] = None
-    do_from2d: str
     crop_size: int
     point_group: str
     nr_threads: int
@@ -82,7 +83,6 @@ class Refine3D(BaseModel):
     use_gpu: str
     gpu_ids: str
     nr_threads: int
-    max_sig: int
     mpi_command: str
 
 class Class3D(BaseModel):
@@ -93,6 +93,7 @@ class Class3D(BaseModel):
     ctf_intact_first_peak: str
     nr_classes: int
     tau_fudge: int 
+    nr_iter: int
     do_fast_subsets: str
     particle_diameter: int
     do_zero_mask: str
@@ -191,7 +192,7 @@ class ProcessingConfigRelion5(BaseModel):
     default="[4,2,1]",
     help="List of Binning Factors to Process the Refinement Steps"
 )
-def relion4(
+def relion4_parameters(
     file_path: str,
     tilt_series_pixel_size: float,
     symmetry: str,
@@ -232,7 +233,6 @@ def relion4(
             nr_threads=8
         ) if denovo_generation else None,
         reconstruct=Reconstruct(
-            do_from2d="yes",
             crop_size=-1,
             point_group=symmetry,
             nr_threads=16,
@@ -263,7 +263,6 @@ def relion4(
             use_gpu= "yes",
             gpu_ids= "",
             nr_threads= 8,
-            max_sig=5000,
             mpi_command="srun"
         ),
         class3D=Class3D(
@@ -308,11 +307,25 @@ def relion4(
 # Create the boilerplate JSON file with a default file path
 @cli.command(context_settings={"show_default": True})
 @click.option(
-    "--file-path",
+    "--write-path",
     type=str,
     required=False,
     default='sta_parameters.json',
     help="The Saved Parameter Path",
+)
+@click.option(
+    "--input-tilt-series",
+    type=str,
+    required=False,
+    default="input/tiltSeries/aligned_tilt_series.star",
+    help="Path to Starfile with Tilt Series Alignments"
+)
+@click.option(
+    "--input-particles",
+    type=str,
+    required=False,
+    default="input/full_picks.star",
+    help="Path to Starfile with Particle Coordinates"
 )
 @click.option(
     "--tilt-series-pixel-size",
@@ -384,8 +397,10 @@ def relion4(
     default="[4,2,1]",
     help="List of Binning Factors to Process the Refinement Steps"
 )
-def relion5(
-    file_path: str,
+def relion5_parameters(
+    write_path: str,
+    input_tilt_series: str,
+    input_particles: str, 
     tilt_series_pixel_size: float,
     tomo_width: float,
     tomo_height: float,
@@ -404,12 +419,14 @@ def relion5(
             binning_list = binning_list
         ),
         reconstruct_tomograms=ReconstructTomograms(
-            tilt_series="input/tiltSeries/aligned_tilt_series.star",
+            tilt_series=input_tilt_series,
             width=tomo_width,
             height=tomo_height,
             thickness=tomo_thickness,
             binned_pixel_size=tomo_voxel_size,
+            do_fourierinversion_filter="no",
             do_need_denoising="no",
+            do_write_centralslices="no",            
             nr_threads=16
         ),
         initial_model=InitialModel(
@@ -425,20 +442,20 @@ def relion5(
             nr_threads=8
         ) if denovo_generation else None,
         reconstruct=Reconstruct(
-            in_particles= "input/full_picks.star",
+            in_particles= input_particles,
             do_from2d="yes",
             crop_size=-1,
             point_group=symmetry,
             nr_threads=16,
-            mpi_command="srun"
+            mpi_command="mpirun"
         ),
         pseudo_subtomo=PseudoSubtomo(
-            in_particles= "input/full_picks.star",            
+            in_particles= input_particles,            
             crop_size=-1,
             do_float16="yes",
             do_output_2dstacks="yes",            
             nr_threads=16,
-            mpi_command="srun"
+            mpi_command="mpirun"
         ),
         refine3D=Refine3D(
             ref_correct_greyscale="yes",
@@ -460,7 +477,7 @@ def relion5(
             gpu_ids= "",
             nr_threads= 8,
             max_sig=5000,
-            mpi_command="srun"
+            mpi_command="mpirun"
         ),
         class3D=Class3D(
             ref_correct_greyscale="yes",
@@ -485,7 +502,7 @@ def relion5(
             use_gpu= "yes",
             gpu_ids= "",
             nr_threads= 8,
-            mpi_command="srun"
+            mpi_command="mpirun"
         ),
         select=SelectParticles(
             do_select_values="yes",
@@ -498,8 +515,10 @@ def relion5(
         )
     )
 
-    with open(file_path, "w") as f:
+    with open(write_path, "w") as f:
         json.dump(default_config.dict(), f, indent=4)
+
+    print(f'Wrote Pipeline Parameters JSON File To: {write_path}\n')
 
 def validate_num_gpus(ctx, param, value):
     if value is not None and (value < 1 or value > 4):
@@ -536,43 +555,70 @@ def validate_num_gpus(ctx, param, value):
     callback=validate_num_gpus,
     help="Number of GPUs for Processing"
 )
-def shell_script(
+@click.option(
+    "--gpu-constraint",
+    type=str,
+    required=False,
+    default="h100",
+    help=""
+)
+def shell_submit(
     shell_path: str,
     job_name: str,
     output_file: str,
-    num_gpus: int
+    num_gpus: int,
+    gpu_constraint: str,
     ):
 
     shell_script_content = f"""#!/bin/bash
 
-    #SBATCH --nodes=1
-    #SBATCH --gpus={num_gpus}
-    #SBATCH --ntasks={num_gpus+1}
-    #SBATCH --time=36:00:00
-    #SBATCH --cpus-per-task=16
-    #SBATCH --mem-per-cpu=48G
-    #SBATCH --partition=gpu
-    #SBATCH --job-name={job_name}
-    #SBATCH --output={output_file}
+#SBATCH --gpus={num_gpus}
+#SBATCH --ntasks={num_gpus+1}
+#SBATCH --constraint="{gpu_constraint}"
+#SBATCH --time=18:00:00
+#SBATCH --cpus-per-task=24
+#SBATCH --mem-per-cpu=16G
+#SBATCH --partition=gpu
+#SBATCH --job-name={job_name}
+#SBATCH --output={output_file}
 
-    # Load Modules
-    ml relion/ver5.0-git-CU80 anaconda
+# Read the GPU names into an array
+IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
 
-    # Generate Template (Optional)
-    # conda activate /hpc/projects/group.czii/krios1.processing/software/pipeline-3D-template-match/pyMatch
-    # pytom_create_template.py -i /hpc/projects/group.czii/krios1.processing/pytom/scripts/model_templates/ribo80S_emd_3883.map \\
-    # -o ribosome-template-flipped.mrc --input-voxel-size 0.85 --output-voxel-size 9.48 --low-pass 40 -b 64 -m
+# Access the first GPU name
+first_gpu_name="${{gpu_names[0]}}"
 
-    # Run Relion Pipeline
-    conda activate /hpc/projects/group.czii/krios1.processing/software/relion-sub-tomogram-pipelines/pyRelion/
-    run_relion5 sta-pipeline --parameter-path sta_parameter.json --reference-template ribosome-template-flipped.mrc
-    """
+# Figure Out which Relion Module to Load
+echo "Detected GPU: $first_gpu_name"
+if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80    
+elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80
+elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
+    echo "Loading relion/CU86"
+    module load relion/ver5.0-12cf15de-CU86
+else
+    echo "Loading relion/CU90"
+    module load relion/ver5.0-12cf15de-CU90 
+fi
+
+# Generate Template (Optional)
+# conda activate /hpc/projects/group.czii/krios1.processing/software/pipeline-3D-template-match/pyMatch
+# pytom_create_template.py -i /hpc/projects/group.czii/krios1.processing/pytom/scripts/model_templates/ribo80S_emd_3883.map \\
+# -o ribosome-template-flipped.mrc --input-voxel-size 0.85 --output-voxel-size 9.48 --low-pass 40 -b 64 -m
+
+# Run Relion Pipeline
+conda activate /hpc/projects/group.czii/krios1.processing/software/relion-sub-tomogram-pipelines/pyRelion/
+run_relion5 sta-pipeline --parameter-path sta_parameters.json --reference-template ribosome-template-flipped.mrc
+"""
 
     # Save to file
     with open(shell_path, "w") as file:
         file.write(shell_script_content)
 
-    print(f"Shell script has been created successfully as '{shell_path}'")
+    print(f"\nShell script has been created successfully as '{shell_path}'\n")
 
 
 if __name__ == "__main__":
