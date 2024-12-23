@@ -156,9 +156,11 @@ class PipelineHelper:
 
         Args:
             json_fname: Path to the JSON file containing output directories.
-        """        
+        """
 
         self.outputDirectories = self.read_json(json_fname) 
+        history_fname = json_fname.replace('.json', '_history.json')
+        self.historyDirectories = self.read_json(history_fname)     
 
     def read_json(self, json_fname: str):
         """
@@ -174,7 +176,6 @@ class PipelineHelper:
             readFile = open(json_fname)
             outData = json.load(readFile)
         except Exception as e:
-            print(f"Error Reading JSON File {json_fname}: {e}")
             outData = {}
 
         return outData
@@ -191,10 +192,22 @@ class PipelineHelper:
             job: The job with updated parameters.
         """
 
-
         for key,value in self.params[step].items():
             job.joboptions[key].value = value
         return job
+
+    def set_new_tomograms_starfile(self, tomogram_path):
+
+        # Check if 'tomograms.star' exists in the specified directory
+        path1 = os.path.join(tomogram_path, 'tomograms.star')
+        if os.path.exists(path1):
+            self.output_directories['reconstruct_tomograms'] = path1
+        elif os.path.exists(tomogram_path):
+            self.output_directories['reconstruct_tomograms'] = tomogram_path
+        else:
+            # If neither the file nor the directory exists,
+            # raise a FileNotFoundError with a detailed message
+            FileNotFoundError(f"Error: Neither {path1} nor {tomogram_path} exists.")
     
     def run_job(self, 
                 job, 
@@ -233,22 +246,31 @@ class PipelineHelper:
             # Exit If Job Fails
             if result == 'Failed': print(f'{jobTag} Failed!...\n'); exit()
 
-            # Only Tomogram Reconstruction Doesn't Occur at a Specific Resolution
-            if jobName == 'reconstruct_tomograms':
-                self.outputDirectories[jobName] = job.output_dir
-            else:
-                # Ensure the binning key exists before assigning the job output directory
-                bin_key = f'bin{self.binning}'
-                if bin_key not in self.outputDirectories:
-                    self.outputDirectories[bin_key] = {}
-                # Save Job Name to Output Directory (Main Pipeline)
-                self.outputDirectories[bin_key][jobName] = job.output_dir                
-                # Log All the Repititions for Each Process
-                if jobIter is not None:
-                    self.outputDirectories[bin_key][jobName+'_history'][jobIter] = job.output_dir
-                
+            # Ensure the binning key exists before assigning the job output directory
+            bin_key = f'bin{self.binning}'
+            if bin_key not in self.outputDirectories:
+                self.outputDirectories[bin_key] = {}
+
+            # Save Job Name to Output Directory (Main Pipeline)
+            self.outputDirectories[bin_key][jobName] = job.output_dir
+
+            # Log All the Repititions for Each Process
+            # if jobIter is not None:
+            #     self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir
+            # else:
+            #     self.historyDirectories[bin_key][jobName] = {}
+            #     self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir
+            if bin_key not in self.historyDirectories:
+                self.historyDirectories[bin_key] = {}
+            if jobName not in self.historyDirectories[bin_key]:
+                self.historyDirectories[bin_key][jobName] = {}
+                # Assume this is the first iteration for this job at this resolution
+                jobIter = 'iter1'
+            self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
+                # self.outputDirectories[bin_key][jobName+'_history'][jobIter] = job.output_dir
+
             # Save the new output directory
-            self.save_new_output_directory()
+            self.save_new_output_directory()     
 
             # Automatically Exit if Classification (User Needs to Export Best Class)
             if classifyStep:
@@ -257,10 +279,7 @@ class PipelineHelper:
             if keepClasses is not None: 
                 self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
         else: 
-            try:
-                job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-            except:
-                job.output_dir = self.outputDirectories[jobName]
+            job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
          
 
     def get_resolution(self, job, 
@@ -364,7 +383,7 @@ class PipelineHelper:
             reconstruct_particle_job.joboptions['crop_size'].value = int(boxSize / 2)
             pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)   
 
-    def get_new_sampling(self, job):
+    def get_new_sampling(self, job, update_local=True):
         """
         Get the next finer sampling angle based on the current one.
 
@@ -381,9 +400,14 @@ class PipelineHelper:
         rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees])
         local_rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees/4])
 
+        # We Only Keep Float for 15 or 30 degree search increment
+        if rounded_angle > 10:
+            rounded_angle = int(rounded_angle)
+
         # We Only Need to Scale Sampling if It's Less than Course Value
-        if rounded_angle < 7.5:
-            job.joboptions['sampling'].value = f"{rounded_angle} degrees"
+        job.joboptions['sampling'].value = f"{rounded_angle} degrees"
+            
+        if update_local: 
             job.joboptions['auto_local_sampling'].value = f"{local_rounded_angle} degrees"
 
         # Get the corresponding sampling string
@@ -395,6 +419,9 @@ class PipelineHelper:
         """
         with open('output_directories.json', 'w') as outFile: 
             json.dump(self.outputDirectories,outFile,indent=4)  
+
+        with open('output_directories_history.json', 'w') as outFile: 
+            json.dump(self.historyDirectories,outFile,indent=4)              
 
     def check_if_job_already_completed(self, 
                                       job, 
@@ -611,18 +638,33 @@ class PipelineHelper:
     def return_job_iter(self, binKey, jobName):
 
         # Check if the binKey and jobName exist in the outputDirectories
-        if binKey in self.outputDirectories and jobName in self.outputDirectories[binKey]:
-            # If jobName is a string (e.g., 'job002'), set it as the first iteration
-            if isinstance(self.outputDirectories[binKey][jobName], str):
-                # Assign the current job to 'iter1'
-                self.outputDirectories[binKey][jobName+'_history'] = {'iter1': self.outputDirectories[binKey][jobName]}
-                return 'iter2'
+        if binKey in self.historyDirectories and jobName in self.historyDirectories[binKey]:
             
             # If jobName is already a dictionary, find the next iteration
-            current_iters = sorted(self.outputDirectories[binKey][jobName].keys())
+            current_iters = sorted(self.historyDirectories[binKey][jobName].keys())
             last_iter = current_iters[-1]
             last_iter_num = int(last_iter.replace('iter', ''))
             return f'iter{last_iter_num + 1}'
         else:
             # If the jobName or binKey doesn't exist, return None
             return None
+
+    # # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
+    # def return_job_iter(self, binKey, jobName):
+
+    #     # Check if the binKey and jobName exist in the outputDirectories
+    #     if binKey in self.outputDirectories and jobName in self.outputDirectories[binKey]:
+    #         # If jobName is a string (e.g., 'job002'), set it as the first iteration
+    #         if isinstance(self.outputDirectories[binKey][jobName], str):
+    #             # Assign the current job to 'iter1'
+    #             self.outputDirectories[binKey][jobName + '_history'] = {'iter1': self.outputDirectories[binKey][jobName]}
+    #             return 'iter2'
+            
+    #         # If jobName is already a dictionary, find the next iteration
+    #         current_iters = sorted(self.outputDirectories[binKey][jobName].keys())
+    #         last_iter = current_iters[-1]
+    #         last_iter_num = int(last_iter.replace('iter', ''))
+    #         return f'iter{last_iter_num + 1}'
+    #     else:
+    #         # If the jobName or binKey doesn't exist, return None
+    #         return None

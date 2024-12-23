@@ -1,5 +1,5 @@
-from pipeliner.jobs.tomography.relion_tomo import tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, tomo_initialmodel_job, tomo_class3D_job
-from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
+from pipeliner.jobs.tomography.relion_tomo import tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job
+from pipeliner.jobs.relion import bayesianpolish_job, select_job, maskcreate_job, postprocess_job
 from relion_sta_pipeline.utils.sta_tools import PipelineHelper
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
@@ -57,7 +57,7 @@ class Relion5Pipeline(PipelineHelper):
         
         self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning
         self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)        
-        self.pseudo_subtomo_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
+        # self.pseudo_subtomo_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] 
 
         # Apply Output Directories from Previous Job       
         try: self.pseudo_subtomo_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/pseudo_subtomo') 
@@ -100,7 +100,7 @@ class Relion5Pipeline(PipelineHelper):
 
         self.reconstruct_particle_job.joboptions['binfactor'].value = self.binning
         self.reconstruct_particle_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)
-        self.reconstruct_particle_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'  
+        # self.reconstruct_particle_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']
 
         # Apply Output Directories from Previous Job       
         try: self.reconstruct_particle_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/reconstruct')
@@ -128,7 +128,7 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_refine3D_job = tomo_refine3D_job.TomoRelionRefine3D()
         self.tomo_refine3D_job = self.parse_params(self.tomo_refine3D_job,'refine3D')
 
-        self.tomo_refine3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'
+        # self.tomo_refine3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms']
         self.tomo_refine3D_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'        
 
         # Apply Output Directories from Previous Job  
@@ -162,12 +162,12 @@ class Relion5Pipeline(PipelineHelper):
         of the JSON file.
         """        
         self.tomo_class3D_job = tomo_class3D_job.TomoRelionClass3DJob()
-        self.tomo_class3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms'] + 'tomograms.star'        
+        # self.tomo_class3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms']        
         self.tomo_class3D_job = self.parse_params(self.tomo_class3D_job,'class3D')
         
         # Apply Output Directories from Previous Job  
         self.next_tomo_class3D_iter = self.return_job_iter(f'bin{self.binning}','class3D')
-        try: self.tomo_class3D_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'class3D', classStep)       
+        try: self.tomo_class3D_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'class3D')       
         except: pass
 
     def run_tomo_class3D(self, 
@@ -232,6 +232,55 @@ class Relion5Pipeline(PipelineHelper):
         # Return Refinement Template Path       
         return self.tomo_class3D_job.output_dir + f'run_it{nIter:03}_class001.mrc' 
 
+    def initialize_ctf_refine(self):
+        """
+        Initialize the job for CTF Refinement for the particles. The job parameters are 
+        parsed and set according to the configuration specified in the 'class3D' section 
+        of the JSON file.
+        """        
+        self.ctf_refine_job = tomo_ctfrefine_job.TomoRelionCtfRefine()
+        # self.ctf_refine_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
+        # self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
+        
+        # Apply Output Directories from Previous Job  
+        ctfRefineIter = self.return_job_iter(f'bin{self.binning}','ctf_refine')
+        try: self.ctf_refine_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'ctf_refine')       
+        except: pass
+
+    def run_ctf_refine(self,
+                       rerunCtfRefine: bool = False):
+
+        # If Completed Classify Process Already Exists, Start Logging New Iterations if rerunClassify is True. 
+        if rerunCtfRefine: ctfRefineJobIter = self.return_job_iter(f'bin{self.binning}', 'ctf_refine') 
+        else:              ctfRefineJobIter = None    
+
+        self.run_job(self.ctf_refine_job, 'ctf_refine', f'CTF Refine', jobIter=ctfRefineJobIter)                                   
+
+    def initialize_bayesian_polish(self):
+        """
+        Initialize the job for CTF Refinement for the particles. The job parameters are 
+        parsed and set according to the configuration specified in the 'class3D' section 
+        of the JSON file.
+        """        
+        self.bayesian_polish_job = bayesianpolish_job.RelionBayesPolishJob()
+        # self.bayesian_polish.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
+        # self.bayesian_polish = self.parse_params(self.bayesian_polish,'polish')
+        
+        # Apply Output Directories from Previous Job  
+        self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','polish')
+        try: self.bayesian_polish.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
+        except: pass
+
+    def run_bayesian_polish(self,
+                            rerunPolish: bool = False):
+
+        # If Completed Classify Process Already Exists, Start Logging New Iterations if rerunClassify is True. 
+        if rerunPolish: polishJobIter = self.return_job_iter(f'bin{self.binning}', 'ctf_refine') 
+        else:           polishJobIter = None    
+
+        self.run_job(self.ctf_refine_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
+
+
     def update_resolution(self, binFactorIndex: int):
         """
         Updates the resolution of the tomographic reconstruction process based on the provided binning factor index.
@@ -259,7 +308,7 @@ class Relion5Pipeline(PipelineHelper):
             print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
 
         if self.tomo_class3D_job is not None: 
-            self.get_new_sampling(self.tomo_class3D_job)
+            self.get_new_sampling(self.tomo_class3D_job, update_local=False)
 
     def check_and_create_symlink(symlink_path, target_path):
         """

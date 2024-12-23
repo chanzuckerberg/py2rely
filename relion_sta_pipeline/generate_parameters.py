@@ -50,6 +50,7 @@ class InitialModel(BaseModel):
     nr_threads: int
 
 class Reconstruct(BaseModel):
+    in_tomograms: Optional[str] = None
     in_particles: Optional[str] = None
     crop_size: int
     point_group: str
@@ -57,6 +58,7 @@ class Reconstruct(BaseModel):
     mpi_command: str
     
 class PseudoSubtomo(BaseModel):
+    in_tomograms: str
     in_particles: str
     crop_size: int
     do_float16: str
@@ -65,6 +67,7 @@ class PseudoSubtomo(BaseModel):
     mpi_command: str
 
 class Refine3D(BaseModel):
+    tomograms_star: str
     ref_correct_greyscale: str
     ini_high: int
     sym_name: str
@@ -84,8 +87,10 @@ class Refine3D(BaseModel):
     gpu_ids: str
     nr_threads: int
     mpi_command: str
+    other_args: str
 
 class Class3D(BaseModel):
+    tomograms_star: str
     ref_correct_greyscale: str
     ini_high: int
     sym_name: str
@@ -108,6 +113,7 @@ class Class3D(BaseModel):
     gpu_ids: str
     nr_threads: int
     mpi_command: str
+    prior_tiltang_width: int
     
 class SelectParticles(BaseModel):
     do_select_values: str
@@ -132,7 +138,6 @@ class ProcessingConfigRelion4(BaseModel):
 
 class ProcessingConfigRelion5(BaseModel):
     resolutions: ResolutionParameters
-    reconstruct_tomograms: ReconstructTomograms
     reconstruct: Reconstruct
     initial_model: Optional[InitialModel]
     pseudo_subtomo: PseudoSubtomo
@@ -222,8 +227,8 @@ def relion4_parameters(
         ),
         initial_model=InitialModel(
             nr_iter=70,
-            nr_classes=3,
-            tau_fudge=2.0,
+            nr_classes=1,
+            tau_fudge=4.0,
             particle_diameter=protein_diameter,
             point_group=symmetry,
             do_run_C1="yes",
@@ -271,8 +276,8 @@ def relion4_parameters(
             sym_name=symmetry,
             do_ctf_correction= "yes",
             ctf_intact_first_peak= "no",
-            nr_classes= 10,
-            tau_fudge= 2,
+            nr_classes= 5,
+            tau_fudge= 4,
             nr_iter= 25,
             do_fast_subsets="no",
             particle_diameter= protein_diameter,
@@ -285,7 +290,7 @@ def relion4_parameters(
             do_local_ang_searches="yes",
             allow_coarser= "no",
             nr_pool= 16, 
-            use_gpu= "yes",
+            use_gpu= "no",
             gpu_ids= "",
             nr_threads= 8,
             mpi_command="srun"
@@ -418,21 +423,11 @@ def relion5_parameters(
             box_scaling=box_scaling,
             binning_list = binning_list
         ),
-        reconstruct_tomograms=ReconstructTomograms(
-            tilt_series=input_tilt_series,
-            width=tomo_width,
-            height=tomo_height,
-            thickness=tomo_thickness,
-            binned_pixel_size=tomo_voxel_size,
-            do_fourierinversion_filter="no",
-            do_need_denoising="no",
-            do_write_centralslices="no",            
-            nr_threads=16
-        ),
         initial_model=InitialModel(
+            in_tomograms=input_tilt_series,            
             nr_iter=70,
-            nr_classes=3,
-            tau_fudge=10.0,
+            nr_classes=1,
+            tau_fudge=4,
             particle_diameter=protein_diameter,
             point_group=symmetry,
             do_run_C1="yes",
@@ -442,6 +437,7 @@ def relion5_parameters(
             nr_threads=8
         ) if denovo_generation else None,
         reconstruct=Reconstruct(
+            in_tomograms=input_tilt_series,            
             in_particles= input_particles,
             do_from2d="yes",
             crop_size=-1,
@@ -450,6 +446,7 @@ def relion5_parameters(
             mpi_command="mpirun"
         ),
         pseudo_subtomo=PseudoSubtomo(
+            in_tomograms=input_tilt_series,
             in_particles= input_particles,            
             crop_size=-1,
             do_float16="yes",
@@ -458,6 +455,7 @@ def relion5_parameters(
             mpi_command="mpirun"
         ),
         refine3D=Refine3D(
+            tomograms_star=input_tilt_series,            
             ref_correct_greyscale="yes",
             ini_high=50,
             sym_name=symmetry,
@@ -476,17 +474,18 @@ def relion5_parameters(
             use_gpu= "yes",
             gpu_ids= "",
             nr_threads= 8,
-            max_sig=5000,
-            mpi_command="mpirun"
+            mpi_command="mpirun",
+            other_args="--maxsig 3000"
         ),
         class3D=Class3D(
+            tomograms_star=input_tilt_series,            
             ref_correct_greyscale="yes",
             ini_high=30,
             sym_name=symmetry,
             do_ctf_correction= "yes",
             ctf_intact_first_peak= "no",
-            nr_classes= 10,
-            tau_fudge= 2,
+            nr_classes= 5,
+            tau_fudge= 3,
             nr_iter= 25,
             do_fast_subsets="no",
             particle_diameter= protein_diameter,
@@ -499,10 +498,11 @@ def relion5_parameters(
             do_local_ang_searches="yes",
             allow_coarser= "no",
             nr_pool= 16, 
-            use_gpu= "yes",
+            use_gpu= "no",
             gpu_ids= "",
             nr_threads= 8,
-            mpi_command="mpirun"
+            mpi_command="mpirun",
+            prior_tiltang_width= 0
         ),
         select=SelectParticles(
             do_select_values="yes",
@@ -544,7 +544,7 @@ def validate_num_gpus(ctx, param, value):
     "--output-file",
     type=str,
     required=False,
-    default="outputs_sta_relion.out",
+    default="relion5_sta_pipeline.out",
     help="Output Text File that Results"
 )
 @click.option(
@@ -610,15 +610,169 @@ fi
 # -o ribosome-template-flipped.mrc --input-voxel-size 0.85 --output-voxel-size 9.48 --low-pass 40 -b 64 -m
 
 # Run Relion Pipeline
-conda activate /hpc/projects/group.czii/krios1.processing/software/relion-sub-tomogram-pipelines/pyRelion/
+module load anaconda
+conda activate /hpc/projects/group.czii/conda_environments/pyRelion
 run_relion5 sta-pipeline --parameter-path sta_parameters.json --reference-template ribosome-template-flipped.mrc
 """
 
     # Save to file
-    with open(shell_path, "w") as file:
+    with open('pipeline.sh', "w") as file:
         file.write(shell_script_content)
 
-    print(f"\nShell script has been created successfully as '{shell_path}'\n")
+    print(f"\nRefinement Pipeline Shell script has been created successfully as '{'pipeline.sh'}'\n")
+
+    shell_script_content = f"""#!/bin/bash
+
+#SBATCH --ntasks={num_gpus+1}
+#SBATCH --time=18:00:00
+#SBATCH --cpus-per-task=24
+#SBATCH --mem-per-cpu=16G
+#SBATCH --partition=cpu
+#SBATCH --job-name={job_name}
+#SBATCH --output={output_file}
+
+# Read the GPU names into an array
+IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+
+# Access the first GPU name
+first_gpu_name="${{gpu_names[0]}}"
+
+# Figure Out which Relion Module to Load
+echo "Detected GPU: $first_gpu_name"
+if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80    
+elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80
+elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
+    echo "Loading relion/CU86"
+    module load relion/ver5.0-12cf15de-CU86
+else
+    echo "Loading relion/CU90"
+    module load relion/ver5.0-12cf15de-CU90 
+fi
+
+# Run Relion Pipeline
+module load anaconda
+conda activate /hpc/projects/group.czii/conda_environments/pyRelion
+
+process reconstruct-particle \\
+    --parameter-path sta_parameters.json \\
+    --particles-path path/to/particles.star \\
+    --mask-path path/to/mask.mrc (Optional) \\
+    --bin-factor 4 --low-pass 20
+
+"""
+
+    # Save to file
+    with open('reconstruct_particles.sh', "w") as file:
+        file.write(shell_script_content)
+
+    print(f"Reconstruct Particles Shell script has been created successfully as reconstruct_particles.sh\n")    
+
+    shell_script_content = f"""#!/bin/bash
+
+#SBATCH --ntasks={num_gpus+1}
+#SBATCH --time=18:00:00
+#SBATCH --cpus-per-task=24
+#SBATCH --mem-per-cpu=16G
+#SBATCH --partition=cpu
+#SBATCH --job-name={job_name}
+#SBATCH --output={output_file}
+
+# Read the GPU names into an array
+IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+
+# Access the first GPU name
+first_gpu_name="${{gpu_names[0]}}"
+
+# Figure Out which Relion Module to Load
+echo "Detected GPU: $first_gpu_name"
+if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80    
+elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80
+elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
+    echo "Loading relion/CU86"
+    module load relion/ver5.0-12cf15de-CU86
+else
+    echo "Loading relion/CU90"
+    module load relion/ver5.0-12cf15de-CU90 
+fi
+
+# Run Relion Pipeline
+module load anaconda
+conda activate /hpc/projects/group.czii/conda_environments/pyRelion
+
+# Run Module - Class3D
+process class3d \\
+    --parameter-path sta_parameters.json \\
+    --particles-path path/to/particles.star \\
+    --mask-path path/to/mask.mrc \\
+    --reference-path path/to/tomo.mrc \\
+    --ini-high 20 --tau-fudge 4 --nr-classes 4 
+"""
+
+    # Save to file
+    with open('class3D.sh', "w") as file:
+        file.write(shell_script_content)
+
+    print(f"Class3D script has been created successfully as class3D.sh'\n")
+
+    shell_script_content = f"""#!/bin/bash
+
+#SBATCH --gpus={num_gpus}
+#SBATCH --ntasks={num_gpus+1}
+#SBATCH --time=18:00:00
+#SBATCH --cpus-per-task=24
+#SBATCH --mem-per-cpu=16G
+#SBATCH --partition=gpu
+#SBATCH --job-name={job_name}
+#SBATCH --output={output_file}
+
+# Read the GPU names into an array
+IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+
+# Access the first GPU name
+first_gpu_name="${{gpu_names[0]}}"
+
+# Figure Out which Relion Module to Load
+echo "Detected GPU: $first_gpu_name"
+if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80    
+elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80
+elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
+    echo "Loading relion/CU86"
+    module load relion/ver5.0-12cf15de-CU86
+else
+    echo "Loading relion/CU90"
+    module load relion/ver5.0-12cf15de-CU90 
+fi
+
+# Run Relion Pipeline
+module load anaconda
+conda activate /hpc/projects/group.czii/conda_environments/pyRelion
+
+# Run Module - Refine3D
+process refine3d \\
+    --parameter-path sta_parameters.json \\
+    --particles-path path/to/particles.star \\
+    --reference-path path/to/reference.mrc \\        
+    --mask-path path/to/mask.mrc \\
+    --low-pass 20 
+"""
+
+    # Save to file
+    with open('refine3D.sh', "w") as file:
+        file.write(shell_script_content)
+
+    print(f"Refine3D script has been created successfully as refine3D.sh'\n")            
 
 
 if __name__ == "__main__":

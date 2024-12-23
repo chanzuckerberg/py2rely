@@ -34,7 +34,7 @@ def cli(ctx):
     type=bool,
     required=False,
     default=False, 
-    help="Test"
+    help="Run 3D-Classification Job After Refinement"
 )
 def sta_pipeline(
     parameter_path: str,
@@ -53,14 +53,6 @@ def sta_pipeline(
     utils.print_pipeline_parameters('STA Pipeline', Parameter_Path = parameter_path,
                                     Run_Denovo = run_denovo_generation, Run_Class3D = run_class3d,
                                     Reference_Template = reference_template)
-
-    ############################################################################################
-
-    # TODO: Assume Symlink Path for Reconstructed Tomograms Exists Tangential to Specimen (e.g., Tomograms/, ribosome-80S/runXXX/,)
-
-    # Recontruct Tomograms 
-    utils.initialize_reconstruct_tomograms()
-    utils.run_reconstruct_tomograms() 
 
     #############################################################################################
 
@@ -84,12 +76,12 @@ def sta_pipeline(
     elif reference_template is not None:
         # Use Classification to Generate Initial Reference 
         print(f'\nGenerating Initial Model with "Class3D"\n')
-        refine_reference = utils.run_initial_model_class3D(reference_template, nClasses = 1, nr_iter = 5)
+        refine_reference = utils.run_initial_model_class3D(reference_template, nClasses = 1, nr_iter = 10)
     else: 
         # Reconstruct with Template Matching Parameters
         print(f'\nGenerating Initial Model with "Reconstruct Particle"\n')
         utils.run_reconstruct_particle()  
-        refine_reference = utils.reconstruct_job.output_dir + 'merged.mrc'
+        refine_reference = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
 
     #############################################################################################        
 

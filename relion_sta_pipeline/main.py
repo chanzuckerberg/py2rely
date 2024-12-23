@@ -15,6 +15,7 @@ def list_commands():
         "prepare_relion5": "Prepare input files for Relion5.",
         "run_relion5": "Run the Relion5 pipeline.",
         "classes": "Select classes for processing.",
+        "process": "Run individual Processes in the STA pipeline (e.g., Refine3D, Class3D, Reconstrut Particle)",
         "report": "Generate reports from the pipeline.",
     }
     click.echo("Available commands:")

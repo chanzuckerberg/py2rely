@@ -104,7 +104,10 @@ def import_tilt_series(
                                     amplitude_contrast = amplitude_contrast, header = tiltSeriesHeader, 
                                     file_name='input/import.json')                               
     
-    inputPath = os.path.join( '/hpc/projects/group.czii', base_project, 'aretomo3', session, run, '*_CTF.txt')
+    # inputPath = os.path.join( '/hpc/projects/group.czii', base_project, 'aretomo3', session, run, '*_CTF.txt')
+    inputPath = os.path.join( '/hpc/projects/group.czii', base_project, session, run, '*_CTF.txt')
+    
+    print(f'Searching for Data from the Following Search Path: {inputPath}')
     tiltSeries = np.array(glob.glob(inputPath), dtype=str)
 
     try: 
@@ -261,7 +264,7 @@ def import_tilt_series(
 
         # Write the Output and Track StarFileName Name
         writeTSpath = os.path.join(tiltSeriesDirectory, tomoID + '.star')
-        starfile.write({tomoID: pd.DataFrame(ts_dict)}, writeTSpath, overwrite=True)
+        starfile.write({session + '_' + tomoID: pd.DataFrame(ts_dict)}, writeTSpath, overwrite=True)
         tiltSeriesStarNames.append(writeTSpath)
 
     # Create aligned_tilt_series.star
@@ -554,6 +557,7 @@ def gather_copick_particles(
         fname = f'{copick_user_id}_{copick_name}'
     else: # Assume copick_user_id is not None
         fname = f'{copick_session_id}_{copick_name}'
+    fname =  session + '_' + fname
 
     # Specify Output Path
     os.makedirs(output_path, exist_ok=True)
@@ -664,7 +668,7 @@ def gather_copick_particles(
     default="input/full_picks.star",
     help="Output Filename to Write Merged Starfile"
 )
-def combine_star_files(
+def combine_star_files_particles(
     input: List[str],
     output: str
     ):
@@ -687,12 +691,54 @@ def combine_star_files(
     # TODO: Add All the Starfiles to the input/import.json
 
     # Write the Merged DataFrame to New StarFile
-    if os.path.exists(output):
+    # if os.path.exists(output):
 
     starfile.write({'optics': merged_optics, 'particles': merged_particles}, output)
 
     # Inform the user that the file has been written successfully
     print(f"\nRelion5 Particles STAR file Merged to: {output}\n")
+
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--input",
+    type=str,
+    required=True,
+    multiple=True,    
+    help="StarFiles to Merge for STA Pipeline"
+)
+@click.option(
+    "--output",
+    type=str,
+    required=False,
+    default="input/aligned_tilt_series.star",
+    help="Output Filename to Write Merged Starfile"
+)
+def combine_star_files_tomograms(
+    input: List[str],
+    output: str
+    ):
+
+    # Iterate Through all Input StarFiles
+    for ii in range(len(input)):
+
+        filename = input[ii]
+        print(f'Adding {filename} to the Merged StarFile')
+        file = starfile.read(filename)
+
+        if ii == 0:
+            merged_alignments = file   
+        else:
+            merged_alignments = pd.concat([merged_alignments, file], axis=0)
+
+    # TODO: Add All the Starfiles to the input/import.json
+
+    # Write the Merged DataFrame to New StarFile
+    # if os.path.exists(output):
+
+    starfile.write({'global': merged_alignments}, output)
+
+    # Inform the user that the file has been written successfully
+    print(f"\nRelion5 Particles STAR file Merged to: {output}\n")    
       
 
 if __name__ == "__main__":

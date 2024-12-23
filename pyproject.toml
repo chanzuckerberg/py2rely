@@ -32,7 +32,7 @@ create = "relion_sta_pipeline.generate_parameters:cli"
 prepare_relion5 = "relion_sta_pipeline.prepare_relion5_input:cli"
 run_relion5 = "relion_sta_pipeline.relion5_pipeline:cli"
 classes = "relion_sta_pipeline.routines.select:cli"
-reconstruct = "relion_sta_pipeline.routines.reconstruct:cli"
+process = "relion_sta_pipeline.routines.reconstruct:cli"
 report = "relion_sta_pipeline.routines.report:cli"
 
 [tool.hatch.version]
