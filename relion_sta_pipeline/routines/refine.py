@@ -1,3 +1,4 @@
+from relion_sta_pipeline.routines.submit_slurm import create_shellsubmit
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import pipeliner.job_manager as job_manager
@@ -8,72 +9,34 @@ import json, click, starfile
 def cli(ctx):
     pass
 
-# CTF-Correct
+def refine3d_options(func):
+    """Decorator to add shared options for refine3d commands."""
+    options = [
+        @click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",help="Sub-Tomogram Refinement Parameter Path",)
+        @click.option("--particles-path",type=str,required=True,default="Refine3D/job001/run_data.star",help="Path to Particles File to Reconstruct Data")
+        @click.option("--reference-path",type=str,required=True,default="Refine3D/job001/class001.mrc",help="Path to Reference MRC for Refinement")
+        @click.option("--mask-path",type=str,required=False,default=None,help="Path for Unique Mask for Measuring the Map Resolution, If Not Specified will Use Previous Mask from Pipeline")
+        @click.option("--low-pass",type=str,required=False,default=15,help="User Input Low Pass Filter")
+        @click.option("--ref-correct-greyscale",type=bool,required=False, default=True,help="Reference Map is on Absolute Greyscale?")
+        @click.option("--continue-iter",type=str,required=False,default=None,help="Continue from this iteration (e.g., Refine3D/job009/run_it005_)")
+        @click.option("--tomogram-path",type=str, required=False,default=None,help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" )
+    ]  
+    for option in reversed(options):  # Add options in reverse order to preserve order in CLI
+        func = option(func)
+    return func  
+
+# Refine3D
 @cli.command(context_settings={"show_default": True})
-@click.option(
-    "--parameter-path",
-    type=str,
-    required=True,
-    default="sta_parameters.json",
-    help="Sub-Tomogram Refinement Parameter Path",
-)
-@click.option(
-    "--particles-path",
-    type=str,
-    required=True,
-    default="Refine3D/job001/run_data.star",
-    help="Input particle STAR file."
-)
-@click.option(
-    "--mask-path",
-    type=str,
-    required=False,
-    default=None,
-    help="Input reference mask."
-)
-@click.option(
-    "--half-map-path",
-    type=str,
-    required=True,
-    help="Provide one of the two reference half-reconstructions."
-)
-@click.option(
-    "--post-process-path",
-    type=str,
-    required=True,
-    help="Input STAR file from a relion_postprocess job."
-)
-@click.option(
-    "--defocus-search-range",
-    type=str,
-    required=False,
-    default=750,
-    help="Defocus search range (in A)."
-)
-@click.option(
-    "--defocus-lambda",
-    type=float,
-    required=False,
-    default=0.1,
-    help="Defocus regularisation scale."
-)
-@click.option(
-    "--do-scale-per-frame",
-    type=bool,
-    required=False,
-    default=False,
-    help="Estimate the signal-scale parameter independently for each tilt"
-)
-def ctf_refine(
+@refine3d_options
+def refine3d(
     parameter_path: str,
     particles_path: str, 
-    mask_path: str, 
-    half_map_path: str, 
-    post_process_path: str, 
-    defocus_search_range: float,
-    defocus_lambda: float,
-    do_scale_per_frame: bool = False,
-    tomogram_path: str = False
+    reference_path: str,
+    mask_path: str = None,
+    low_pass: float = None,
+    ref_correct_greyscale: bool = True,    
+    continue_iter: str = None,
+    tomogram_path: str = None
     ): 
 
     # Create Pipeliner Project
@@ -82,53 +45,83 @@ def ctf_refine(
     utils.read_json_params_file(parameter_path)
     utils.read_json_directories_file('output_directories.json')
 
+    # If a Path for Refined Tomograms is Provided, Assign it  
+    if tomogram_path is not None:
+        utils.set_new_tomograms_star_file(tomogram_path)
+
     # Print Input Parameters
-    utils.print_pipeline_parameters('CTF_Refine', Parameter_Path=parameter_path,Particles_Path=particles_path,
-                                    Mask_path=mask_path, Half_map_path=half_map_path, post_process_path=post_process_path,
-                                    defocus_search_range=defocus_search_range, defocus_lambda=defocus_lambda, 
-                                    do_scale_per_frame=do_scale_per_frame)    
+    utils.print_pipeline_parameters('Refine3D', Parameter_Path=parameter_path,Particles_Path=particles_path,
+                                    Mask_path=mask_path, low_pass_filter=low_pass)    
 
     # Update the Resolution with Given Binning Factor
     particlesdata = starfile.read(particles_path)
     currentBinning = int(particlesdata['optics']['rlnTomoSubtomogramBinning'].values[0])
-    binIndex = utils.binningList.index(currentBinning) 
+    binIndex = utils.binningList.index(currentBinning)    
 
-    # Initialize Box Size Option
-    utils.initialize_ctf_refine()
+    # Do I want to Scale My Classification Sampling Based on Resolution?
+    utils.initialize_pseudo_tomos()
+    utils.initialize_auto_refine()
+    utils.update_resolution(binIndex)     
 
-    # Provide Input Paths
-    utils.ctf_refine_job.joboptions['in_particles'].value = particles_path
-    utils.ctf_refine_job.joboptions['fn_mask'].value = mask_path
-    utils.ctf_refine_job.joboptions['fn_half_map'].value = half_map_path
-    utils.ctf_refine_job.joboptions['fn_postprocess'].value = post_process_path
+    # Primary 3D Refinement Job and Update Input Parameters
+    utils.tomo_refine3D_job.joboptions['fn_img'].value = particles_path
+    utils.tomo_refine3D_job.joboptions['fn_ref'].value = reference_path
 
-    # Update the Box Size Based On Reference
-    utils.ctf_refine_job.joboptions['boxsize'].value = mrcfile.read(mask_path).shape[0]
+    # If Mask Path is Not Provided, Query the Last Ran Mask
+    if mask_path is not None: 
+        utils.tomo_refine3D_job.joboptions['fn_mask'].value = mask_path
+    # else:
+    #     utils.initialize_mask_create()
+    #     utils.tomo_refine3D_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc' 
 
-    # Provide Additional Processing Parameters
-    utils.ctf_refine_job.joboptions['defocus_search_range'].value = defocus_search_range
-    utils.ctf_refine_job.joboptions['lambda'].value = defocus_lambda
-    utils.ctf_refine_job.joboptions['do_scale_per_frame'].value = do_scale_per_frame    
-    utils.ctf_refine_job.joboptions['mpi_command'].value = 'mpirun'
+    # import pdb; pdb.set_trace()
 
-    utils.run_ctf_refine(rerunCtfRefine = True)
+    # Is the Reference Map Created by Relion?
+    utils.tomo_refine3D_job.joboptions['ref_correct_greyscale'].value = ref_correct_greyscale
 
-# Bayesian Polish 
-# @cli.command(context_settings={"show_default": True})
-# @click.option(
-#     "--parameter-path",
-#     type=str,
-#     required=True,
-#     default="sta_parameters.json",
-#     help="Sub-Tomogram Refinement Parameter Path",
-# )
-# def bayesian_polish(
-#     parameter_path: str,
-#     particles_path: str, 
-#     mask_path: str, 
-#     half_map_path: str, 
-#     post_process_job: str, 
-#     defocus_search_range: float,
-#     defocus_lambda: float,
-#     do_scale_per_frame: bool = False
-#     ): 
+    # If this is a continue job, specify the provided path. 
+    if continue_iter is not None:
+        utils.tomo_refine3D_job.joboptions['fn_cont'].value = continue_iter
+
+    # Low Pass Filter
+    utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass
+
+    # Run 3D-Refinement
+    utils.run_auto_refine(rerunRefine=True)
+
+@refine3d_options
+def refine3d_slurm(
+    parameter_path: str,
+    particles_path: str, 
+    reference_path: str,
+    mask_path: str,
+    low_pass: float,
+    ref_correct_greyscale: bool,    
+    continue_iter: str,
+    tomogram_path: str
+):
+
+    # Create Refine3D Command
+    command = f"""
+routines refine3d \\
+    --parameter-path {parameter_path} \\
+    --particles-path {particles_path} \\
+    --reference-path {reference_path} \\
+    --low-pass {low_pass} \\
+    --ref-correct-greyscale {ref_correct_greyscale} \\
+    --continue-iter {continue_iter} \\
+    --tomogram-path {tomogram_path}
+    """
+
+    if mask_path is not None:
+        command += f" --mask-path {mask_path}"
+
+    # Create Slurm Submit Script
+    create_shellsubmit(
+        job_name="refine3d",
+        output_file="refine3d.out",
+        shell_name="refine3d.sh",
+        command=command,
+        num_gpus=1,
+        gpu_constraint="H100"
+    )

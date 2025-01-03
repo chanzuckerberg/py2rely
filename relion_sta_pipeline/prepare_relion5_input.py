@@ -16,7 +16,7 @@ def cli(ctx):
     "--base-project",
     type=str,
     required=False,
-    default = "krios1.processing",
+    default = "/hpc/projects/group.czii/krios1.processing/aretomo3",
     help="Main Project Folder Name"
 )
 @click.option(
@@ -102,10 +102,9 @@ def import_tilt_series(
                                     output = output, pixel_size = pixel_size, total_dose = total_dose, 
                                     voltage = voltage, spherical_aberration = spherical_aberration,
                                     amplitude_contrast = amplitude_contrast, header = tiltSeriesHeader, 
-                                    file_name='input/import.json')                               
+                                    file_name='import.json')                               
     
-    # inputPath = os.path.join( '/hpc/projects/group.czii', base_project, 'aretomo3', session, run, '*_CTF.txt')
-    inputPath = os.path.join( '/hpc/projects/group.czii', base_project, session, run, '*_CTF.txt')
+    inputPath = os.path.join( base_project, session, run, '*_CTF.txt')
     
     print(f'Searching for Data from the Following Search Path: {inputPath}')
     tiltSeries = np.array(glob.glob(inputPath), dtype=str)
@@ -383,7 +382,7 @@ def import_particles(
     utils.print_pipeline_parameters('Importing Particles', input = input, output = output, 
                                     x = x, y = y, z = z, pixel_size = pixel_size, voltage = voltage, 
                                     spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast,
-                                    header = f'particles', file_name=f'input/import.json')                               
+                                    header = f'particles', file_name=f'import.json')                               
 
     # Read the input STAR file into a DataFrame
     inputDF = starfile.read(input)
@@ -553,7 +552,7 @@ def gather_copick_particles(
     # Determine Which Write Path Based On Copick Query
     if copick_session_id is not None and copick_user_id is not None:
         fname = f'{copick_user_id}_{copick_session_id}_{copick_name}'
-    elif copick_session_id is not None:
+    elif copick_user_id is not None:
         fname = f'{copick_user_id}_{copick_name}'
     else: # Assume copick_user_id is not None
         fname = f'{copick_session_id}_{copick_name}'

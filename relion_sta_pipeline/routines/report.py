@@ -1,5 +1,5 @@
 from pipeliner.api.manage_project import PipelinerProject
-from relion_sta_pipeline.utils import relion5_tools
+from relion_sta_pipeline.utils import sta_tools
 import click
 
 @click.group()
@@ -28,8 +28,8 @@ def binnings(
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
-    utils = relion5_tools.Relion5Pipeline(my_project)
+    utils = sta_tools.PipelineHelper(my_project, requireRelion=False)
     utils.read_json_params_file(parameter_path)
 
-    # Print Input Parameters
-    utils.print_pipeline_parameters('Binning',Parameter_Path=parameter_path)    
+    # # Print Input Parameters
+    # utils.print_pipeline_parameters('Binning',Parameter_Path=parameter_path)    
