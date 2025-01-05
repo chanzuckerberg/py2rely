@@ -56,8 +56,7 @@ class Relion5Pipeline(PipelineHelper):
         self.pseudo_subtomo_job = self.parse_params(self.pseudo_subtomo_job,'pseudo_subtomo')
         
         self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning
-        self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)        
-        # self.pseudo_subtomo_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms'] 
+        self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)
 
         # Apply Output Directories from Previous Job       
         try: self.pseudo_subtomo_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/pseudo_subtomo') 
@@ -77,7 +76,7 @@ class Relion5Pipeline(PipelineHelper):
         """        
         self.initial_model_job = tomo_initialmodel_job.RelionTomoInimodelJob()
         self.initial_model_job = self.parse_params(self.initial_model_job,'initial_model')
-        self.initial_model_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'         
+        self.initial_model_job.joboptions['in_particles'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'
 
     def run_initial_model(self):
         """

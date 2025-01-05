@@ -1,3 +1,4 @@
+import relion_sta_pipeline.routines.submit_slurm as my_slurm 
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import pipeliner.job_manager as job_manager
@@ -11,26 +12,26 @@ def cli(ctx):
 def class3d_options(func):
     """Decorator to add shared options for class3d commands."""
     options = [
-        @click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",
-                      help="Sub-Tomogram Refinement Parameter Path",)
-        @click.option("--particles-path",type=str,required=True,
-                      help="Path to Particles")
-        @click.option("--reference-path",type=str,required=True,
-                      help="Path to Reference for Classification")
-        @click.option("--mask-path",type=str,required=False,default=None,
-                      help="Path of Mask for Classification")
-        @click.option("--ini-high",type=float,required=False,default=None,
-                      help="Low-Pass Filter to Apply to Model")
-        @click.option("--tau-fudge",type=float,required=False,default=3,
-                      help="Tau Regularization Parameter for Classification")
-        @click.option("--nr-classes",type=int,required=False,default=3,
-                      help="Number of Classes for Classificaiton")
-        @click.option("--nr-iter",type=int,required=False,default=None,
-                      help="Number of Iterations")
-        @click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
-                      help="Reference Map is on Absolute Greyscale?")
-        @click.option("--tomogram-path",type=str,required=False,default=None,
-                      help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)")
+        click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",
+                      help="Sub-Tomogram Refinement Parameter Path",),
+        click.option("--particles-path",type=str,required=True,
+                      help="Path to Particles"),
+        click.option("--reference-path",type=str,required=True,
+                      help="Path to Reference for Classification"),
+        click.option("--mask-path",type=str,required=False,default=None,
+                      help="(Optional) Path of Mask for Classification"),
+        click.option("--ini-high",type=float,required=False,default=None,
+                      help="Low-Pass Filter to Apply to Model"),
+        click.option("--tau-fudge",type=float,required=False,default=3,
+                      help="Tau Regularization Parameter for Classification"),
+        click.option("--nr-classes",type=int,required=False,default=3,
+                      help="Number of Classes for Classificaiton"),
+        click.option("--nr-iter",type=int,required=False,default=None,
+                      help="Number of Iterations"),
+        click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
+                      help="Reference Map is on Absolute Greyscale?"),
+        click.option("--tomogram-path",type=str,required=False,default=None,
+                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)")
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
@@ -106,8 +107,9 @@ def class3d(
     # Run
     utils.run_tomo_class3D(rerunClassify=True)
 
+@cli.command(context_settings={"show_default": True})
 @class3d_options
-def class3d_submit(
+def class3d_slurm(
     parameter_path: str, 
     particles_path: str, 
     reference_path: str, 
@@ -126,17 +128,17 @@ routines class3d \\
     --particles-path {particles_path} \\
     --reference-path {reference_path} \\
     --ref-correct-greyscale {ref_correct_greyscale} \\
-    --tomogram-path {tomogram_path}
+    --tau-fudge {tau_fudge} 
     """
+
+    if tomogram_path is not None:
+        command += f" --tomogram-path {tomogram_path}"
 
     if mask_path is not None:
         command += f" --mask-path {mask_path}"
     
     if ini_high is not None:
         command += f" --ini-high {ini_high}"
-
-    if tau_fudge is not None:
-        command += f" --tau-fudge {tau_fudge}"
 
     if nr_classes is not None:
         command += f" --nr-classes {nr_classes}"
@@ -145,7 +147,7 @@ routines class3d \\
         command += f" --nr-iter {nr_iter}"
 
     # Create Slurm Submit Script
-    create_shellsubmit(
+    my_slurm.create_shellsubmit(
         job_name="class3d",
         output_file="class3d.out",
         shell_name="class3d.sh",

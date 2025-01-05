@@ -1,4 +1,4 @@
-from relion_sta_pipeline.routines.submit_slurm import create_shellsubmit
+import relion_sta_pipeline.routines.submit_slurm as my_slurm 
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import pipeliner.job_manager as job_manager
@@ -12,14 +12,22 @@ def cli(ctx):
 def refine3d_options(func):
     """Decorator to add shared options for refine3d commands."""
     options = [
-        @click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",help="Sub-Tomogram Refinement Parameter Path",)
-        @click.option("--particles-path",type=str,required=True,default="Refine3D/job001/run_data.star",help="Path to Particles File to Reconstruct Data")
-        @click.option("--reference-path",type=str,required=True,default="Refine3D/job001/class001.mrc",help="Path to Reference MRC for Refinement")
-        @click.option("--mask-path",type=str,required=False,default=None,help="Path for Unique Mask for Measuring the Map Resolution, If Not Specified will Use Previous Mask from Pipeline")
-        @click.option("--low-pass",type=str,required=False,default=15,help="User Input Low Pass Filter")
-        @click.option("--ref-correct-greyscale",type=bool,required=False, default=True,help="Reference Map is on Absolute Greyscale?")
-        @click.option("--continue-iter",type=str,required=False,default=None,help="Continue from this iteration (e.g., Refine3D/job009/run_it005_)")
-        @click.option("--tomogram-path",type=str, required=False,default=None,help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" )
+        click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",
+                      help="Sub-Tomogram Refinement Parameter Path",),
+        click.option("--particles-path",type=str,required=True,default="Refine3D/job001/run_data.star",
+                      help="Path to Particles File to Reconstruct Data"),
+        click.option("--reference-path",type=str,required=True,default="Refine3D/job001/class001.mrc",
+                      help="Path to Reference MRC for Refinement"),
+        click.option("--mask-path",type=str,required=False,default=None,
+                      help="(Optional) Path for Unique Mask for Measuring the Map Resolution, If Not Specified will Use Previous Mask from Pipeline"),
+        click.option("--low-pass",type=str,required=False,default=15,
+                      help="User Input Low Pass Filter"),
+        click.option("--ref-correct-greyscale",type=bool,required=False, default=True,
+                      help="Reference Map is on Absolute Greyscale?"),
+        click.option("--continue-iter",type=str,required=False,default=None,
+                      help="Continue from this iteration (e.g., Refine3D/job009/run_it005_)"),
+        click.option("--tomogram-path",type=str, required=False,default=None,
+                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" )
     ]  
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
@@ -74,8 +82,6 @@ def refine3d(
     #     utils.initialize_mask_create()
     #     utils.tomo_refine3D_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc' 
 
-    # import pdb; pdb.set_trace()
-
     # Is the Reference Map Created by Relion?
     utils.tomo_refine3D_job.joboptions['ref_correct_greyscale'].value = ref_correct_greyscale
 
@@ -89,7 +95,9 @@ def refine3d(
     # Run 3D-Refinement
     utils.run_auto_refine(rerunRefine=True)
 
+@cli.command(context_settings={"show_default": True})
 @refine3d_options
+@my_slurm.add_compute_options
 def refine3d_slurm(
     parameter_path: str,
     particles_path: str, 
@@ -98,8 +106,10 @@ def refine3d_slurm(
     low_pass: float,
     ref_correct_greyscale: bool,    
     continue_iter: str,
-    tomogram_path: str
-):
+    tomogram_path: str,
+    num_gpus: int,
+    gpu_constraint: str
+    ):
 
     # Create Refine3D Command
     command = f"""
@@ -117,11 +127,11 @@ routines refine3d \\
         command += f" --mask-path {mask_path}"
 
     # Create Slurm Submit Script
-    create_shellsubmit(
+    my_slurm.create_shellsubmit(
         job_name="refine3d",
         output_file="refine3d.out",
         shell_name="refine3d.sh",
         command=command,
-        num_gpus=1,
-        gpu_constraint="H100"
+        num_gpus=num_gpus,
+        gpu_constraint=gpu_constraint
     )

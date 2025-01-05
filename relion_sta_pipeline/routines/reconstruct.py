@@ -1,3 +1,4 @@
+import relion_sta_pipeline.routines.submit_slurm as my_slurm 
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import pipeliner.job_manager as job_manager
@@ -8,62 +9,31 @@ import json, click, starfile, os, mrcfile
 def cli(ctx):
     pass
 
+def add_masking_options(func):
+    options = [
+        click.option("--mask-path", type=str, required=False, default=None, 
+                    help="(Optional) Path for Mask to Measure the Map Resolution. If none provide, a new mask will be created."),
+        click.option("--low-pass", type=str, required=False, default=15, 
+                     help="User Input Low Pass Filter"),
+        click.option("--extend", type=int, required=False, default=None, 
+                     help="The initial binary mask is extended this number of pixels in all directions."),
+        click.option("--soft-edge", type=int, required=False, default=None, 
+                     help="Add a soft-edge of this many pixels."),
+        click.option("--tomogram-path", type=str, required=False, default=None, 
+                     help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)") 
+    ]
+    for option in reversed(options):
+        func = option(func)
+    return func
+
 @cli.command(context_settings={"show_default": True})
-@click.option(
-    "--parameter-path",
-    type=str,
-    required=True,
-    default="sta_parameters.json",
-    help="Sub-Tomogram Refinement Parameter Path",
-)
-@click.option(
-    "--particles-path",
-    type=str,
-    required=True,
-    help="Path to Particles File to Reconstruct Data (e.g., Refine3D/job001/run_data.star)"
-)
-@click.option(
-    "--bin-factor",
-    type=int,
-    required=False,
-    default=1,
-    help="Bin Factor to Determine At Which Resolution to Reconstruct Averaged Map"
-)
-@click.option(
-    "--mask-path",
-    type=str,
-    required=False,
-    default=None,
-    help="Path for Unique Mask for Measuring the Map Resolution"
-)
-@click.option(
-    "--low-pass",
-    type=str,
-    required=False,
-    default=15,
-    help="User Input Low Pass Filter"
-)
-@click.option(
-    "--extend",
-    type=int,
-    required=False,
-    default=None,
-    help="The initial binary mask is extended this number of pixels in all directions."
-)
-@click.option(
-    "--soft-edge",
-    type=int,
-    required=False,
-    default=None,
-    help="Add a soft-edge of this many pixels."
-)
-@click.option(
-    "--tomogram-path",
-    type=str, 
-    required=False,
-    default=None,
-    help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" 
-)
+@click.option("--parameter-path", type=str, required=True, default="sta_parameters.json", 
+              help="Sub-Tomogram Refinement Parameter Path")
+@click.option("--particles-path", type=str, required=True, 
+              help="Path to Particles File to Reconstruct Data (e.g., Refine3D/job001/run_data.star)")
+@click.option("--bin-factor", type=int, required=False, default=1, 
+              help="Bin Factor to Determine At Which Resolution to Reconstruct Averaged Map")
+@add_masking_options
 def reconstruct_particle(
     parameter_path: str,
     particles_path: str, 
@@ -108,57 +78,62 @@ def reconstruct_particle(
     create_mask_and_post_process(parameter_path, utils.reconstruct_particle_job.output_dir, 
                                  mask_path, low_pass, extend, soft_edge, tomogram_path)
 
+
+
+@cli.command(context_settings={"show_default": True})
+@click.option("--parameter-path", type=str, required=True, default="sta_parameters.json", 
+              help="Sub-Tomogram Refinement Parameter Path")
+@click.option("--particles-path", type=str, required=True, 
+              help="Path to Particles File to Reconstruct Data (e.g., Refine3D/job001/run_data.star)")
+@click.option("--bin-factor", type=int, required=False, default=1, 
+              help="Bin Factor to Determine At Which Resolution to Reconstruct Averaged Map")
+@add_masking_options
+def reconstruct_particle_slurm(
+    parameter_path: str,
+    particles_path: str, 
+    bin_factor: int, 
+    mask_path: str = None,
+    low_pass: float = None,
+    extend: int = None, 
+    soft_edge: int = None,
+    tomogram_path: str = None
+    ):
+
+    # Create Reconstruct Particle Command
+    command = f"""
+    routines reconstruct-particle \\
+        --parameter-path {parameter_path} \\
+        --particles-path {particles_path} \\
+        --bin-factor {bin_factor} --low-pass {low_pass} \\
+    """
+
+    if mask_path is not None:
+        command += f" --mask-path {mask_path}"
+
+    if extend is not None:
+        command += f" --extend {extend}"
+
+    if soft_edge is not None:
+        command += f" --soft-edge {soft_edge}"
+
+    if tomogram_path is not None:
+        command += f" --tomogram-path {tomogram_path}"
+
+    # Create Slurm Submit Script
+    my_slurm.create_shellsubmit(
+        job_name="reconstruct-particle",
+        output_file="reconstruct-particle.out",
+        shell_name="reconstruct-particle.sh",
+        command=command,
+        num_gpus=0
+    )
+
+
 # Mask Create + Post-Process
 @cli.command(context_settings={"show_default": True})
-@click.option(
-    "--parameter-path",
-    type=str,
-    required=True,
-    default="sta_parameters.json",
-    help="Sub-Tomogram Refinement Parameter Path",
-)
-@click.option(
-    "--reconstruction-path",
-    type=str,
-    required=True,
-    default="sta_parameters.json",
-    help="Sub-Tomogram Refinement Parameter Path",
-)
-@click.option(
-    "--mask-path",
-    type=str,
-    required=False,
-    default=None,
-    help="Path for Unique Mask for Measuring the Map Resolution"
-)
-@click.option(
-    "--low-pass",
-    type=str,
-    required=False,
-    default=15,
-    help="User Input Low Pass Filter"
-)
-@click.option(
-    "--extend",
-    type=int,
-    required=False,
-    default=3,
-    help="The initial binary mask is extended this number of pixels in all directions."
-)
-@click.option(
-    "--soft-edge",
-    type=int,
-    required=False,
-    default=5,
-    help="Add a soft-edge of this many pixels."
-)
-@click.option(
-    "--tomogram-path",
-    type=str, 
-    required=False,
-    default=None,
-    help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" 
-)
+@click.option("--parameter-path", type=str, required=True, default="sta_parameters.json", 
+              help="Sub-Tomogram Refinement Parameter Path")
+@add_masking_options
 def mask_post_process(
     parameter_path: str,
     reconstruction_path: str, 

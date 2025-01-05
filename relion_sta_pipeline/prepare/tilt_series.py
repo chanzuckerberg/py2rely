@@ -83,7 +83,11 @@ def import_tilt_series(
     """
 
     # Set up output paths and directories
-    tiltSeriesHeader = output
+    # Entry to Save in `import.json`
+    tiltSeriesHeader = f'{session}_tiltSeries'
+    # Path to Output Without TiltSeries Sub-Folder
+    output_path = output
+    # Create TiltSeries Sub-Folder
     output = os.path.join(output,'tiltSeries')
     os.makedirs(output, exist_ok=True)
 
@@ -93,7 +97,7 @@ def import_tilt_series(
                                     output = output, pixel_size = pixel_size, total_dose = total_dose, 
                                     voltage = voltage, spherical_aberration = spherical_aberration,
                                     amplitude_contrast = amplitude_contrast, header = tiltSeriesHeader, 
-                                    file_name=os.path.join(tiltSeriesHeader,'import.json'))
+                                    file_name=os.path.join(output_path,'import.json'))
 
     # Locate all CTF parameter files in the project directory
     inputPath = os.path.join( base_project, session, run, '*_CTF.txt')

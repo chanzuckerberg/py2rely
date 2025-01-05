@@ -1,7 +1,8 @@
-from relion_sta_pipeline.routines.class3d import class3d
-from relion_sta_pipeline.routines.refine import refine3d
+from relion_sta_pipeline.routines.class3d import class3d, class3d_slurm
+from relion_sta_pipeline.routines.refine import refine3d, refine3d_slurm
 from relion_sta_pipeline.routines.reconstruct import (
-    reconstruct_particle, mask_post_process, create_mask_and_post_process
+    reconstruct_particle, reconstruct_particle_slurm, 
+    mask_post_process, create_mask_and_post_process
 )
 import click
 
@@ -12,12 +13,12 @@ def routines():
 
 # Add subcommands to the group
 routines.add_command(class3d)
+routines.add_command(class3d_slurm)
 routines.add_command(refine3d)
+routines.add_command(refine3d_slurm)
 routines.add_command(reconstruct_particle)
+routines.add_command(reconstruct_particle_slurm)
 routines.add_command(mask_post_process)
-routines.add_command(create_mask_and_post_process)
-routines.add_command(slurm_pipeline)
-routines.add_command(relion5_parameters)
 
 if __name__ == "__main__":
     routines()

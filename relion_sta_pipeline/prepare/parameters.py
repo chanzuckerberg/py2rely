@@ -5,7 +5,7 @@ class ResolutionParameters(BaseModel):
     angpix: float
     box_scaling: float
     binning_list: str
-
+    
 class ReconstructTomograms(BaseModel):
     tilt_series: str
     width: float
@@ -36,7 +36,7 @@ class InitialModel(BaseModel):
     nr_classes: int
     tau_fudge: float
     particle_diameter: float
-    point_group: str
+    sym_name: str
     do_run_C1: str
     nr_pool: int
     use_gpu: str
@@ -46,6 +46,7 @@ class InitialModel(BaseModel):
 class Reconstruct(BaseModel):
     in_tomograms: Optional[str] = None
     in_particles: Optional[str] = None
+    do_use_direct_entries: str
     crop_size: int
     point_group: str
     nr_threads: int
@@ -54,6 +55,7 @@ class Reconstruct(BaseModel):
 class PseudoSubtomo(BaseModel):
     in_tomograms: str
     in_particles: str
+    do_use_direct_entries: str
     crop_size: int
     do_float16: str
     do_output_2dstacks: Optional[str] = None

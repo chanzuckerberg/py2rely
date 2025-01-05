@@ -1,4 +1,6 @@
+import relion_sta_pipeline.routines.submit_slurm as my_slurm
 import relion_sta_pipeline.prepare.parameters as parameters
+from typing import List
 import json, click
 
 @click.group()
@@ -20,12 +22,13 @@ def cli(ctx):
               help="Protein Symmetry")
 @click.option("--protein-diameter",type=float,required=False,default=290,
               help="Protein Diameter")
-@click.option("--denovo-generation/--no-denovo-generation",type=bool,required=False,default=False,
+@click.option("--denovo-generation",type=bool,required=False,default=False,
               help="Create Template Parameters for Denovo Model Generation")
 @click.option("--box-scaling",type=float,required=False,default=2.0,
               help="Default Padding for Sub-Tomogram Averaging")
-@click.option("--binning-list",type=str,required=False,default="[4,2,1]",
-              help="List of Binning Factors to Process the Refinement Steps")
+@click.option("--binning-list", type=str, required=False, default="4,2,1",
+              callback=my_slurm.parse_int_list,
+              help="List of Binning Factors to Process the Refinement Steps (provided as a comma-separated list)")
 def relion5_parameters(
     write_path: str,
     input_tilt_series: str,
@@ -35,16 +38,17 @@ def relion5_parameters(
     protein_diameter: float,
     denovo_generation: bool,
     box_scaling: float,
-    binning_list: str
+    binning_list: List[int]
     ):
     """
     Generate a JSON file with the default parameters for the relion_sta_pipeline.
     """
+
     default_config = parameters.ProcessingConfigRelion5(
         resolutions=parameters.ResolutionParameters(
             angpix=tilt_series_pixel_size,
             box_scaling=box_scaling,
-            binning_list=binning_list
+            binning_list=str(binning_list)
         ),
         initial_model=parameters.InitialModel(
             in_tomograms=input_tilt_series,            
@@ -52,7 +56,7 @@ def relion5_parameters(
             nr_classes=1,
             tau_fudge=4,
             particle_diameter=protein_diameter,
-            point_group=symmetry,
+            sym_name=symmetry,
             do_run_C1="yes",
             nr_pool=16,
             use_gpu="yes",
@@ -62,6 +66,7 @@ def relion5_parameters(
         reconstruct=parameters.Reconstruct(
             in_tomograms=input_tilt_series,            
             in_particles= input_particles,
+            do_use_direct_entries="yes",
             do_from2d="yes",
             crop_size=-1,
             point_group=symmetry,
@@ -70,7 +75,8 @@ def relion5_parameters(
         ),
         pseudo_subtomo=parameters.PseudoSubtomo(
             in_tomograms=input_tilt_series,
-            in_particles=input_particles,            
+            in_particles=input_particles,  
+            do_use_direct_entries="yes",
             crop_size=-1,
             do_float16="yes",
             do_output_2dstacks="yes",            
@@ -141,12 +147,7 @@ def relion5_parameters(
     with open(write_path, "w") as f:
         json.dump(default_config.dict(), f, indent=4)
 
-    print(f'\nWrote Pipeline Parameters JSON File To: {write_path}\n')
-
-def validate_num_gpus(ctx, param, value):
-    if value is not None and (value < 1 or value > 4):
-        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
-    return value            
+    print(f'\nWrote Pipeline Parameters JSON File To: {write_path}\n')         
 
 @cli.command(context_settings={"show_default": True})
 @click.option("--parameter-path",type=str,required=True,default='sta_parameters.json',
@@ -157,15 +158,12 @@ def validate_num_gpus(ctx, param, value):
               help="Generate Initial Reconstruction with Denovo")
 @click.option("--run-class3D",type=bool,required=False,default=False, 
               help="Run 3D-Classification Job After Refinement")
-@click.option("--num-gpus",type=int,required=False,default=1,
-              help="Number of GPUs to Use")
-@click.option("--gpu-constraint",type=str,required=False,default=None,
-              help="GPU Constraint")
+@my_slurm.add_compute_options
 def relion5_pipeline(
     parameter_path: str,
     reference_template: str,
     run_denovo_generation: bool,
-    run_class3D: bool,
+    run_class3d: bool,
     num_gpus: int, 
     gpu_constraint: str):
     """
@@ -175,18 +173,20 @@ def relion5_pipeline(
     command = f"""
 run-relion5 \\
     --parameter-path {parameter_path} \\
-    --reference-template {reference_template} \\
-    --run-denovo-generation {run_denovo_generation} \\
-    --run-class3D {run_class3D}
+    --run-denovo-generation {run_denovo_generation} --run-class3D {run_class3d} \\
     """
+    # Only add reference template if it is provided
+    if reference_template is not None:
+        command += f"--reference-template {reference_template}"
     
-    create_shellsubmit(
+    my_slurm.create_shellsubmit(
         job_name='relion5',
-        output_file="pipeline.out",
+        output_file="relion5_pipeline.out",
         shell_name="pipeline.sh",
         command=command,
         num_gpus=num_gpus,
-        gpu_constraint=gpu_constraint
+        gpu_constraint=gpu_constraint,
+        total_time='24:00:00'
     )
 
 if __name__ == "__main__":

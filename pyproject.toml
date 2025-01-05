@@ -16,6 +16,9 @@ dependencies = [
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@tomo-pipeline"
 ]
 
+[project.optional-dependencies]
+pytom = ["pytom-match-pick @ git+https://github.com/SBC-Utrecht/pytom-match-pick@0.6.0"]
+
 [tool.hatch.metadata]
 allow-direct-references = true
 
@@ -27,12 +30,13 @@ readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.scripts]
-relion_sta_pipeline = "relion_sta_pipeline.main:cli"
+pyRelion = "relion_sta_pipeline.main:cli"
 create = "relion_sta_pipeline.generate_parameters:cli"
 prepare = "relion_sta_pipeline.prepare.cli:prepare"
-run-relion5 = "relion_sta_pipeline.relion5_pipeline:cli"
+run-relion5 = "relion_sta_pipeline.relion5_pipeline:sta_pipeline"
+process = "relion_sta_pipeline.routines.cli:routines"
 classes = "relion_sta_pipeline.routines.select:cli"
-process = "relion_sta_pipeline.routines.reconstruct:cli"
+export = "relion_sta_pipeline.routines.export:cli"
 report = "relion_sta_pipeline.routines.report:cli"
 
 [tool.hatch.version]

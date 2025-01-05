@@ -37,7 +37,7 @@ def import_particles(
         'Importing Particles', input = input, output = output, 
         x = x, y = y, z = z, pixel_size = pixel_size, voltage = voltage, 
         spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast,
-        header = f'particles', file_name=f'import.json'
+        header = f'particles', file_name=os.path.join(output,'import.json')
     )                               
 
     # Read the input STAR file into a DataFrame

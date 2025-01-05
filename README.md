@@ -4,7 +4,7 @@ Tools for Running Relion Refinements Through CLI
 ## Installation
 To create, first we need to generate a conda environment:
 
-`conda create --prefix=/path/to/pyRelion python=3.10` 
+`conda create --prefix=/path/to/pyRelion -c conda-forge gcc_linux-64 cupy python=3.10` 
 
 Once the environment is created, activate it:
 `conda activate /path/to/pyRelion`
