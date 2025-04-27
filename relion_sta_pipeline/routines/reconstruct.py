@@ -101,7 +101,7 @@ def reconstruct_particle_slurm(
 
     # Create Reconstruct Particle Command
     command = f"""
-    routines reconstruct-particle \\
+    process reconstruct-particle \\
         --parameter-path {parameter_path} \\
         --particles-path {particles_path} \\
         --bin-factor {bin_factor} --low-pass {low_pass} \\

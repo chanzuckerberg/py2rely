@@ -24,14 +24,16 @@ def class3d_options(func):
                       help="Low-Pass Filter to Apply to Model"),
         click.option("--tau-fudge",type=float,required=False,default=3,
                       help="Tau Regularization Parameter for Classification"),
-        click.option("--nr-classes",type=int,required=False,default=3,
-                      help="Number of Classes for Classificaiton"),
+        click.option( "--nr-classes", type=str, required=False, default='5',
+                    help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" ),
         click.option("--nr-iter",type=int,required=False,default=None,
                       help="Number of Iterations"),
         click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
-                      help="Reference Map is on Absolute Greyscale?"),
+                      help="Reference Map is on Absolute Greyscale? As in, was the reference map created by Relion?"),
         click.option("--tomogram-path",type=str,required=False,default=None,
-                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)")
+                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)"),
+        click.option("--align-particles", type=bool, required=False, default=False,
+                      help="(Optional) Align Particles to Reference, recommended to set as False if alignments already provided.")
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
@@ -49,7 +51,8 @@ def class3d(
     nr_classes: int,
     nr_iter: int,
     ref_correct_greyscale: bool,
-    tomogram_path: str
+    tomogram_path: str,
+    align_particles: bool
     ):   
 
     # Create Pipeliner Project
@@ -95,6 +98,14 @@ def class3d(
     # Is the Reference Map Created by Relion?
     utils.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = ref_correct_greyscale
 
+    # Align Particles to Reference? 
+    if align_particles:
+        utils.tomo_class3D_job.joboptions['dont_skip_align'].value = "yes"
+        utils.tomo_class3D_job.joboptions['allow_coarser'].value = "yes"
+        utils.tomo_class3D_job.joboptions['nr_iter'].value = 15
+        utils.tomo_class3D_job.joboptions['use_gpu'].value = "yes"
+        utils.tomo_class3D_job.joboptions['do_local_ang_searches'].value = "no"
+
     # Specify Particles and Reference MRC Volume
     utils.tomo_class3D_job.joboptions['fn_img'].value = particles_path
     utils.tomo_class3D_job.joboptions['fn_ref'].value = reference_path
@@ -102,7 +113,7 @@ def class3d(
     # Print Input Parameters
     utils.print_pipeline_parameters('Class 3D', Parameter_Path=parameter_path, Reference_Path=reference_path,
                                     Particles_path=particles_path, Mask_path=mask_path, tau_fudge=tau_fudge, 
-                                    nr_classes=nr_classes, nr_iter=nr_iter, ini_high=ini_high)     
+                                    nr_classes=nr_classes, nr_iter=nr_iter, ini_high=ini_high)
 
     # Run
     utils.run_tomo_class3D(rerunClassify=True)
@@ -119,16 +130,23 @@ def class3d_slurm(
     nr_classes: int, 
     nr_iter: int, 
     ref_correct_greyscale: bool, 
-    tomogram_path: str):
+    tomogram_path: str,
+    align_particles: bool):
+
+    # Determine Number of Classes Command
+    num_classes_command, job_array_flag = determine_nr_classes_command(nr_classes)
 
     # Create Class3D Command
     command = f"""
-routines class3d \\
+{num_classes_command}
+
+process class3d \\
     --parameter-path {parameter_path} \\
     --particles-path {particles_path} \\
     --reference-path {reference_path} \\
+    --nr-classes $NUM_CLASSES \\
     --ref-correct-greyscale {ref_correct_greyscale} \\
-    --tau-fudge {tau_fudge} 
+    --tau-fudge {tau_fudge} \\
     """
 
     if tomogram_path is not None:
@@ -140,11 +158,15 @@ routines class3d \\
     if ini_high is not None:
         command += f" --ini-high {ini_high}"
 
-    if nr_classes is not None:
-        command += f" --nr-classes {nr_classes}"
-
     if nr_iter is not None:
         command += f" --nr-iter {nr_iter}"
+
+    if align_particles:
+        command += f" --align-particles {align_particles}"
+        num_gpus = 2
+    else:
+        num_gpus = 0
+    gpu_type = 'a100'
 
     # Create Slurm Submit Script
     my_slurm.create_shellsubmit(
@@ -152,5 +174,33 @@ routines class3d \\
         output_file="class3d.out",
         shell_name="class3d.sh",
         command=command,
-        num_gpus=0
+        num_gpus=num_gpus,
+        gpu_constraint=gpu_type,
+        additional_commands=job_array_flag
     )
+
+def determine_nr_classes_command(nr_classes: str):
+    num_classes = nr_classes.split(',')
+    if len(num_classes) == 1:
+        num_classes = int(num_classes[0])
+        print(f'\nGenerated Number of Classes:\nNclass = {num_classes}')
+        num_classes_command = f"NUM_CLASSES={num_classes}"
+    elif len(num_classes) == 3:
+        class_min, class_max, class_step = map(int, num_classes)
+        num_classes = list(range(class_min, class_max + 1, class_step))
+        print(f'\nGenerated Number of Classes:\nNclass = {num_classes}')
+        num_classes_command = f"""# Define num_classes values in an array
+NUM_CLASSES_LIST=({" ".join(map(str, num_classes))})
+
+# Get the num_classes value for this job
+NUM_CLASSES=${{NUM_CLASSES_LIST[$SLURM_ARRAY_TASK_ID]}}"""
+    else:
+        raise click.BadParameter("Number of Classes must be provided as a single value or a range (min,max,interval)")
+
+    # Determine if Job Array Flag is Needed
+    if isinstance(num_classes, list) and len(num_classes) > 1:
+        job_array_flag = f"#SBATCH --array=0-{len(num_classes)-1}"
+    else:
+        job_array_flag = ""
+
+    return num_classes_command, job_array_flag

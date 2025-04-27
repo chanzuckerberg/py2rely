@@ -14,32 +14,23 @@ def cli(ctx):
 
 @cli.command(context_settings={"show_default": True})
 @click.option(
-    "--parameter-path",
-    type=str,
-    required=True,
+    "--parameter-path", type=str, required=True,
     default="sta_parameters.json",
     help="Sub-Tomogram Refinement Parameter Path",
 )
 @click.option(
-    "--class-job",
-    type=str,
-    required=True,
-    default="job001",
+    "--class-job", type=str, required=True, default="job001",
     help="Job that Classes will Be Extracted",
 )
 @click.option(
-    "--export-classes",
-    type=str,
-    required=True,
+    "--export-classes", type=str, required=True,
     help="Best 3D Classes for Sub-Sequent Refinement"
 )
 @click.option(
-    "--export-path",
-    type=str,
-    required=True,
+    "--export-path", type=str, required=True,
     help="Path to Export New Classes",
 )
-def starfile(
+def class3d_starfile(
     parameter_path: str, 
     class_job: str,     
     export_classes: str,
@@ -72,71 +63,44 @@ def starfile(
 
 @cli.command(context_settings={"show_default": True})
 @click.option(
-    "--particles-path",
-    type=str,
-    required=True,
-    default="sta_parameters.json",
-    help="Sub-Tomogram Refinement Parameter Path",
+    "--particles", type=str, required=True, default="particles.star",
+    help="Particles Starfile",
 )
 @click.option(
-    "--config-paths",
-    type=str,
-    required=True,
-    default="job001",
+    "--configs", type=str, required=True, default="config1.json,config2.json",
     help="Comma Separated List of Config Files to Export Particles Too",
 )
 @click.option(
-    "--sessions",
-    type=str,
-    required=True,
-    default="23dec25",
+    "--sessions", type=str, required=True, default="24aug07a,24jul29c",
     help="Comma Separated List of Sessions Associated with Particles",
 )
 @click.option(
-    "--particle-name",
-    type=str,
-    required=True,
-    default='ribosome',
+    "--particle-name", type=str, required=True, default='ribosome',
     help='Particle Name to Save Copick Query'
 )
 @click.option(
-    "--export-user-id",
-    type=str,
-    required=False,
-    default="relion",
+    "--export-user-id", type=str,required=False, default="relion",
     help="UserID to Export Picks"
 )
 @click.option(
-    "--export-session-id",
-    type=str,
-    required=False,
-    default="99",
+    "--export-session-id", type=str,required=False, default="99",
     help="SessionID to Export Picks"
 )
 @click.option(
-    "--dim-x",
-    type=int,
-    required=False,
-    default=4096,
+    "--dim-x", type=int, required=False, default=4096,
     help="Box size along the x-axis in the tomogram."
 )
 @click.option(
-    "--dim-y",
-    type=int,
-    required=False,
-    default=4096,
+    "--dim-y", type=int, required=False, default=4096,
     help="Box size along the y-axis in the tomogram."
 )
 @click.option(
-    "--dim-z",
-    type=int,
-    required=False,
-    default=1200,
+    "--dim-z", type=int, required=False, default=1200,
     help="Box size along the z-axis in the tomogram."
 )
-def copick(
-    particles_path: str, 
-    config_paths: str,
+def starfile_to_copick(
+    particles: str, 
+    configs: str,
     sessions: str,
     particle_name: str,
     export_user_id: str, 
@@ -150,11 +114,11 @@ def copick(
     """
 
     # Read Particles from StarFile
-    df = starfile.read(particles_path)
+    df = starfile.read(particles)
     pixel_size = df['optics']['rlnTomoTiltSeriesPixelSize'].iloc[0]
     particles = df['particles']
 
-    configs = config_paths.split(',')
+    configs = configs.split(',')
     sessions = sessions.split(',')    
 
     # Check Possible Export Sessions 

@@ -36,8 +36,9 @@ prepare = "relion_sta_pipeline.prepare.cli:prepare"
 run-relion5 = "relion_sta_pipeline.relion5_pipeline:sta_pipeline"
 process = "relion_sta_pipeline.routines.cli:routines"
 classes = "relion_sta_pipeline.routines.select:cli"
-export = "relion_sta_pipeline.routines.export:cli"
+extract = "relion_sta_pipeline.routines.export:cli"
 report = "relion_sta_pipeline.routines.report:cli"
+convert-star = "relion_sta_pipeline.utils.convert_ts_to_position:cli"
 
 [tool.hatch.version]
 source = "vcs"

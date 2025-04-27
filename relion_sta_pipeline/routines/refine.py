@@ -19,13 +19,13 @@ def refine3d_options(func):
         click.option("--reference-path",type=str,required=True,default="Refine3D/job001/class001.mrc",
                       help="Path to Reference MRC for Refinement"),
         click.option("--mask-path",type=str,required=False,default=None,
-                      help="(Optional) Path for Unique Mask for Measuring the Map Resolution, If Not Specified will Use Previous Mask from Pipeline"),
-        click.option("--low-pass",type=str,required=False,default=15,
+                      help="(Optional) Path for Mask."),
+        click.option("--low-pass",type=float,required=False,default=15,
                       help="User Input Low Pass Filter"),
         click.option("--ref-correct-greyscale",type=bool,required=False, default=True,
                       help="Reference Map is on Absolute Greyscale?"),
         click.option("--continue-iter",type=str,required=False,default=None,
-                      help="Continue from this iteration (e.g., Refine3D/job009/run_it005_)"),
+                      help="(Optional) Continue from this iteration? (e.g., Refine3D/job009/run_it008_optimiser.star)"),
         click.option("--tomogram-path",type=str, required=False,default=None,
                       help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" )
     ]  
@@ -41,6 +41,7 @@ def refine3d(
     particles_path: str, 
     reference_path: str,
     mask_path: str = None,
+    symmetry: str = None,
     low_pass: float = None,
     ref_correct_greyscale: bool = True,    
     continue_iter: str = None,
@@ -111,20 +112,25 @@ def refine3d_slurm(
     gpu_constraint: str
     ):
 
+    # If Low Pass Filter is Negative, Take Absolute Value
+    if low_pass < 0:
+        low_pass = abs(low_pass)
+
     # Create Refine3D Command
     command = f"""
-routines refine3d \\
+process refine3d \\
     --parameter-path {parameter_path} \\
     --particles-path {particles_path} \\
     --reference-path {reference_path} \\
-    --low-pass {low_pass} \\
-    --ref-correct-greyscale {ref_correct_greyscale} \\
-    --continue-iter {continue_iter} \\
-    --tomogram-path {tomogram_path}
+    --low-pass {low_pass} --ref-correct-greyscale {ref_correct_greyscale} \\
     """
 
     if mask_path is not None:
         command += f" --mask-path {mask_path}"
+    if tomogram_path is not None:
+        command += f" --tomogram-path {tomogram_path}"
+    if continue_iter is not None:
+        command += f" --continue-iter {continue_iter}"
 
     # Create Slurm Submit Script
     my_slurm.create_shellsubmit(

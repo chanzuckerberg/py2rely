@@ -1,7 +1,7 @@
 import relion_sta_pipeline.routines.submit_slurm as my_slurm
 import relion_sta_pipeline.prepare.parameters as parameters
 from typing import List
-import json, click
+import json, click, os
 
 @click.group()
 @click.pass_context
@@ -20,6 +20,8 @@ def cli(ctx):
               help="Pixel Size for the Tilt Series (in Angstroms)")
 @click.option("--symmetry",type=str,required=False,default="C1",
               help="Protein Symmetry")
+@click.option("--low-pass", type=float, required=False,default=50,
+              help="Low-Pass Filter for the Reference Template (in Angstroms)")
 @click.option("--protein-diameter",type=float,required=False,default=290,
               help="Protein Diameter")
 @click.option("--denovo-generation",type=bool,required=False,default=False,
@@ -35,6 +37,7 @@ def relion5_parameters(
     input_particles: str, 
     tilt_series_pixel_size: float,
     symmetry: str,
+    low_pass: float,
     protein_diameter: float,
     denovo_generation: bool,
     box_scaling: float,
@@ -64,7 +67,7 @@ def relion5_parameters(
             nr_threads=8
         ) if denovo_generation else None,
         reconstruct=parameters.Reconstruct(
-            in_tomograms=input_tilt_series,            
+            in_tomograms=input_tilt_series,
             in_particles= input_particles,
             do_use_direct_entries="yes",
             do_from2d="yes",
@@ -86,7 +89,7 @@ def relion5_parameters(
         refine3D=parameters.Refine3D(
             tomograms_star=input_tilt_series,            
             ref_correct_greyscale="yes",
-            ini_high=50,
+            ini_high=low_pass,
             sym_name=symmetry,
             do_ctf_correction= "yes",
             ctf_intact_first_peak= "no",
@@ -104,12 +107,12 @@ def relion5_parameters(
             gpu_ids= "",
             nr_threads= 8,
             mpi_command="mpirun",
-            other_args="--maxsig 3000"
+            other_args="" # --maxsig 3000
         ),
         class3D=parameters.Class3D(
             tomograms_star=input_tilt_series,            
             ref_correct_greyscale="yes",
-            ini_high=30,
+            ini_high=int(low_pass/2),
             sym_name=symmetry,
             do_ctf_correction= "yes",
             ctf_intact_first_peak= "no",
@@ -158,6 +161,8 @@ def relion5_parameters(
               help="Generate Initial Reconstruction with Denovo")
 @click.option("--run-class3D",type=bool,required=False,default=False, 
               help="Run 3D-Classification Job After Refinement")
+@click.option("--new-pipeline", type=bool, required=False, default=True,
+              help="Create a new pipeline trajectory")
 @my_slurm.add_compute_options
 def relion5_pipeline(
     parameter_path: str,
@@ -165,11 +170,21 @@ def relion5_pipeline(
     run_denovo_generation: bool,
     run_class3d: bool,
     num_gpus: int, 
-    gpu_constraint: str):
+    gpu_constraint: str, 
+    new_pipeline: bool
+    ):
     """
     Prepare pyRelion pipeline for submission.
     """
-    
+
+    # Delete Existing Output Directories for a fresh new pipeline run
+    if new_pipeline and os.path.exists('output_directories.json'):
+        print('\nDeleting Existing Output Directories for a fresh new pipeline run')
+        os.remove('output_directories.json')
+    if new_pipeline and os.path.exists('output_directories_history.json'):
+        print('Deleting Existing Output Directories-History for a fresh new pipeline run')
+        os.remove('output_directories_history.json')
+
     command = f"""
 run-relion5 \\
     --parameter-path {parameter_path} \\

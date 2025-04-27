@@ -392,13 +392,13 @@ class PipelineHelper:
         """
 
         # Estimate Angular Sampling
-        resolution = self.binning * self.params['resolutions']['angpix'] * 4
+        resolution = self.binning * self.params['resolutions']['angpix'] * 2
         radians = np.arctan(resolution / self.params['refine3D']['particle_diameter'])
         degrees = np.degrees(radians)
 
         # Find the smallest sampling angle that rounds up to or is greater than the computed degrees
         rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees])
-        local_rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees/4])
+        local_rounded_angle = min([angle for angle in self.sampling_degrees if angle >= degrees])
 
         # We Only Keep Float for 15 or 30 degree search increment
         if rounded_angle > 10:

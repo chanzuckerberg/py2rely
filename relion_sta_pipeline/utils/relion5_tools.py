@@ -306,6 +306,11 @@ class Relion5Pipeline(PipelineHelper):
             print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
             print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
 
+        # Update Healpix Order for Refinement when Binning is 2
+        # if self.binning == 2:
+            # self.tomo_refine3D_job.joboptions['healpix_order'].value = 3
+            # self.tomo_refine3D_job.joboptions['auto_local_healpix_order'].value = 5
+
         if self.tomo_class3D_job is not None: 
             self.get_new_sampling(self.tomo_class3D_job, update_local=False)
 

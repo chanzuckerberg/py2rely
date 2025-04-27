@@ -19,7 +19,7 @@ def select_options(func):
                     help="List of Classes to Keep for Further Refinement"),
         click.option("--class-job",type=str,required=True,default="job001",
                     help="Job that Classes will Be Extracted"),
-        click.option("--run-refinement",type=bool,required=False,default=True,
+        click.option("--run-refinement",type=click.BOOL,required=False,default=True,
                     help="Run 3D-Refinement After Selecting Best Classes"),
         click.option("--mask-path", type=str,required=False,default=None,
                     help="(Optional) Path to Mask for 3D-Refinement")
@@ -73,6 +73,8 @@ def select(
     utils.tomo_select_job.joboptions['select_maxval'].value = best_class
     utils.run_subset_select(keepClasses=keep_classes, rerunSelect = True)
 
+    print('[Class Select] Particles Saved to: ', utils.tomo_select_job.output_dir + 'particles.star')
+
     # 3D Refinement Job and Update Input Parameters 
     if run_refinement:
 
@@ -107,11 +109,11 @@ def select_slurm(
 
     # Create Refine3D Command
     command = f"""
-select_classes \\
+classes select \\
     --parameter-path {parameter_path} \\
     --class-job {class_job} \\
     --best-class {best_class} --keep-classes {keep_classes} \\
-    --run-refinement {run_refinement}
+    --run-refinement {run_refinement} \\
     """
 
     if mask_path is not None:

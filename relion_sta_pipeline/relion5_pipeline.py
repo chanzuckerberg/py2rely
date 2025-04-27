@@ -93,9 +93,10 @@ def sta_pipeline(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
-        utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
-        utils.run_auto_refine()
+        if utils.binning > 1:
+            utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+            utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
+            utils.run_auto_refine()
 
         #########################################################################################            
 
@@ -114,7 +115,7 @@ def sta_pipeline(
             # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
             utils.update_resolution(binFactor+1)
 
-            # Reconstruct Particle at New Binning and Create mask From That Resolution
+            # Reconstruct Particle at New Binning and Create mask From That Resolution 
             utils.reconstruct_particle_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'  
             utils.run_reconstruct_particle()    
             refine_reference = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
