@@ -227,6 +227,9 @@ class PipelineHelper:
             keepClasses (optional): List of classes to keep after classification.
         """        
 
+        # Set Timeout to XX hours
+        nHours = 72
+
         # Assume We Are Re-Running a Job if JobIter is not None
         if not self.check_if_job_already_completed(job,jobName) or jobIter:
 
@@ -237,7 +240,7 @@ class PipelineHelper:
             self.myProject.run_job(job)
 
             # Wait up to 24 hours for the job to finish
-            result = job_manager.wait_for_job_to_finish(job)
+            result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
 
             # Print Results
             print('[{}] Job Complete!'.format(jobTag))

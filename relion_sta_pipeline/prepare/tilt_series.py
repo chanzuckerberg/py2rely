@@ -1,5 +1,5 @@
 from relion_sta_pipeline.prepare.common import add_optics_options
-import os, glob, argparse, starfile, click, copick
+import os, glob, argparse, starfile, click, copick, io
 from scipy.spatial.transform import Rotation as R
 from relion_sta_pipeline.utils import sta_tools
 from typing import List
@@ -107,7 +107,25 @@ def import_tilt_series(
 
         # Read the AreTomo Alignment Parameters
         alnPath = os.path.join(tomoPath, tomoID + '.aln')
-        alnDF = pd.read_csv(alnPath, delimiter='\s+', comment='#', header=None, names=aln_column_names)
+
+        # Old Code
+        # alnDF = pd.read_csv(alnPath, delimiter='\s+', comment='#', header=None, names=aln_column_names)
+
+        #########################################################
+        # Read file until we hit the Local Alignment section
+        with open(alnPath, 'r') as f:
+            content = f.read()
+        
+        # Split at Local Alignment marker (If Provided)
+        before_local = content.split('# Local Alignment')[0]
+
+        # Parse with pandas, skipping comment lines
+        alnDF = pd.read_csv(io.StringIO(before_local), 
+                        comment='#',  # Skip lines starting with #
+                        sep='\s+',    # Whitespace separator
+                        names=aln_column_names)
+
+        #########################################################
 
         # Read Acqusition Order List
         orderListPath = os.path.join(tomoPath, tomoID + '_Imod', tomoID + '_order_list.csv')
@@ -147,40 +165,70 @@ def import_tilt_series(
             if not os.path.isfile(ctfImageName):
                 os.symlink(ctfImageNameAbs, ctfImageName)
 
-        tiltInd = 0
+        # tiltInd = 0
+        # nTilts = xfDF.shape[0]
+        # # while tiltInd < nTilts:
+
+        # #     # Assume if Rotation is Identity and No Translation that We're Excluding this Tilt
+        # #     if xfDF[tiltInd, 0] == 1 and xfDF[tiltInd, 2] == 0 and xfDF[tiltInd, 5] == 0:
+        # #         pass
+        # #     else:
+        # #         # Read Tilt from Full Tilt Series
+        # #         tiltSeriesName_id = f'{tiltInd + 1}@{tiltSeriesName}'
+        # #         tiltSeriesNames.append(tiltSeriesName_id)
+
+        # #         ctfImageName_id = f'{tiltInd + 1}@{ctfImageName}'
+        # #         ctfImageNames.append(ctfImageName_id)
+
+        # #         # Append Tilt Angle (Y-Tilt)
+        # #         tomoYtilt.append(alnDF['TILT'][tiltInd])
+
+        # #         # Option 1: Pull TX and TY from *.aln
+        # #         tomoXshift.append(alnDF['TX'][tiltInd] * pixel_size)
+        # #         tomoYshift.append(alnDF['TY'][tiltInd] * pixel_size)
+
+        # #         # Option 2: Pull TX and TY from *.xf
+        # #         # tomoXshift.append(xfDF[tiltInd,4] * pixel_size)
+        # #         # tomoYshift.append(xfDF[tiltInd,5] * pixel_size)
+
+        # #         defocusU.append(ctfText[tiltInd, 1])
+        # #         defocusV.append(ctfText[tiltInd, 2])
+        # #         defocusAngle.append(ctfText[tiltInd, 3])
+
+        # #         acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
+        # #         totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
+
+        # #     tiltInd += 1
+
+        # New Code
+        #########################################################
+
+        # Iterate Through the Alignment File
         nTilts = xfDF.shape[0]
-        while tiltInd < nTilts:
+        for tiltInd in range(len(alnDF)):
 
-            # Assume if Rotation is Identity and No Translation that We're Excluding this Tilt
-            if xfDF[tiltInd, 0] == 1 and xfDF[tiltInd, 2] == 0 and xfDF[tiltInd, 5] == 0:
-                pass
-            else:
-                # Read Tilt from Full Tilt Series
-                tiltSeriesName_id = f'{tiltInd + 1}@{tiltSeriesName}'
-                tiltSeriesNames.append(tiltSeriesName_id)
+            # Determine the Tilt Index from the Alignment File
+            ind = int(alnDF.iloc[tiltInd]['SEC'])
+            tiltSeriesName_id = f'{ind}@{tiltSeriesName}'
+            tiltSeriesNames.append(tiltSeriesName_id)
+            ctfImageName_id = f'{ind}@{ctfImageName}'
+            ctfImageNames.append(ctfImageName_id)
 
-                ctfImageName_id = f'{tiltInd + 1}@{ctfImageName}'
-                ctfImageNames.append(ctfImageName_id)
+            # Get the Tomogram Tilt Parameters from the Alignment File
+            tomoYtilt.append(alnDF['TILT'][tiltInd])
+            tomoXshift.append(alnDF['TX'][tiltInd] * pixel_size)
+            tomoYshift.append(alnDF['TY'][tiltInd] * pixel_size)
 
-                # Append Tilt Angle (Y-Tilt)
-                tomoYtilt.append(alnDF['TILT'][tiltInd])
+            # Get the Defocus Parameters from the CTF Text File
+            defocusU.append(ctfText[ind-1, 1])
+            defocusV.append(ctfText[ind-1, 2])
+            defocusAngle.append(ctfText[ind-1, 3])
 
-                # Option 1: Pull TX and TY from *.aln
-                tomoXshift.append(alnDF['TX'][tiltInd] * pixel_size)
-                tomoYshift.append(alnDF['TY'][tiltInd] * pixel_size)
+            # Get the Total Exposure from the Order List
+            acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
+            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
 
-                # Option 2: Pull TX and TY from *.xf
-                # tomoXshift.append(xfDF[tiltInd,4] * pixel_size)
-                # tomoYshift.append(xfDF[tiltInd,5] * pixel_size)
-
-                defocusU.append(ctfText[tiltInd, 1])
-                defocusV.append(ctfText[tiltInd, 2])
-                defocusAngle.append(ctfText[tiltInd, 3])
-
-                acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
-                totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
-
-            tiltInd += 1
+        #########################################################
 
         num_rows = len(tiltSeriesNames)
 

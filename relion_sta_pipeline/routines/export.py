@@ -9,10 +9,13 @@ import copick
 
 @click.group()
 @click.pass_context
-def cli(ctx):
+def export(ctx):
+    """
+    Export Coordinates from Relion5 to New Destination
+    """
     pass
 
-@cli.command(context_settings={"show_default": True})
+@export.command(context_settings={"show_default": True})
 @click.option(
     "--parameter-path", type=str, required=True,
     default="sta_parameters.json",
@@ -61,7 +64,7 @@ def class3d_starfile(
 
     # Create Symlink for tomograms and any other necessary data
 
-@cli.command(context_settings={"show_default": True})
+@export.command(context_settings={"show_default": True})
 @click.option(
     "--particles", type=str, required=True, default="particles.star",
     help="Particles Starfile",

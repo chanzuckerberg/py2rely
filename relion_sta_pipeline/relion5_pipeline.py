@@ -42,6 +42,9 @@ def sta_pipeline(
     run_denovo_generation: bool, 
     run_class3d: bool, 
     ):
+    """
+    Run the Sub-Tomogram Averaging Pipeline with Relion.
+    """
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

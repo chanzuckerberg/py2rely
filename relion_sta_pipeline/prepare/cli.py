@@ -17,7 +17,7 @@ import click
 
 @click.group()
 def prepare():
-    """Commands for preparing data in relion_sta_pipeline."""
+    """Commands for preparing/importing data from aretomo and copick."""
     pass
 
 # Add subcommands to the group

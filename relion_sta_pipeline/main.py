@@ -1,26 +1,26 @@
+from relion_sta_pipeline.prepare.cli import prepare
+from relion_sta_pipeline.relion5_pipeline import sta_pipeline 
+from relion_sta_pipeline.routines.cli import routines as subroutines
+from relion_sta_pipeline.routines.cli import routines_slurm as subroutines_slurm
+from relion_sta_pipeline.routines.export import export 
 import click
 
-@click.group(invoke_without_command=True)
-@click.pass_context
-def cli(ctx):
-    """Main entry point for the relion_sta_pipeline."""
-    if ctx.invoked_subcommand is None:
-        list_commands()
+@click.group()
+def routines():
+    " pyRelion - The Python Execution of Sub-Tomogram Refinement"
+    pass
 
-@cli.command()
-def list_commands():
-    """List all available CLI commands."""
-    commands = {
-        "create": "Generate parameters or shell submissions for the pipeline.",
-        "prepare_relion5": "Prepare input files for Relion5.",
-        "run_relion5": "Run the Relion5 pipeline.",
-        "classes": "Select classes for processing.",
-        "process": "Run individual Processes in the STA pipeline (e.g., Refine3D, Class3D, Reconstrut Particle)",
-        "report": "Generate reports from the pipeline.",
-    }
-    click.echo("Available commands:")
-    for cmd, desc in commands.items():
-        click.echo(f"  {cmd}: {desc}")
+routines.add_command(prepare)
+routines.add_command(sta_pipeline)
+routines.add_command(subroutines)
+routines.add_command(export)
+
+@click.group()
+def slurm_routines():
+    """Slurm CLI for pyRelion."""
+    pass
+
+slurm_routines.add_command(subroutines_slurm)
 
 if __name__ == "__main__":
     cli()
