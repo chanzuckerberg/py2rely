@@ -127,8 +127,8 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_refine3D_job = tomo_refine3D_job.TomoRelionRefine3D()
         self.tomo_refine3D_job = self.parse_params(self.tomo_refine3D_job,'refine3D')
 
-        # self.tomo_refine3D_job.joboptions['tomograms_star'].value = self.outputDirectories['reconstruct_tomograms']
-        self.tomo_refine3D_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'        
+        # Set Particles 
+        self.tomo_refine3D_job.joboptions['in_particles'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'
 
         # Apply Output Directories from Previous Job  
         try: self.tomo_refine3D_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/refine3D')

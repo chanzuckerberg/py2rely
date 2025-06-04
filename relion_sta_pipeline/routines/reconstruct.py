@@ -101,7 +101,7 @@ def reconstruct_particle_slurm(
 
     # Create Reconstruct Particle Command
     command = f"""
-    process reconstruct-particle \\
+    pyrelion routines reconstruct-particle \\
         --parameter-path {parameter_path} \\
         --particles-path {particles_path} \\
         --bin-factor {bin_factor} --low-pass {low_pass} \\

@@ -109,7 +109,7 @@ def select_slurm(
 
     # Create Refine3D Command
     command = f"""
-classes select \\
+pyrelion routines select \\
     --parameter-path {parameter_path} \\
     --class-job {class_job} \\
     --best-class {best_class} --keep-classes {keep_classes} \\

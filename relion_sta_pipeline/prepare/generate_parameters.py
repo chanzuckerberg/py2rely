@@ -55,6 +55,7 @@ def relion5_parameters(
         ),
         initial_model=parameters.InitialModel(
             in_tomograms=input_tilt_series,            
+            use_direct_entries="yes",
             nr_iter=70,
             nr_classes=1,
             tau_fudge=4,
@@ -87,7 +88,8 @@ def relion5_parameters(
             mpi_command="mpirun"
         ),
         refine3D=parameters.Refine3D(
-            tomograms_star=input_tilt_series,            
+            in_tomograms=input_tilt_series,   
+            use_direct_entries="yes",
             ref_correct_greyscale="yes",
             ini_high=low_pass,
             sym_name=symmetry,
@@ -110,7 +112,8 @@ def relion5_parameters(
             other_args="" # --maxsig 3000
         ),
         class3D=parameters.Class3D(
-            tomograms_star=input_tilt_series,            
+            in_tomograms=input_tilt_series,   
+            use_direct_entries="yes",
             ref_correct_greyscale="yes",
             ini_high=int(low_pass/2),
             sym_name=symmetry,
@@ -134,7 +137,7 @@ def relion5_parameters(
             gpu_ids= "",
             nr_threads= 8,
             mpi_command="mpirun",
-            prior_tiltang_width= 0
+            sigma_tilt= 0
         ),
         select=parameters.SelectParticles(
             do_select_values="yes",
@@ -186,7 +189,7 @@ def relion5_pipeline(
         os.remove('output_directories_history.json')
 
     command = f"""
-run-relion5 \\
+pyrelion sta-pipeline \\
     --parameter-path {parameter_path} \\
     --run-denovo-generation {run_denovo_generation} --run-class3D {run_class3d} \\
     """

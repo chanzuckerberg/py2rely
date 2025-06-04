@@ -32,6 +32,8 @@ class ImportCoordinates(BaseModel):
     do_flip_z: str
 
 class InitialModel(BaseModel):
+    in_tomograms: str
+    use_direct_entries: str
     nr_iter: int
     nr_classes: int
     tau_fudge: float
@@ -63,8 +65,9 @@ class PseudoSubtomo(BaseModel):
     mpi_command: str
 
 class Refine3D(BaseModel):
-    tomograms_star: str
+    in_tomograms: str
     ref_correct_greyscale: str
+    use_direct_entries: str
     ini_high: int
     sym_name: str
     do_ctf_correction: str
@@ -86,7 +89,8 @@ class Refine3D(BaseModel):
     other_args: str
 
 class Class3D(BaseModel):
-    tomograms_star: str
+    in_tomograms: str
+    use_direct_entries: str
     ref_correct_greyscale: str
     ini_high: int
     sym_name: str
@@ -109,7 +113,7 @@ class Class3D(BaseModel):
     gpu_ids: str
     nr_threads: int
     mpi_command: str
-    prior_tiltang_width: int
+    sigma_tilt: int
 
 class SelectParticles(BaseModel):
     do_select_values: str
@@ -119,6 +123,22 @@ class MaskCreate(BaseModel):
     lowpass_filter: int
     extend_inimask: int
     width_mask_edge: int
+
+class CtfRefine(BaseModel):
+    use_direct_entries: str
+    do_defocus: str
+    focus_range: float
+    do_reg_def: str
+    lambda: str
+    do_scale: str
+    do_frame_scale: str
+
+class BayesianPolish(BaseModel):
+    use_direct_entries: str
+    max_error: float
+    do_motion: str
+    sigma_vel: float
+    sigma_div: float
 
 class ProcessingConfigRelion4(BaseModel):
     resolutions: ResolutionParameters

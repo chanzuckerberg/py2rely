@@ -65,7 +65,7 @@ def extract_subtomo_slurm(
 
     # Create Class3D Command
     command = f"""
-process extract-subtomo \\
+pyrelion routines extract-subtomo \\
     --parameter-path {parameter_path} \\
     """
 

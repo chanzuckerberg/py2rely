@@ -140,7 +140,7 @@ def class3d_slurm(
     command = f"""
 {num_classes_command}
 
-process class3d \\
+pyrelion routines class3d \\
     --parameter-path {parameter_path} \\
     --particles-path {particles_path} \\
     --reference-path {reference_path} \\

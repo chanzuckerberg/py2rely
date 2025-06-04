@@ -118,7 +118,7 @@ def refine3d_slurm(
 
     # Create Refine3D Command
     command = f"""
-process refine3d \\
+pyrelion routines refine3d \\
     --parameter-path {parameter_path} \\
     --particles-path {particles_path} \\
     --reference-path {reference_path} \\

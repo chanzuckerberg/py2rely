@@ -89,7 +89,6 @@ def sta_pipeline(
     #############################################################################################        
 
     # Main Loop 
-    utils.initialize_reconstruct_particle()
     utils.initialize_mask_create()
     for binFactor in range(len(utils.binningList)):
 
