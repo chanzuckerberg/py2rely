@@ -1,7 +1,7 @@
-from relion_sta_pipeline.prepare.common import add_optics_options
+from pyrelion.prepare.common import add_optics_options
 import os, glob, argparse, starfile, click, copick, io
 from scipy.spatial.transform import Rotation as R
-from relion_sta_pipeline.utils import sta_tools
+from pyrelion.utils import sta_tools
 from typing import List
 from tqdm import tqdm
 import pandas as pd

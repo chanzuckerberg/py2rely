@@ -1,11 +1,11 @@
-from relion_sta_pipeline.routines.extract_subtomo import extract_subtomo, extract_subtomo_slurm
-from relion_sta_pipeline.routines.class3d import class3d, class3d_slurm
-from relion_sta_pipeline.routines.refine import refine3d, refine3d_slurm
-from relion_sta_pipeline.routines.reconstruct import (
+from pyrelion.routines.extract_subtomo import extract_subtomo, extract_subtomo_slurm
+from pyrelion.routines.reconstruct import (
     reconstruct_particle, reconstruct_particle_slurm, 
     mask_post_process, create_mask_and_post_process, post_process
 )
-from relion_sta_pipeline.routines.select import select, select_slurm
+from pyrelion.routines.refine import refine3d, refine3d_slurm
+from pyrelion.routines.class3d import class3d, class3d_slurm
+from pyrelion.routines.select import select, select_slurm
 import click
 
 @click.group()

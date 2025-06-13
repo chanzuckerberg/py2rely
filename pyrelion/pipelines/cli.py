@@ -1,5 +1,5 @@
-from relion_sta_pipeline.pipelines.bin1 import high_resolution_cli
-from relion_sta_pipeline.pipelines.sta import average
+from pyrelion.pipelines.bin1 import high_resolution_cli
+from pyrelion.pipelines.sta import average
 import click
 
 @click.group()

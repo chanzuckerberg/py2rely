@@ -1,7 +1,7 @@
-import relion_sta_pipeline.routines.submit_slurm as my_slurm 
 from pipeliner.api.manage_project import PipelinerProject
-from relion_sta_pipeline.utils import relion5_tools
+import pyrelion.routines.submit_slurm as my_slurm 
 import pipeliner.job_manager as job_manager
+from pyrelion.utils import relion5_tools
 import json, click, starfile
 
 @click.group()

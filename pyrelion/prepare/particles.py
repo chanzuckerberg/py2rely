@@ -1,7 +1,7 @@
 import os, glob, argparse, starfile, click, copick
 from scipy.spatial.transform import Rotation as R
-from relion_sta_pipeline.utils import sta_tools
-from relion_sta_pipeline.prepare import common
+from pyrelion.utils import sta_tools
+from pyrelion.prepare import common
 from typing import List
 from tqdm import tqdm
 import pandas as pd

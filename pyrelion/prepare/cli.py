@@ -1,15 +1,15 @@
-from relion_sta_pipeline.prepare.particles import (
+from pyrelion.prepare.particles import (
     import_particles,
     import_pytom_particles,
     gather_copick_particles,
     combine_star_files_particles,
 )
-from relion_sta_pipeline.prepare.tilt_series import (
+from pyrelion.prepare.tilt_series import (
     import_tilt_series,
     combine_star_files_tomograms,
     remove_unused_tomograms,
 )
-from relion_sta_pipeline.prepare.generate_parameters import (
+from pyrelion.prepare.generate_parameters import (
     relion5_parameters,
     relion5_pipeline,
 )

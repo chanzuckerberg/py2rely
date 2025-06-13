@@ -1,11 +1,10 @@
 from pipeliner.api.manage_project import PipelinerProject
-from relion_sta_pipeline.utils import relion5_tools
 from scipy.spatial.transform import Rotation as R
 import pipeliner.job_manager as job_manager
-import json, click, starfile, os
+from pyrelion.utils import relion5_tools
+import json, click, starfile, os, copick
 from tqdm import tqdm
 import numpy as np 
-import copick
 
 @click.group()
 @click.pass_context

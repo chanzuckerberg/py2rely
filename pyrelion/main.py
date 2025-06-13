@@ -1,9 +1,9 @@
-from relion_sta_pipeline.routines.cli import routines_slurm as subroutines_slurm
-from relion_sta_pipeline.routines.cli import routines as subroutines
-from relion_sta_pipeline.utils.converters import converters
-from relion_sta_pipeline.pipelines.cli import pipelines
-from relion_sta_pipeline.routines.export import export 
-from relion_sta_pipeline.prepare.cli import prepare
+from pyrelion.routines.cli import routines_slurm as subroutines_slurm
+from pyrelion.routines.cli import routines as subroutines
+from pyrelion.utils.converters import converters
+from pyrelion.pipelines.cli import pipelines
+from pyrelion.routines.export import export 
+from pyrelion.prepare.cli import prepare
 import click
 
 @click.group()

@@ -1,6 +1,6 @@
 from pipeliner.jobs.tomography.relion_tomo import tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_coords_import_job, tomo_refine3D_job, tomo_initialmodel_job
 from pipeliner.jobs.relion import class3D_job, select_job, maskcreate_job, postprocess_job
-from relion_sta_pipeline.utils.sta_tools import PipelineHelper
+from pyrelion.utils.sta_tools import PipelineHelper
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
 import subprocess, os

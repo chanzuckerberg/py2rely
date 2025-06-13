@@ -1,5 +1,5 @@
 from pipeliner.api.manage_project import PipelinerProject
-from relion_sta_pipeline.utils import sta_tools
+from pyrelion.utils import sta_tools
 import click
 
 @click.group()

@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "relion_sta_pipeline"
+name = "pyrelion"
 requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = [
@@ -30,9 +30,9 @@ readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.scripts]
-pyrelion = "relion_sta_pipeline.main:routines"
-pyrelion-slurm = "relion_sta_pipeline.main:slurm_routines"
-convert-star = "relion_sta_pipeline.utils.convert_ts_to_position:cli"
+pyrelion = "pyrelion.main:routines"
+pyrelion-slurm = "pyrelion.main:slurm_routines"
+convert-star = "pyrelion.utils.convert_ts_to_position:cli"
 
 [tool.hatch.version]
 source = "vcs"

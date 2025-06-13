@@ -1,5 +1,5 @@
-import relion_sta_pipeline.routines.submit_slurm as my_slurm
-import relion_sta_pipeline.prepare.parameters as parameters
+import pyrelion.routines.submit_slurm as my_slurm
+import pyrelion.prepare.parameters as parameters
 from typing import List
 import json, click, os
 
@@ -44,7 +44,7 @@ def relion5_parameters(
     binning_list: List[int]
     ):
     """
-    Generate a JSON file with the default parameters for the relion_sta_pipeline.
+    Generate a JSON file with the default parameters for the pyrelion.
     """
 
     default_config = parameters.ProcessingConfigRelion5(

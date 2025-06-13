@@ -1,6 +1,6 @@
-from relion_sta_pipeline.pipelines.bin1 import HighResolutionRefinement
+from pyrelion.pipelines.bin1 import HighResolutionRefinement
 from pipeliner.api.manage_project import PipelinerProject
-from relion_sta_pipeline.utils import relion5_tools
+from pyrelion.utils import relion5_tools
 import json, click
 
 @click.command(context_settings={"show_default": True}, name='sta')
