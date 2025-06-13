@@ -5,6 +5,8 @@ import subprocess, os
 import numpy as np
 import warnings
 
+from scipy import ndimage
+
 # Suppress all future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -201,9 +203,9 @@ class PipelineHelper:
         # Check if 'tomograms.star' exists in the specified directory
         path1 = os.path.join(tomogram_path, 'tomograms.star')
         if os.path.exists(path1):
-            self.output_directories['reconstruct_tomograms'] = path1
+            self.outputDirectories['reconstruct_tomograms'] = path1
         elif os.path.exists(tomogram_path):
-            self.output_directories['reconstruct_tomograms'] = tomogram_path
+            self.outputDirectories['reconstruct_tomograms'] = tomogram_path
         else:
             # If neither the file nor the directory exists,
             # raise a FileNotFoundError with a detailed message
@@ -312,7 +314,7 @@ class PipelineHelper:
                     print(line) 
 
         # Check to See if Resolution is Improving. If not, terminate the pipeline early
-        if job_name == 'post_process' and new_resolution >= self.current_resolution:
+        if job_name == 'post_process' and new_resolution >= self.current_resolution * 1.5:
             # Exit Condition, tell user resolution is divering. Consider more classification.
             raise ValueError("Resolution is diverging. Consider more classification.")
         elif job_name == 'post_process':
@@ -577,15 +579,17 @@ class PipelineHelper:
     def run_mask_create(self, 
                         refine3D_job, 
                         class3D_job,
+                        autoContour: bool = True,
                         rerunMaskCreate: bool = False):
         """
         Run the mask creation job with an automatically estimated isocontour value.
         Also update related jobs with the newly created mask.
         """        
-        # Estimate Mask Isocontour
-        with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
-            autoContour = np.percentile( file.data.flatten(), 98)
-            self.mask_create_job.joboptions['inimask_threshold'].value = str(autoContour)
+        # Estimate Mask Isocontour if autoContour is True
+        if autoContour:
+            with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
+                autoContour = np.percentile( file.data.flatten(), 98)
+                self.mask_create_job.joboptions['inimask_threshold'].value = str(autoContour)
 
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
@@ -651,6 +655,32 @@ class PipelineHelper:
         else:
             # If the jobName or binKey doesn't exist, return None
             return None
+
+
+    def get_reconstruction_std(self, reconstruction_path: str, low_pass: float = 10):
+        """
+        Get the standard deviation of the reconstruction.
+        """
+
+        # # Get the reconstruction
+        # vol = mrcfile.read(reconstruction_path)
+        # return np.std(vol)        
+        # 
+        # Read the MRC file with header information
+        with mrcfile.open(reconstruction_path, 'r') as mrc:
+            vol = mrc.data.copy()
+            voxel_size = mrc.voxel_size.x  # Assuming cubic voxels
+
+        # Calculate sigma for Gaussian filter
+        # The relationship between resolution and Gaussian sigma
+        # Resolution ≈ 2 * π * sigma * voxel_size
+        sigma = low_pass / (2 * np.pi * voxel_size)
+        
+        # Apply Gaussian low-pass filter
+        filtered_vol = ndimage.gaussian_filter(vol, sigma=sigma)
+
+        return np.std(filtered_vol)
+
 
     # # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
     # def return_job_iter(self, binKey, jobName):

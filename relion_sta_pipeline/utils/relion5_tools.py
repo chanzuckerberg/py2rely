@@ -197,7 +197,7 @@ class Relion5Pipeline(PipelineHelper):
         """
 
         # I/O 
-        self.tomo_class3D_job.joboptions['fn_img'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'
+        self.tomo_class3D_job.joboptions['in_particles'].value = self.pseudo_subtomo_job.output_dir + 'particles.star'
         self.tomo_class3D_job.joboptions['fn_ref'].value = reference_template
 
         # In this Case Reference isn't On Correct GrayScale

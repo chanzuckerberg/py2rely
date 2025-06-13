@@ -108,10 +108,6 @@ def import_tilt_series(
         # Read the AreTomo Alignment Parameters
         alnPath = os.path.join(tomoPath, tomoID + '.aln')
 
-        # Old Code
-        # alnDF = pd.read_csv(alnPath, delimiter='\s+', comment='#', header=None, names=aln_column_names)
-
-        #########################################################
         # Read file until we hit the Local Alignment section
         with open(alnPath, 'r') as f:
             content = f.read()
@@ -124,8 +120,6 @@ def import_tilt_series(
                         comment='#',  # Skip lines starting with #
                         sep='\s+',    # Whitespace separator
                         names=aln_column_names)
-
-        #########################################################
 
         # Read Acqusition Order List
         orderListPath = os.path.join(tomoPath, tomoID + '_Imod', tomoID + '_order_list.csv')
@@ -165,44 +159,6 @@ def import_tilt_series(
             if not os.path.isfile(ctfImageName):
                 os.symlink(ctfImageNameAbs, ctfImageName)
 
-        # tiltInd = 0
-        # nTilts = xfDF.shape[0]
-        # # while tiltInd < nTilts:
-
-        # #     # Assume if Rotation is Identity and No Translation that We're Excluding this Tilt
-        # #     if xfDF[tiltInd, 0] == 1 and xfDF[tiltInd, 2] == 0 and xfDF[tiltInd, 5] == 0:
-        # #         pass
-        # #     else:
-        # #         # Read Tilt from Full Tilt Series
-        # #         tiltSeriesName_id = f'{tiltInd + 1}@{tiltSeriesName}'
-        # #         tiltSeriesNames.append(tiltSeriesName_id)
-
-        # #         ctfImageName_id = f'{tiltInd + 1}@{ctfImageName}'
-        # #         ctfImageNames.append(ctfImageName_id)
-
-        # #         # Append Tilt Angle (Y-Tilt)
-        # #         tomoYtilt.append(alnDF['TILT'][tiltInd])
-
-        # #         # Option 1: Pull TX and TY from *.aln
-        # #         tomoXshift.append(alnDF['TX'][tiltInd] * pixel_size)
-        # #         tomoYshift.append(alnDF['TY'][tiltInd] * pixel_size)
-
-        # #         # Option 2: Pull TX and TY from *.xf
-        # #         # tomoXshift.append(xfDF[tiltInd,4] * pixel_size)
-        # #         # tomoYshift.append(xfDF[tiltInd,5] * pixel_size)
-
-        # #         defocusU.append(ctfText[tiltInd, 1])
-        # #         defocusV.append(ctfText[tiltInd, 2])
-        # #         defocusAngle.append(ctfText[tiltInd, 3])
-
-        # #         acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
-        # #         totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
-
-        # #     tiltInd += 1
-
-        # New Code
-        #########################################################
-
         # Iterate Through the Alignment File
         nTilts = xfDF.shape[0]
         for tiltInd in range(len(alnDF)):
@@ -228,7 +184,6 @@ def import_tilt_series(
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
             totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
 
-        #########################################################
 
         num_rows = len(tiltSeriesNames)
 
@@ -339,6 +294,12 @@ def remove_unused_tomograms(particles:str, tomograms:str):
     """
     Remove tomograms that dont contain any particles.
     """
+    
+    # Check to make sure file exists
+    if not os.path.exists(particles):
+        raise FileNotFoundError(f"Particles file {particles} does not exist.")
+    if not os.path.exists(tomograms):
+        raise FileNotFoundError(f"Tomograms file {tomograms} does not exist.")
 
     # Read the Particles Starfile
     particles = starfile.read(particles)

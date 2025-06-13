@@ -34,7 +34,7 @@ def create_shellsubmit(
 {slurm_gpus}
 #SBATCH --time={total_time}
 #SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=24G
+#SBATCH --mem-per-cpu=16G
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}

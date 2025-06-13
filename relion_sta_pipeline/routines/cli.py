@@ -3,7 +3,7 @@ from relion_sta_pipeline.routines.class3d import class3d, class3d_slurm
 from relion_sta_pipeline.routines.refine import refine3d, refine3d_slurm
 from relion_sta_pipeline.routines.reconstruct import (
     reconstruct_particle, reconstruct_particle_slurm, 
-    mask_post_process, create_mask_and_post_process
+    mask_post_process, create_mask_and_post_process, post_process
 )
 from relion_sta_pipeline.routines.select import select, select_slurm
 import click
@@ -18,10 +18,11 @@ routines.add_command(class3d)
 routines.add_command(refine3d)
 routines.add_command(reconstruct_particle)
 routines.add_command(mask_post_process)
+routines.add_command(post_process)
 routines.add_command(extract_subtomo)
 routines.add_command(select)
 
-@click.group()
+@click.group(name="routines")
 def routines_slurm():
     """Run Individual Jobs on Slurm (e.g., Refine3D, Class3D, Reconstruct)."""
     pass

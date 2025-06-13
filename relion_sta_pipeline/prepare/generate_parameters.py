@@ -156,7 +156,7 @@ def relion5_parameters(
     print(f'\nWrote Pipeline Parameters JSON File To: {write_path}\n')         
 
 @cli.command(context_settings={"show_default": True})
-@click.option("--parameter-path",type=str,required=True,default='sta_parameters.json',
+@click.option("--parameter",type=str,required=True,default='sta_parameters.json',
               help="The Saved Parameter Path")
 @click.option("--reference-template",type=str,required=False,default=None,
               help="Provided Template for Preliminary Refinment (Optional)")
@@ -168,7 +168,7 @@ def relion5_parameters(
               help="Create a new pipeline trajectory")
 @my_slurm.add_compute_options
 def relion5_pipeline(
-    parameter_path: str,
+    parameter: str,
     reference_template: str,
     run_denovo_generation: bool,
     run_class3d: bool,
@@ -189,8 +189,8 @@ def relion5_pipeline(
         os.remove('output_directories_history.json')
 
     command = f"""
-pyrelion sta-pipeline \\
-    --parameter-path {parameter_path} \\
+pyrelion pipelines sta \\
+    --parameter {parameter} \\
     --run-denovo-generation {run_denovo_generation} --run-class3D {run_class3d} \\
     """
     # Only add reference template if it is provided
@@ -204,7 +204,7 @@ pyrelion sta-pipeline \\
         command=command,
         num_gpus=num_gpus,
         gpu_constraint=gpu_constraint,
-        total_time='24:00:00'
+        total_time='48:00:00'
     )
 
 if __name__ == "__main__":

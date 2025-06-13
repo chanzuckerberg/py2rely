@@ -11,7 +11,7 @@ def cli(ctx):
 def select_options(func):
     """Decorator to add shared options for select commands."""
     options = [
-        click.option("--parameter-path",type=str,required=True,default='sta_parameters.json',
+        click.option("--parameter",type=str,required=True,default='sta_parameters.json',
                     help="The Saved Parameter Path"),
         click.option("--best-class",type=int,required=True,default="1",
                     help="Best 3D Class for Sub-Sequent Refinement"),
@@ -31,7 +31,7 @@ def select_options(func):
 @cli.command(context_settings={"show_default": True})
 @select_options
 def select(
-    parameter_path: str,
+    parameter: str,
     best_class: int, 
     keep_classes: str,
     class_job: str, 
@@ -45,11 +45,11 @@ def select(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
     # Print Input Parameters
-    utils.print_pipeline_parameters('Class Select', Parameter_Path=parameter_path, Class_Path=f'Class3D/{class_job}',
+    utils.print_pipeline_parameters('Class Select', Parameter=parameter, Class_Path=f'Class3D/{class_job}',
                                     Best_Class=best_class, Keep_Classes=keep_classes, Run_Refinement=run_refinement, 
                                     Mask_path=mask_path)
 
@@ -93,11 +93,11 @@ def select(
         utils.run_auto_refine(rerunRefine=True)
 
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings={"show_default": True}, name='select')
 @select_options
 @my_slurm.add_compute_options
 def select_slurm(
-    parameter_path: str,
+    parameter: str,
     best_class: int, 
     keep_classes: str,
     class_job: str, 
@@ -110,7 +110,7 @@ def select_slurm(
     # Create Refine3D Command
     command = f"""
 pyrelion routines select \\
-    --parameter-path {parameter_path} \\
+    --parameter {parameter} \\
     --class-job {class_job} \\
     --best-class {best_class} --keep-classes {keep_classes} \\
     --run-refinement {run_refinement} \\

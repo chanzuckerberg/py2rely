@@ -12,7 +12,7 @@ def cli(ctx):
 def extract_subtomo_options(func):
     """Decorator to add shared options for class3d commands."""
     options = [
-        click.option("--parameter-path",type=str,required=True,
+        click.option("--parameter",type=str,required=True,
                       help="Path to Parameters"),
         click.option("--binfactor",type=int,required=False, default=None,
                       help="(Optional) Binning Factor, if not provided, will use the starting binning factor from the parameter pipeline file."),
@@ -26,7 +26,7 @@ def extract_subtomo_options(func):
 @cli.command(context_settings={"show_default": True})
 @extract_subtomo_options
 def extract_subtomo(
-    parameter_path: str,
+    parameter: str,
     tomogram_path: str,
     binfactor: int = None,
     ):   
@@ -34,7 +34,7 @@ def extract_subtomo(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
     # If a Path for Refined Tomograms is Provided, Assign it 
@@ -49,16 +49,16 @@ def extract_subtomo(
     utils.initialize_pseudo_tomos()  
 
     # Print Input Parameters
-    utils.print_pipeline_parameters('Pseudo Subtomo Extraction', Parameter_Path=parameter_path, 
+    utils.print_pipeline_parameters('Pseudo Subtomo Extraction', Parameter=parameter, 
                                      Tomogram_Path=tomogram_path, Binning_Factor=binfactor)                                
 
     # Run
     utils.run_pseudo_subtomo()
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings={"show_default": True}, name='extract-subtomo')
 @extract_subtomo_options
 def extract_subtomo_slurm(
-    parameter_path: str,
+    parameter: str,
     tomogram_path: str,
     binfactor: int,
     ):
@@ -66,7 +66,7 @@ def extract_subtomo_slurm(
     # Create Class3D Command
     command = f"""
 pyrelion routines extract-subtomo \\
-    --parameter-path {parameter_path} \\
+    --parameter {parameter} \\
     """
 
     if tomogram_path is not None:

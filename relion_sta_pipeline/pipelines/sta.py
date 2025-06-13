@@ -1,15 +1,11 @@
+from relion_sta_pipeline.pipelines.bin1 import HighResolutionRefinement
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import json, click
 
-@click.group()
-@click.pass_context
-def cli(ctx):
-    pass
-
-@cli.command(context_settings={"show_default": True})
+@click.command(context_settings={"show_default": True}, name='sta')
 @click.option(
-    "--parameter-path",
+    "--parameter",
     type=str,
     required=True,
     default='sta_parameters.json',
@@ -36,24 +32,24 @@ def cli(ctx):
     default=False, 
     help="Run 3D-Classification Job After Refinement"
 )
-def sta_pipeline(
-    parameter_path: str,
+def average(
+    parameter: str,
     reference_template: str,
     run_denovo_generation: bool, 
     run_class3d: bool, 
     ):
     """
-    Run the Sub-Tomogram Averaging Pipeline with Relion.
+    Run the Sub-Tomogram Averaging Pipeline with pyRelion.
     """
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
     # Print Input Parameters
-    utils.print_pipeline_parameters('STA Pipeline', Parameter_Path = parameter_path,
+    utils.print_pipeline_parameters('STA Pipeline', Parameter = parameter,
                                     Run_Denovo = run_denovo_generation, Run_Class3D = run_class3d,
                                     Reference_Template = reference_template)
 
@@ -95,24 +91,23 @@ def sta_pipeline(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if utils.binning > 1:
-            utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
-            utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
-            utils.run_auto_refine()
+        utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
+        utils.run_auto_refine()
 
         #########################################################################################            
 
         # Primary 3D Refinement Job and Update Input Parameters
         if run_class3d:         
-            utils.tomo_class3D_job.joboptions['fn_img'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+            utils.tomo_class3D_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'
             utils.tomo_class3D_job.joboptions['fn_ref'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
             utils.tomo_class3D_job.joboptions['ini_high'].value = utils.get_resolution( utils.tomo_refine3D_job ) * 1.15
             utils.run_tomo_class3D()
 
         #########################################################################################
 
-        # Only Increase Resolution with the Non-Last Steps
-        if binFactor < len(utils.binningList) - 1:
+        # Only Increase Resolution when Binning is Greater than 2
+        if utils.binning > 2:
 
             # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
             utils.update_resolution(binFactor+1)
@@ -140,4 +135,18 @@ def sta_pipeline(
             # Create PseudoTomogram Generation Job and Update Input Parameters
             utils.pseudo_subtomo_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
             utils.run_pseudo_subtomo()
+        else: 
+            # Lets Upsample to bin1 with bin1 pipeline
+            print('Completed the Main Refinement, Now Processing to Bin=1 Pipeline')
+            continue
 
+    # High Resolution Pipeline the final binning factor is either 2 or 1
+    if utils.binning <= 2:
+        
+        # Run the High Resolution Pipeline
+        particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+        HighResolutionRefinement.run(
+            utils, particles,
+        )
+
+    print('Pipeline Complete!')

@@ -145,45 +145,45 @@ def starfile_to_copick(
     for ii in range(len(configs)):
         copick_roots[sessions[ii]] = copick.from_file(configs[ii])
 
-    uniqueRuns = np.unique(particles['rlnTomoName'])   
-    for uniqueRun in tqdm(uniqueRuns):
-        
-        # Get Data Associated with Particle
-        data = particles.iloc[ii]
-        
-        # Extract the Associated Session and Run to Export too
-        mysession = uniqueRun.split('_')[0]
-        myrun = '_'.join(uniqueRun.split('_')[1:])
-        
-        # Pull Out All Points with Associated Run
-        rlnPoints = particles[particles['rlnTomoName'] == uniqueRun]
-        numPoints = rlnPoints.shape[0]
-        points = np.zeros([numPoints,3])
-        orientations = np.zeros([numPoints, 4, 4])       
-        for jj in range(numPoints):
+        uniqueRuns = np.unique(particles['rlnTomoName'])   
+        for uniqueRun in tqdm(uniqueRuns):
+            
+            # Get Data Associated with Particle
+            data = particles.iloc[ii]
+            
+            # Extract the Associated Session and Run to Export too
+            mysession = uniqueRun.split('_')[0]
+            myrun = '_'.join(uniqueRun.split('_')[1:])
+            
+            # Pull Out All Points with Associated Run
+            rlnPoints = particles[particles['rlnTomoName'] == uniqueRun]
+            numPoints = rlnPoints.shape[0]
+            points = np.zeros([numPoints,3])
+            orientations = np.zeros([numPoints, 4, 4])       
+            for jj in range(numPoints):
 
-            # Pull Out Coordinates
-            # cx = rlnPoints.iloc[jj]['rlnCenteredCoordinateXAngst'] * pixel_size + dim_x / 2
-            # cy = rlnPoints.iloc[jj]['rlnCenteredCoordinateYAngst'] * pixel_size + dim_y / 2
-            # cz = rlnPoints.iloc[jj]['rlnCenteredCoordinateZAngst'] * pixel_size + dim_z / 2           
+                # Pull Out Coordinates
+                # cx = rlnPoints.iloc[jj]['rlnCenteredCoordinateXAngst'] * pixel_size + dim_x / 2
+                # cy = rlnPoints.iloc[jj]['rlnCenteredCoordinateYAngst'] * pixel_size + dim_y / 2
+                # cz = rlnPoints.iloc[jj]['rlnCenteredCoordinateZAngst'] * pixel_size + dim_z / 2           
 
-            cx = rlnPoints.iloc[jj]['rlnCenteredCoordinateXAngst'] + ( dim_x / 2 ) * pixel_size
-            cy = rlnPoints.iloc[jj]['rlnCenteredCoordinateYAngst'] + ( dim_y / 2 ) * pixel_size
-            cz = rlnPoints.iloc[jj]['rlnCenteredCoordinateZAngst'] + ( dim_z / 2 ) * pixel_size
+                cx = rlnPoints.iloc[jj]['rlnCenteredCoordinateXAngst'] + ( dim_x / 2 ) * pixel_size
+                cy = rlnPoints.iloc[jj]['rlnCenteredCoordinateYAngst'] + ( dim_y / 2 ) * pixel_size
+                cz = rlnPoints.iloc[jj]['rlnCenteredCoordinateZAngst'] + ( dim_z / 2 ) * pixel_size
 
-            points[jj,] = np.array([cx,cy,cz])
+                points[jj,] = np.array([cx,cy,cz])
 
-            # Pull Out Orientation
-            euler = np.array([rlnPoints.iloc[jj]['rlnAngleRot'], 
-                              rlnPoints.iloc[jj]['rlnAngleTilt'], 
-                              rlnPoints.iloc[jj]['rlnAnglePsi']])
-            rot = R.from_euler('ZYZ', euler, degrees=True)
-            orientations[jj,:3,:3] = rot.inv().as_matrix()
-        orientations[:,3,3] = 1
+                # Pull Out Orientation
+                euler = np.array([rlnPoints.iloc[jj]['rlnAngleRot'], 
+                                rlnPoints.iloc[jj]['rlnAngleTilt'], 
+                                rlnPoints.iloc[jj]['rlnAnglePsi']])
+                rot = R.from_euler('ZYZ', euler, degrees=True)
+                orientations[jj,:3,:3] = rot.inv().as_matrix()
+            orientations[:,3,3] = 1
 
-        # Write Points to Associated Run
-        root = copick_roots[mysession]
-        run = root.get_run(myrun + '_Vol')
+            # Write Points to Associated Run
+            root = copick_roots[mysession]
+            run = root.get_run(myrun + '_Vol')
 
-        picks = run.new_picks(object_name = particle_name, user_id=export_user_id, session_id = export_session_id)
-        picks.from_numpy(points, orientations)
+            picks = run.new_picks(object_name = particle_name, user_id=export_user_id, session_id = export_session_id)
+            picks.from_numpy(points, orientations)

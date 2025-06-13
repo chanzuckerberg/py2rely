@@ -13,7 +13,6 @@ dependencies = [
     "pydantic",
     "tqdm",
     "copick",
-    # "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@tomo-pipeline"
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main"    
 ]
 
@@ -31,14 +30,6 @@ readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.scripts]
-# pyrelion = "relion_sta_pipeline.main:cli"
-# create = "relion_sta_pipeline.generate_parameters:cli"
-# prepare = "relion_sta_pipeline.prepare.cli:prepare"
-# run-relion5 = "relion_sta_pipeline.relion5_pipeline:sta_pipeline"
-# process = "relion_sta_pipeline.routines.cli:routines"
-# classes = "relion_sta_pipeline.routines.select:cli"
-# extract = "relion_sta_pipeline.routines.export:cli"
-# report = "relion_sta_pipeline.routines.report:cli"
 pyrelion = "relion_sta_pipeline.main:routines"
 pyrelion-slurm = "relion_sta_pipeline.main:slurm_routines"
 convert-star = "relion_sta_pipeline.utils.convert_ts_to_position:cli"

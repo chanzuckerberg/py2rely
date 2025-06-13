@@ -12,13 +12,13 @@ def cli(ctx):
 def class3d_options(func):
     """Decorator to add shared options for class3d commands."""
     options = [
-        click.option("--parameter-path",type=str,required=True,default="sta_parameters.json",
+        click.option("--parameter",type=str,required=True,default="sta_parameters.json",
                       help="Sub-Tomogram Refinement Parameter Path",),
-        click.option("--particles-path",type=str,required=True,
+        click.option("--particles",type=str,required=True,
                       help="Path to Particles"),
-        click.option("--reference-path",type=str,required=True,
+        click.option("--reference",type=str,required=True,
                       help="Path to Reference for Classification"),
-        click.option("--mask-path",type=str,required=False,default=None,
+        click.option("--mask",type=str,required=False,default=None,
                       help="(Optional) Path of Mask for Classification"),
         click.option("--ini-high",type=float,required=False,default=None,
                       help="Low-Pass Filter to Apply to Model"),
@@ -42,10 +42,10 @@ def class3d_options(func):
 @cli.command(context_settings={"show_default": True})
 @class3d_options
 def class3d(
-    parameter_path: str,
-    particles_path: str, 
-    reference_path: str,
-    mask_path: str,     
+    parameter: str,
+    particles: str, 
+    reference: str,
+    mask: str,     
     ini_high: float,
     tau_fudge: float,
     nr_classes: int,
@@ -58,7 +58,7 @@ def class3d(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
     # If a Path for Refined Tomograms is Provided, Assign it 
@@ -66,7 +66,7 @@ def class3d(
         utils.set_new_tomograms_star_file(tomogram_path)    
 
     # Get Binning
-    particlesdata = starfile.read( particles_path )
+    particlesdata = starfile.read( particles )
     currentBinning = int(particlesdata['optics']['rlnTomoSubtomogramBinning'].values[0])
     binIndex = utils.binningList.index(currentBinning)    
 
@@ -107,24 +107,24 @@ def class3d(
         utils.tomo_class3D_job.joboptions['do_local_ang_searches'].value = "no"
 
     # Specify Particles and Reference MRC Volume
-    utils.tomo_class3D_job.joboptions['fn_img'].value = particles_path
-    utils.tomo_class3D_job.joboptions['fn_ref'].value = reference_path
+    utils.tomo_class3D_job.joboptions['fn_img'].value = particles
+    utils.tomo_class3D_job.joboptions['fn_ref'].value = reference
 
     # Print Input Parameters
-    utils.print_pipeline_parameters('Class 3D', Parameter_Path=parameter_path, Reference_Path=reference_path,
-                                    Particles_path=particles_path, Mask_path=mask_path, tau_fudge=tau_fudge, 
+    utils.print_pipeline_parameters('Class 3D', Parameter=parameter, Reference=reference,
+                                    Particles=particles, Mask=mask, tau_fudge=tau_fudge, 
                                     nr_classes=nr_classes, nr_iter=nr_iter, ini_high=ini_high)
 
     # Run
     utils.run_tomo_class3D(rerunClassify=True)
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings={"show_default": True}, name='class3d')
 @class3d_options
 def class3d_slurm(
-    parameter_path: str, 
-    particles_path: str, 
-    reference_path: str, 
-    mask_path: str, 
+    parameter: str, 
+    particles: str, 
+    reference: str, 
+    mask: str, 
     ini_high: float, 
     tau_fudge: float, 
     nr_classes: int, 
@@ -141,9 +141,9 @@ def class3d_slurm(
 {num_classes_command}
 
 pyrelion routines class3d \\
-    --parameter-path {parameter_path} \\
-    --particles-path {particles_path} \\
-    --reference-path {reference_path} \\
+    --parameter {parameter} \\
+    --particles {particles} \\
+    --reference {reference} \\
     --nr-classes $NUM_CLASSES \\
     --ref-correct-greyscale {ref_correct_greyscale} \\
     --tau-fudge {tau_fudge} \\
@@ -152,8 +152,8 @@ pyrelion routines class3d \\
     if tomogram_path is not None:
         command += f" --tomogram-path {tomogram_path}"
 
-    if mask_path is not None:
-        command += f" --mask-path {mask_path}"
+    if mask is not None:
+        command += f" --mask {mask}"
     
     if ini_high is not None:
         command += f" --ini-high {ini_high}"

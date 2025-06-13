@@ -1,3 +1,4 @@
+import relion_sta_pipeline.routines.submit_slurm as my_slurm 
 from pipeliner.api.manage_project import PipelinerProject
 from relion_sta_pipeline.utils import relion5_tools
 import click
@@ -16,7 +17,7 @@ def polishing_options(func):
         func = option(func)
     return func  
 
-def polishing(
+def polisher(
     parameter_path: str,
     particles: str,
     mask: str,
@@ -70,13 +71,13 @@ def polishing(
 
 @click.command(context_settings={"show_default": True})
 @polishing_options
-def polishing_cli(
+def polish_pipeline(
     parameter_path: str,
     particles: str,
     mask: str,
     ):
     """
-    Run the high-resolution refinement and polishing stage through cli.
+    Run polishing and ctf refinement through cli.
     """
 
     polishing(parameter_path, particles, mask) 
@@ -84,7 +85,7 @@ def polishing_cli(
 @click.command(context_settings={"show_default": True})
 @polishing_options
 @my_slurm.add_compute_options
-def polishing_slurm(
+def polish_pipeline_slurm(
     parameter_path: str,
     particles: str,
     mask: str,

@@ -9,27 +9,27 @@ def cli(ctx):
 
 @cli.command(context_settings={"show_default": True})
 @click.option(
-    "--parameter-path",
+    "--parameter",
     type=str,
     required=True,
     default='sta_parameters.json',
     help="The Saved Parameter Path",
 )
 def binnings(
-    parameter_path: str,
+    parameter: str,
     ):
     """
     This command reads and processes the pipeline parameter file to report 
     relevant binning factors and box sizes. The parameter file path must be provided.
     
     Parameters:
-        parameter_path (str): Path to the JSON file containing pipeline parameters.
+        parameter (str): Path to the JSON file containing pipeline parameters.
     """    
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = sta_tools.PipelineHelper(my_project, requireRelion=False)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
 
     # # Print Input Parameters
     # utils.print_pipeline_parameters('Binning',Parameter_Path=parameter_path)    
