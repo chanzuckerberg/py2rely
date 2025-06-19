@@ -1,3 +1,4 @@
+from pyrelion.routines.mask_create import auto_mask_create
 from pipeliner.api.manage_project import PipelinerProject
 import pyrelion.routines.submit_slurm as my_slurm 
 from pyrelion.utils import relion5_tools
@@ -54,7 +55,10 @@ class HighResolutionRefinement:
         utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
         utils.run_post_process(rerunPostProcess=True)
-        low_pass = utils.get_resolution(utils.post_process_job, 'post_process')
+
+        # Which of these two do we want?
+        # low_pass = utils.get_resolution(utils.post_process_job, 'post_process')
+        low_pass = utils.get_half_fsc(utils.post_process_job.output_dir)
 
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
         utils.update_job_binning_box_size(
@@ -79,19 +83,12 @@ class HighResolutionRefinement:
         utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
         utils.run_reconstruct_particle(rerunReconstruct=rerun)
 
-        # Create Mask if None if Provided
+        # Automatically Create Mask if None is Provided
         if mask is None:
-            # Initialize Mask Create Job, and set the inimask to the standard deviation of the reconstruction
-            utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
-            utils.mask_create_job.joboptions['lowpass_filter'].value = low_pass
-            ini_mask = utils.get_reconstruction_std(utils.reconstruct_particle_job.output_dir + 'merged.mrc', low_pass)
-            utils.mask_create_job.joboptions['inimask_threshold'].value = ini_mask
-            utils.mask_create_job.joboptions['width_mask_edge'].value = 8
-            utils.run_mask_create(utils.tomo_refine3D_job, None, False, rerunMaskCreate=rerun)  
-
-        # Post Process to estimate Low-Pass Filter
+            auto_mask_create(utils, low_pass)
 
         # Processing Parameters for Auto Refine
+        utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24
         utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass 
         utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
         utils.tomo_refine3D_job.joboptions['sampling'].value = utils.sampling[5]
@@ -99,7 +96,7 @@ class HighResolutionRefinement:
         
         # Inputs for Auto Refine
         utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
-        utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
+        utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.reconstruct_particle_job.output_dir + 'half1.mrc'
 
         # Run the Auto Refine at Bin = 1
         utils.run_auto_refine(rerunRefine=rerun)
@@ -107,7 +104,8 @@ class HighResolutionRefinement:
         # Run Post Process
         utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
-        utils.run_post_process(rerunPostProcess=rerun)
+        utils.post_process_job.joboptions['low_pass'].value = 0
+        utils.run_post_process(rerunPostProcess=True)
 
 # Decorator for CLI options
 def high_resolution_options(func):

@@ -25,6 +25,21 @@ def post_process(
     half_map: str,
     low_pass: float,
     ):
+    """
+    Post Process a Half Map through the CLI.
+    """
+
+    fresh_run(parameter, mask, half_map, low_pass)
+
+def fresh_run( 
+    parameter: str,
+    mask: str,
+    half_map: str,
+    low_pass: float,
+    ):
+    """
+    Post Process a Half Map from a fresh new run .
+    """
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -40,7 +55,23 @@ def post_process(
     utils.post_process_job.joboptions['fn_mask'].value = mask
 
     if low_pass is not None:
-        utils.post_process_job.joboptions['low_pass'].value = low_pass
+        utils.post_process_job.joboptions['low_pass'].value = low_pass  
 
     # Run the Post Process Job
     utils.run_post_process(rerunPostProcess=True)
+
+def run(utils, mask, half_map, low_pass):
+    """
+    Continue a Pipeline with a Post Process Job.
+    """
+
+    # Update the Post Process Job with the Mask and Half Map
+    utils.post_process_job.joboptions['fn_in'].value = half_map
+    utils.post_process_job.joboptions['fn_mask'].value = mask
+
+    if low_pass is not None:
+        utils.post_process_job.joboptions['low_pass'].value = low_pass  
+
+    # Run the Post Process Job
+    utils.run_post_process(rerunPostProcess=True)
+    

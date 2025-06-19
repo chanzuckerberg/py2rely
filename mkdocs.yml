@@ -43,17 +43,10 @@ plugins:
 
 nav:
   - Home: index.md
-  - Installation:
-    - Quick Start: installation/quick-start.md
-    - Environment Setup: installation/environment.md
+  - Getting Started:
+    - Installation: getting-started/installation.md
+    - Quick Start: getting-started/quick-start.md
   - User Guide:
-    - Basic Usage: user-guide/basic-usage.md
-    - Pipeline Components: user-guide/pipeline-components.md
-    - Configuration: user-guide/configuration.md
+    - Overview: user-guide/overview.md
   - API Reference:
-    - CLI Commands: api-reference/cli-commands.md
-    - Pipeline Parameters: api-reference/parameters.md
-    - Utilities: api-reference/utilities.md
-  - Examples:
-    - Basic Pipeline: examples/basic-pipeline.md
-    - Advanced Usage: examples/advanced-usage.md
+    - Overview: api-reference/overview.md

@@ -152,7 +152,7 @@ def create_mask_and_post_process(
     reconstruction: str, 
     mask: str = None,
     low_pass: float = 10,
-    extend: int = 3,
+    extend: int = 0,
     soft_edge: int = 5,
     tomogram: str = None
     ):
@@ -240,7 +240,7 @@ def post_process(
     utils.post_process_job.joboptions['fn_mask'].value = mask
 
     if low_pass is not None:
-        utils.post_process_job.joboptions['low_pass'].value = low_pass
+        utils.post_process_job.joboptions['low_pass'].value = low_pass  
 
     # Run the Post Process Job
     utils.run_post_process(rerunPostProcess=True)

@@ -93,8 +93,8 @@ def ts_to_position(
     """    
     
     # Check if File Exists, if so Read the original STAR file
-    if not os.path.exists(output):
-        raise FileNotFoundError(f"Output file {output} does not exist.")
+    if not os.path.exists(input):
+        raise FileNotFoundError(f"Input file {input} does not exist.")
     particles = starfile.read(input)
 
     # Apply the transformations

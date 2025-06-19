@@ -204,7 +204,7 @@ pyrelion pipelines sta \\
         command=command,
         num_gpus=num_gpus,
         gpu_constraint=gpu_constraint,
-        total_time='48:00:00'
+        total_time='72:00:00'
     )
 
 if __name__ == "__main__":

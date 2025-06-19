@@ -1,11 +1,11 @@
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
+from scipy import ndimage
 import subprocess, os
 import numpy as np
 import warnings
 
-from scipy import ndimage
 
 # Suppress all future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -657,29 +657,57 @@ class PipelineHelper:
             return None
 
 
-    def get_reconstruction_std(self, reconstruction_path: str, low_pass: float = 10):
+    def get_reconstruction_std(self, 
+        reconstruction_path: str, 
+        low_pass: float = -1, 
+        save_vol: bool = False
+    ):
         """
         Get the standard deviation of the reconstruction.
         """
 
-        # # Get the reconstruction
-        # vol = mrcfile.read(reconstruction_path)
-        # return np.std(vol)        
-        # 
         # Read the MRC file with header information
         with mrcfile.open(reconstruction_path, 'r') as mrc:
             vol = mrc.data.copy()
             voxel_size = mrc.voxel_size.x  # Assuming cubic voxels
 
-        # Calculate sigma for Gaussian filter
-        # The relationship between resolution and Gaussian sigma
-        # Resolution ≈ 2 * π * sigma * voxel_size
-        sigma = low_pass / (2 * np.pi * voxel_size)
-        
-        # Apply Gaussian low-pass filter
-        filtered_vol = ndimage.gaussian_filter(vol, sigma=sigma)
+        if low_pass > 0:
+            # Calculate sigma for Gaussian filter
+            # The relationship between resolution and Gaussian sigma
+            # Resolution ≈ 2 * π * sigma * voxel_size
+            sigma = low_pass / (2 * np.pi * voxel_size)
+            
+            # Apply Gaussian low-pass filter
+            filtered_vol = ndimage.gaussian_filter(vol, sigma=sigma)
 
-        return np.std(filtered_vol)
+            # TODO : 
+            # Try both np.std(vol) and np.std(filtered_vol) to see which one is better
+            # How do I determine which is the better mask?
+
+            if save_vol:
+                self.write_mrc(filtered_vol, 'filtered_vol.mrc', voxel_size)
+
+            return np.std(filtered_vol)
+        else:        
+            return np.std(vol)
+
+    def get_half_fsc(self, post_process_path: str, target_fsc: float = 0.5):
+        """
+        Get the half FSC curve from the post-process job.
+        """
+        
+        # Read the FSC curve and resolutions
+        fsc_df = starfile.read(post_process_path + 'postprocess.star')
+        curve =  fsc_df['fsc']['rlnFourierShellCorrelationCorrected']
+        resolutions =  fsc_df['fsc']['rlnAngstromResolution']
+
+        # Find the index of the value closest to target_fsc
+        closest_index = (np.abs(curve - target_fsc)).idxmin()
+
+        # Get the resolution at the closest index
+        closest_resolution = resolutions[closest_index]
+        return closest_resolution
+
 
 
     # # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree

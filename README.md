@@ -1,5 +1,17 @@
 # relion-sub-tomogram-pipelines
-Tools for Running Relion Refinements Through CLI
+**Py**thonic **RELION** interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
+
+## Introduction
+
+pyrelion simplifies and accelerates the execution of RELION-based sub-tomogram averaging (STA) workflows on SLURM-based high-performance computing (HPC) systems. Designed for rapid iteration and evaluation of particle picking strategies, pyrelion integrates with existing tilt series alignment from AreTomo and particle coordinate storage from [copick](https://github.com/copick/copick), making it ideal for automated benchmarking and structure validation.
+
+## 💫 Key Features
+
+* ⚙️ Automated job preparation: One-command setup of RELION STA workflows including particle extraction, classification, and refinement.
+* 🔄 Copick integration: Seamless import of particle coordinates from copick metadata storage.
+* 🧭 Tilt series-aware: Direct input of alignment and metadata from AreTomo processing pipelines.
+* 🚀 SLURM-native execution: Jobs are launched, monitored, and managed directly on HPC SLURM environments.
+* 🧠 Validation-ready: Quickly test new particle picking algorithms and assess their reconstruction outcomes with minimal setup.
 
 ## Installation
 To create, first we need to generate a conda environment:
@@ -12,12 +24,14 @@ Once the environment is created, activate it:
 Then install the code with:
 `pip install -e .`
 
-## Usage
+## 📚 Documentation 
 
-To run the CLI tools, there's a few commands this package offers. There's several entry points to run this pipeline. In all cases, the relion requires for the data to be available inside of the project. We can symlink the data and generate a STAR file containing the particle coordinates with the following command:
+For comprehensive guides, usage examples, and API references, visit the pyrelion documentation.
 
-We can generate a sample JSON file which provides all the necessary input parameters with the following command:
+## 🤝 Contributing 
 
-`create_parameters relion5 --file-path <class_averages_parameters.json>`
+This project adheres to the Contributor Covenant code of conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior to opensource@chanzuckerberg.com.
 
-The first step is composed of importing tomograms, 
+## 🔒 Security
+
+If you believe you have discovered a security vulnerability, please report it responsibly to security@chanzuckerberg.com.

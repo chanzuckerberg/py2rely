@@ -15,12 +15,11 @@ def cli(ctx):
     default='sta_parameters.json',
     help="The Saved Parameter Path",
 )
-def binnings(
+def box_sizes(
     parameter: str,
     ):
     """
-    This command reads and processes the pipeline parameter file to report 
-    relevant binning factors and box sizes. The parameter file path must be provided.
+    Report the binning factors and box sizes for the pyrelion pipeline.
     
     Parameters:
         parameter (str): Path to the JSON file containing pipeline parameters.
