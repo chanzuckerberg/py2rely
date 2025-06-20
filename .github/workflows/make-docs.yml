@@ -8,7 +8,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
-      - '.github/workflows/deploy-docs.yaml'
+      - '.github/workflows/make-docs.yaml'
   pull_request:
     branches:
       - main
@@ -16,7 +16,7 @@ on:
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
-      - '.github/workflows/deploy-docs.yaml'
+      - '.github/workflows/make-docs.yaml'
 
 permissions:
   contents: read
