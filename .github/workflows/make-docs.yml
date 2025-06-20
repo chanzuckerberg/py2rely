@@ -58,6 +58,7 @@ jobs:
         uses: actions/upload-pages-artifact@v3
         with:
           path: ./site
+          name: github-pages  # Required for deploy-pages to find the artifact
 
   deploy:
     needs: build
