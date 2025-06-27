@@ -10,7 +10,7 @@ def cli(ctx):
 
 # Create the boilerplate JSON file with a default file path
 @cli.command(context_settings={"show_default": True})
-@click.option("--write-path",type=str,required=False,default='sta_parameters.json',
+@click.option("--output",type=str,required=False,default='sta_parameters.json',
               help="The Saved Parameter Path",)
 @click.option("--input-tilt-series",type=str,required=False,default="input/tiltSeries/aligned_tilt_series.star",
               help="Path to Starfile with Tilt Series Alignments")
@@ -32,7 +32,7 @@ def cli(ctx):
               callback=my_slurm.parse_int_list,
               help="List of Binning Factors to Process the Refinement Steps (provided as a comma-separated list)")
 def relion5_parameters(
-    write_path: str,
+    output: str,
     input_tilt_series: str,
     input_particles: str, 
     tilt_series_pixel_size: float,
@@ -150,10 +150,10 @@ def relion5_parameters(
         )
     )
 
-    with open(write_path, "w") as f:
+    with open(output, "w") as f:
         json.dump(default_config.dict(), f, indent=4)
 
-    print(f'\nWrote Pipeline Parameters JSON File To: {write_path}\n')         
+    print(f'\nWrote Pipeline Parameters JSON File To: {output}\n')         
 
 @cli.command(context_settings={"show_default": True})
 @click.option("--parameter",type=str,required=True,default='sta_parameters.json',
