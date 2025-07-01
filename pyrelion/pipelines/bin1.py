@@ -51,6 +51,12 @@ class HighResolutionRefinement:
         particles: str, 
     ):
 
+        # Add Logic to Check if Mask is Available, if not create a new mask
+        if utils.mask_create_job.output_dir == '': 
+            utils.mask_create_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
+            utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
+            utils.run_mask_create(utils.tomo_refine3D_job, None)        
+
         # Run Another Post Process to Estimate Low-Pass Filter
         utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
