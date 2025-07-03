@@ -1,5 +1,6 @@
 import pyrelion.routines.submit_slurm as my_slurm
 import pyrelion.prepare.parameters as parameters
+from pyrelion.utils import sta_tools
 from typing import List
 import json, click, os
 
