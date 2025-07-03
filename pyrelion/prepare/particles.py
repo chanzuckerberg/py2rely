@@ -148,6 +148,7 @@ def import_pytom_particles(
 @click.option("--copick-user-id", type=str, default=None, help="User ID")
 @common.add_common_options
 @common.add_optics_options
+@click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
 def gather_copick_particles(
     config: str, 
     session: str,
@@ -163,7 +164,8 @@ def gather_copick_particles(
     spherical_aberration: float,
     amplitude_contrast: float,
     optics_group: int,
-    optics_group_name: str
+    optics_group_name: str,
+    relion5: bool
     ):
     """Import particles from Copick project"""
 
@@ -250,9 +252,10 @@ def gather_copick_particles(
             myStarFile['rlnAnglePsi'].extend(orientations[:,2])
         
     # Convert coordinates to centered values in Angstroms and Add new columns for centered coordinates in Angstroms
-    myStarFile["rlnCenteredCoordinateXAngst"] = (np.array(myStarFile["rlnCoordinateX"]) - x / 2) * pixel_size
-    myStarFile["rlnCenteredCoordinateYAngst"] = (np.array(myStarFile["rlnCoordinateY"]) - y / 2) * pixel_size
-    myStarFile["rlnCenteredCoordinateZAngst"] = (np.array(myStarFile["rlnCoordinateZ"]) - z / 2) * pixel_size
+    if relion5:
+        myStarFile["rlnCenteredCoordinateXAngst"] = (np.array(myStarFile["rlnCoordinateX"]) - x / 2) * pixel_size
+        myStarFile["rlnCenteredCoordinateYAngst"] = (np.array(myStarFile["rlnCoordinateY"]) - y / 2) * pixel_size
+        myStarFile["rlnCenteredCoordinateZAngst"] = (np.array(myStarFile["rlnCoordinateZ"]) - z / 2) * pixel_size
 
     # Make sure that there are particles to import
     if all(

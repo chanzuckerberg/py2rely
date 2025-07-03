@@ -150,10 +150,15 @@ def relion5_parameters(
         )
     )
 
+    # Save the parameters to a JSON file
     with open(output, "w") as f:
         json.dump(default_config.dict(), f, indent=4)
-
     print(f'\nWrote Pipeline Parameters JSON File To: {output}\n')         
+
+    # Print the Box Sizes after the parameters are saved
+    utils = sta_tools.PipelineHelper(None, requireRelion=False)
+    utils.read_json_params_file(output)
+
 
 @cli.command(context_settings={"show_default": True})
 @click.option("--parameter",type=str,required=True,default='sta_parameters.json',

@@ -28,7 +28,4 @@ def box_sizes(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = sta_tools.PipelineHelper(my_project, requireRelion=False)
-    utils.read_json_params_file(parameter)
-
-    # # Print Input Parameters
-    # utils.print_pipeline_parameters('Binning',Parameter_Path=parameter_path)    
+    utils.read_json_params_file(parameter)  
