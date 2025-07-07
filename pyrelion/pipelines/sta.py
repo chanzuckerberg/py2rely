@@ -1,4 +1,4 @@
-from pyrelion.pipelines.bin1 import HighResolutionRefinement
+from pyrelion.pipelines.bin1 import HighResolutionRefinement as HRrefine
 from pipeliner.api.manage_project import PipelinerProject
 from pyrelion.utils import relion5_tools
 import json, click
@@ -140,15 +140,22 @@ def average(
             print('Completed the Main Refinement, Now Processing to Bin=1 Pipeline')
             continue
 
-    # High Resolution Pipeline the final binning factor is either 2 or 1
-    if utils.binning <= 2:
-        
-        # Run the High Resolution Pipeline
-        particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-        HighResolutionRefinement.run(
+    # High-resolution refinement should only run if final binning is 1 and we're at 2 or lower
+    particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+    if utils.binning <= 2 and 1 in utils.binningList:
+        # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
+        HRrefine.run(
             utils, particles,
         )
 
         #TODO: Complete the Polisher
+
+    # Otherwise, just estimate resolution (e.g., bin 2 is the final)
+    else:     
+        # Estimate the Resolution of the Final Reconstruction
+        HRrefine.run_resolution_estimate(
+            utils, particles, 
+        )
+
 
     print('Pipeline Complete!')

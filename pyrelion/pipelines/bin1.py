@@ -51,16 +51,8 @@ class HighResolutionRefinement:
         particles: str, 
     ):
 
-        # Add Logic to Check if Mask is Available, if not create a new mask
-        if utils.mask_create_job.output_dir == '': 
-            utils.mask_create_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
-            utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
-            utils.run_mask_create(utils.tomo_refine3D_job, None)        
-
-        # Run Another Post Process to Estimate Low-Pass Filter
-        utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
-        utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
-        utils.run_post_process(rerunPostProcess=True)
+        # Run Resolution Estimate to Get Low-Pass Filter
+        utils = HighResolutionRefinement.run_resolution_estimate(utils, particles)
 
         # Which of these two do we want?
         # low_pass = utils.get_resolution(utils.post_process_job, 'post_process')
@@ -76,6 +68,28 @@ class HighResolutionRefinement:
         # Run the High Resolution Refinement Pipeline
         HighResolutionRefinement._run_high_resolution_refinement(
             utils, particles, low_pass)
+
+    @staticmethod
+    def run_resolution_estimate(
+        utils, 
+        particles: str,
+    ):
+        """Run resolution estimation for high-resolution refinement."""
+
+        # Add Logic to Check if Mask is Available, if not create a new mask
+        if utils.mask_create_job.output_dir == '': 
+            utils.mask_create_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
+            utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
+            utils.run_mask_create(utils.tomo_refine3D_job, None)        
+
+        # Run Another Post Process to Estimate Low-Pass Filter
+        utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+        utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
+        utils.run_post_process(rerunPostProcess=True)
+
+        # Return the updated utils object
+        return utils
+
 
     @staticmethod
     def _run_high_resolution_refinement( 
