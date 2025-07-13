@@ -91,13 +91,6 @@ def import_tilt_series(
         tomoPath = '/'.join(tomos.split('/')[:-1])
         tomoID = '_'.join(tomos.split('/')[-1].split('_')[:-1])
 
-        # Read IMOD *.xf alignment Parameters 
-        xfPath = os.path.join(tomoPath, tomoID + '_Imod', tomoID + '_st.xf')
-        xfDF = np.loadtxt(xfPath)
-
-        if len(xfDF.shape) < 2 or xfDF.shape[1] < 6:
-            continue
-
         # Add session and tomogram ID to the list
         tomoNames.append(session + '_' + tomoID)
 
@@ -160,7 +153,8 @@ def import_tilt_series(
                 os.symlink(ctfImageNameAbs, ctfImageName)
 
         # Iterate Through the Alignment File
-        nTilts = xfDF.shape[0]
+        # nTilts0 = xfDF.shape[0]
+        nTilts = len(alnDF)
         for tiltInd in range(len(alnDF)):
 
             # Determine the Tilt Index from the Alignment File
@@ -184,20 +178,15 @@ def import_tilt_series(
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
             totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
 
-
+        # Get Number of Rows for the STAR file
         num_rows = len(tiltSeriesNames)
-
-        # Count Number of Rows that Reflects Tilts Used for Alignment / Reconstruction
-        # nRows = np.count_nonzero(~np.isnan(alnDF['TILT']))
-        tomoZRot.extend([alnDF['ROT'][0]] * num_rows)            
 
         # Save TS_XX_YY starfile
         ts_dict = {}
         ts_dict['rlnMicrographName'] = tiltSeriesNames
-        # ts_dict['rlnTomoXTilt'] = [0] * nRows
         ts_dict['rlnTomoXTilt'] = [0] * num_rows
         ts_dict['rlnTomoYTilt'] = tomoYtilt
-        ts_dict['rlnTomoZRot'] = tomoZRot
+        ts_dict['tomoZRot'] = alnDF['ROT'].tolist()
         ts_dict['rlnTomoXShiftAngst'] = tomoXshift
         ts_dict['rlnTomoYShiftAngst'] = tomoYshift
         ts_dict['rlnCtfImage'] = ctfImageNames

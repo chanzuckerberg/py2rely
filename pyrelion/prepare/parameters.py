@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 class ResolutionParameters(BaseModel):
     angpix: float
@@ -125,11 +125,13 @@ class MaskCreate(BaseModel):
     width_mask_edge: int
 
 class CtfRefine(BaseModel):
+    model_config = {"populate_by_name": True}
+    
     use_direct_entries: str
     do_defocus: str
     focus_range: float
     do_reg_def: str
-    lambda: str
+    lambda_param: float = Field(alias="lambda") 
     do_scale: str
     do_frame_scale: str
 
@@ -161,3 +163,5 @@ class ProcessingConfigRelion5(BaseModel):
     class3D: Class3D
     select: SelectParticles
     mask_create: MaskCreate
+    ctf_refine: Optional[CtfRefine]
+    bayesian_polish: Optional[BayesianPolish]

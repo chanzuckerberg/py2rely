@@ -91,7 +91,10 @@ def average(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        if reference_template is not None:
+            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.tomo_class3D_job.output_dir + 'run_it010_data.star'
+        else:
+            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
         utils.run_auto_refine()
 

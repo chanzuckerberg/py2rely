@@ -108,7 +108,7 @@ def relion5_parameters(
             nr_pool= 30,   
             use_gpu= "yes",
             gpu_ids= "",
-            nr_threads= 8,
+            nr_threads= 16,
             mpi_command="mpirun",
             other_args="" # --maxsig 3000
         ),
@@ -136,7 +136,7 @@ def relion5_parameters(
             nr_pool= 16, 
             use_gpu= "no",
             gpu_ids= "",
-            nr_threads= 8,
+            nr_threads= 16,
             mpi_command="mpirun",
             sigma_tilt= 0
         ),
@@ -148,12 +148,29 @@ def relion5_parameters(
             lowpass_filter=20,
             extend_inimask=3,
             width_mask_edge=5
-        )
+        ),
+        ctf_refine=parameters.CtfRefine(
+            use_direct_entries="yes",
+            do_defocus="yes",
+            focus_range=3000,
+            do_reg_def="yes",
+            lambda_param=0.1,
+            do_scale="yes",
+            do_frame_scale="yes"
+        ) if 1 in binning_list else None,
+        bayesian_polish=parameters.BayesianPolish(
+            use_direct_entries="yes",
+            max_error=5,
+            do_motion="yes",
+            sigma_vel=0.5,
+            sigma_div=0.5
+        ) if 1 in binning_list else None
     )
 
     # Save the parameters to a JSON file
     with open(output, "w") as f:
-        json.dump(default_config.dict(), f, indent=4)
+        json.dump(default_config.model_dump(by_alias=True), f, indent=4)
+        # json.dump(default_config.dict(), f, indent=4)
     print(f'\nWrote Pipeline Parameters JSON File To: {output}\n')         
 
     # Print the Box Sizes after the parameters are saved
