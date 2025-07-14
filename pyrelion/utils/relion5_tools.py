@@ -1,11 +1,7 @@
 from pipeliner.jobs.tomography.relion_tomo import tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job
-from pipeliner.jobs.relion import bayesianpolish_job, select_job, maskcreate_job, postprocess_job
+from pipeliner.jobs.relion import bayesianpolish_job
 from pyrelion.utils.sta_tools import PipelineHelper
-import pipeliner.job_manager as job_manager
-import glob, starfile, json, re, mrcfile
-import subprocess, os
-import numpy as np
-import warnings
+import os
 
 class Relion5Pipeline(PipelineHelper):
     """
@@ -62,11 +58,13 @@ class Relion5Pipeline(PipelineHelper):
         try: self.pseudo_subtomo_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/pseudo_subtomo') 
         except: pass
 
-    def run_pseudo_subtomo(self):
+    def run_pseudo_subtomo(self, rerunPseudoSubtomo: bool = False):
         """
         Run the pseudo-subtomogram generation job and handle its execution.
         """        
-        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}')
+        if rerunPseudoSubtomo: pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo')
+        else:                  pseudoSubtomoIter = None
+        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
 
     def initialize_initial_model(self):
         """

@@ -144,21 +144,19 @@ def average(
             continue
 
     # High-resolution refinement should only run if final binning is 1 and we're at 2 or lower
+    bin1 = HRrefine.from_utils(utils)
     particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
     if utils.binning <= 2 and 1 in utils.binningList:
+
         # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
-        HRrefine.run(
-            utils, particles,
-        )
+        bin1.run(particles)
 
         #TODO: Complete the Polisher
 
     # Otherwise, just estimate resolution (e.g., bin 2 is the final)
     else:     
         # Estimate the Resolution of the Final Reconstruction
-        HRrefine.run_resolution_estimate(
-            utils, particles, 
-        )
+        bin1.run_resolution_estimate(particles)
 
 
     print('Pipeline Complete!')
