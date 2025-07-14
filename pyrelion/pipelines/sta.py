@@ -1,5 +1,6 @@
 from pyrelion.pipelines.bin1 import HighResolutionRefinement as HRrefine
 from pipeliner.api.manage_project import PipelinerProject
+from pyrelion.pipelines.polishing import ThePolisher
 from pyrelion.utils import relion5_tools
 import json, click
 
@@ -66,6 +67,8 @@ def average(
     utils.initialize_tomo_class3D()
     utils.initialize_reconstruct_particle()
 
+    # Initial Model Generation
+    input_particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
     if run_denovo_generation:
         # Initialize and I/O for Denovo Initial Model Generation
         utils.initialize_initial_model()       
@@ -76,6 +79,7 @@ def average(
         # Use Classification to Generate Initial Reference 
         print(f'\nGenerating Initial Model with "Class3D"\n')
         refine_reference = utils.run_initial_model_class3D(reference_template, nClasses = 1, nr_iter = 10)
+        input_particles = utils.tomo_class3D_job.output_dir + 'run_it010_data.star'
     else: 
         # Reconstruct with Template Matching Parameters
         print(f'\nGenerating Initial Model with "Reconstruct Particle"\n')
@@ -91,10 +95,7 @@ def average(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if reference_template is not None:
-            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.tomo_class3D_job.output_dir + 'run_it010_data.star'
-        else:
-            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['in_particles'].value = input_particles
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
         utils.run_auto_refine()
 
@@ -138,6 +139,7 @@ def average(
             # Create PseudoTomogram Generation Job and Update Input Parameters
             utils.pseudo_subtomo_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
             utils.run_pseudo_subtomo()
+            input_particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
         else: 
             # Lets Upsample to bin1 with bin1 pipeline
             print('Completed the Main Refinement, Now Processing to Bin=1 Pipeline')
@@ -152,6 +154,8 @@ def average(
         bin1.run(particles)
 
         #TODO: Complete the Polisher
+        # polish = ThePolisher.from_utils(utils)
+        # polish.run(particles)
 
     # Otherwise, just estimate resolution (e.g., bin 2 is the final)
     else:     
