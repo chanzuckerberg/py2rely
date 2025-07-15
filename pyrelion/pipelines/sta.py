@@ -151,16 +151,19 @@ def average(
     if utils.binning <= 2 and 1 in utils.binningList:
 
         # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
+        print('Running Full-Resolution Refinement Pipeline')
         bin1.run(particles)
 
         #TODO: Complete the Polisher
         # polish = ThePolisher.from_utils(utils)
-        # polish.run(particles)
+        # particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+        # mask = utils.mask_create_job.output_dir + 'mask.mrc'
+        # polish.run(particles, mask)
 
     # Otherwise, just estimate resolution (e.g., bin 2 is the final)
     else:     
         # Estimate the Resolution of the Final Reconstruction
+        print(f'Exiting the STA Pipeline @ Bin = {utils.binning}, Estimating the Current Resolution...')        
         bin1.run_resolution_estimate(particles)
-
 
     print('Pipeline Complete!')

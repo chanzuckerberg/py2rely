@@ -26,6 +26,8 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_refine3D_job = None
         self.initial_model_job = None
         self.tomo_class3D_job = None
+        self.ctf_refine_job = None
+        self.bayesian_polish_job = None
 
     def initialize_reconstruct_tomograms(self):
         """
@@ -237,7 +239,7 @@ class Relion5Pipeline(PipelineHelper):
         """        
         self.ctf_refine_job = tomo_ctfrefine_job.TomoRelionCtfRefine()
         # self.ctf_refine_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        # self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
+        self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
         
         # Apply Output Directories from Previous Job  
         ctfRefineIter = self.return_job_iter(f'bin{self.binning}','ctf_refine')
@@ -261,8 +263,8 @@ class Relion5Pipeline(PipelineHelper):
         """        
         self.bayesian_polish_job = bayesianpolish_job.RelionBayesPolishJob()
         # self.bayesian_polish.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        # self.bayesian_polish = self.parse_params(self.bayesian_polish,'polish')
-        
+        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'polish')
+
         # Apply Output Directories from Previous Job  
         self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','polish')
         try: self.bayesian_polish.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
@@ -275,7 +277,7 @@ class Relion5Pipeline(PipelineHelper):
         if rerunPolish: polishJobIter = self.return_job_iter(f'bin{self.binning}', 'ctf_refine') 
         else:           polishJobIter = None    
 
-        self.run_job(self.ctf_refine_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
+        self.run_job(self.bayesian_polish_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
 
 
     def update_resolution(self, binFactorIndex: int):

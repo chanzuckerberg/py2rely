@@ -8,12 +8,17 @@ import numpy as np
 class HighResolutionRefinement:
     """Class for high-resolution refinement with two entry points."""
 
-    def __init__(self, parameter_file: str):
+    def __init__(self, parameter_file: str, tomograms: str = None, rerun: bool = False):
         """Initialize the refinement pipeline with configuration file."""
+
         self.project = PipelinerProject(make_new_project=True)
         self.utils = relion5_tools.Relion5Pipeline(self.project)
         self.utils.read_json_params_file(parameter_file)
         self.utils.read_json_directories_file('output_directories.json')
+
+        # If a Path for Refined Tomograms is Provided, Assign it 
+        if tomograms is not None:
+            self.utils.set_new_tomograms_starfile(tomograms)            
         
         # Initialize the processes
         self.utils.initialize_pseudo_tomos()
@@ -21,33 +26,32 @@ class HighResolutionRefinement:
         self.utils.initialize_mask_create()
         self.utils.initialize_auto_refine()
 
-    @classmethod
-    def from_utils(cls, utils):
-        """Create instance directly from utils object."""
-        instance = cls.__new__(cls)  # Create instance without calling __init__
-        instance.utils = utils
-        return instance
-
-    def run_new_pipeline(self, particles: str, low_pass: float, mask: str = None, 
-                        tomograms: str = None, rerun: bool = False):
-        """Run complete new pipeline from scratch."""
-        # If a Path for Refined Tomograms is Provided, Assign it 
-        if tomograms is not None:
-            self.utils.set_new_tomograms_starfile(tomograms)    
-
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
         self.utils.update_job_binning_box_size(
             self.utils.reconstruct_particle_job,
             self.utils.pseudo_subtomo_job,
             None,
             binningFactor=1
-        )         
+        )
 
-        # Run the High Resolution Refinement Pipeline
-        self._run_high_resolution_refinement(particles, low_pass, mask, rerun)
+        # Initialize the Mask Create and Auto Refine Jobs
+        utils.initialize_mask_create()
+        utils.initialize_auto_refine()         
+
+        # Store the rerun flag
+        self.rerun = rerun
+
+    @classmethod
+    def from_utils(cls, utils):
+        """Create instance directly from utils object."""
+        instance = cls.__new__(cls)  # Create instance without calling __init__
+        instance.utils = utils
+        instance.rerun = False  # Default to not rerun
+        return instance
 
     def run(self, particles: str):
         """Run refinement with existing setup, estimating resolution first."""
+        
         # Run Resolution Estimate to Get Low-Pass Filter
         self.run_resolution_estimate(particles)
 
@@ -59,12 +63,11 @@ class HighResolutionRefinement:
         self.utils.update_job_binning_box_size(
             self.utils.reconstruct_particle_job,
             self.utils.pseudo_subtomo_job,
-            None, 
-            binningFactor=1
+            None, binningFactor=1
         )
 
         # Run the High Resolution Refinement Pipeline
-        self._run_high_resolution_refinement(particles, low_pass)
+        self.run_hr_refinement(particles, low_pass)
 
     def run_resolution_estimate(self, particles: str):
         """Run resolution estimation for high-resolution refinement."""
@@ -72,14 +75,14 @@ class HighResolutionRefinement:
         if self.utils.mask_create_job.output_dir == '': 
             self.utils.mask_create_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
             self.utils.mask_create_job.joboptions['lowpass_filter'].value = self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D') * 1.25
-            self.utils.run_mask_create(self.utils.tomo_refine3D_job, None)        
+            self.utils.run_mask_create(self.utils.tomo_refine3D_job, None)       
 
         # Run Another Post Process to Estimate Low-Pass Filter
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
         self.utils.run_post_process(rerunPostProcess=True)
 
-    def _run_high_resolution_refinement(self, particles: str, low_pass: float, mask: str = None, rerun: bool = False):
+    def run_hr_refinement(self, particles: str, low_pass: float, mask: str = None):
         """Execute the main refinement pipeline."""
         # Generate Pseudo Sub-Tomograms at Bin = 1
         self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
@@ -87,7 +90,7 @@ class HighResolutionRefinement:
 
         # Reconstruct the Particle at Bin = 1
         self.utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
-        self.utils.run_reconstruct_particle(rerunReconstruct=rerun)
+        self.utils.run_reconstruct_particle(rerunReconstruct=self.rerun)
 
         # Automatically Create Mask if None is Provided
         if mask is None:
@@ -105,7 +108,7 @@ class HighResolutionRefinement:
         self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
 
         # Run the Auto Refine at Bin = 1
-        self.utils.run_auto_refine(rerunRefine=rerun)
+        self.utils.run_auto_refine(rerunRefine=self.rerun)
 
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
@@ -150,8 +153,8 @@ def high_resolution_cli(
     """
 
     # Create Instance of HighResolutionRefinement Class and Run the Pipeline
-    bin1 = HighResolutionRefinement(parameter)
-    bin1.run_new_pipeline(particles, low_pass, mask, tomograms, rerun)
+    bin1 = HighResolutionRefinement(parameter, tomograms, rerun)
+    bin1.run_hr_refinement(particles, low_pass, mask)
 
 
 @click.command(context_settings={"show_default": True}, name='bin1-pipeline')

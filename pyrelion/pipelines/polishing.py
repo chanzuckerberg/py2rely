@@ -6,17 +6,34 @@ import click
 class ThePolisher:
     """Class for high-resolution polishing with two entry points."""
 
-    def __init__(self, parameter_path: str):
+    def __init__(self, parameter_path: str, tomograms: str = None):
         """Initialize the polishing pipeline with configuration file."""
         self.project = PipelinerProject(make_new_project=True)
         self.utils = relion5_tools.Relion5Pipeline(self.project)
         self.utils.read_json_params_file(parameter_path)
         self.utils.read_json_directories_file('output_directories.json')
+
+        # If a Path for Refined Tomograms is Provided, Assign it
+        if tomograms is not None:
+            self.utils.set_new_tomograms_starfile(tomograms)
         
         # Initialize the processes
+        self.utils.initialize_pseudo_tomos()        
         self.utils.initialize_reconstruct_particle()
         self.utils.initialize_ctf_refine()
+        self.utils.initialize_bayesian_polish()
         self.utils.initialize_mask_create()
+
+        # Assumption: This pipeline can only be ran at bin1
+        self.utils.update_job_binning_box_size(
+            self.utils.reconstruct_particle_job,
+            self.utils.pseudo_subtomo_job,
+            None,
+            binningFactor=1
+        )
+
+        # Initialize the Auto Refine Job
+        self.utils.initialize_auto_refine()
 
     @classmethod
     def from_utils(cls, utils):
@@ -25,33 +42,13 @@ class ThePolisher:
         instance.utils = utils
         return instance
 
-    def run_new_pipeline(self, particles: str, mask: str, tomograms: str = None, 
-                        box_size: int = None, num_iterations: int = 2):
-        """Run the high-resolution refinement and polishing stage."""
-        # If a Path for Refined Tomograms is Provided, Assign it 
-        if tomograms is not None:
-            self.utils.set_new_tomograms_starfile(tomograms)        
-
-        # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
-        self.utils.update_job_binning_box_size(
-            self.utils.reconstruct_particle_job,
-            self.utils.pseudo_subtomo_job,
-            None,
-            binningFactor=1
-        )    
-
-        # Run the Polishing Pipeline
-        self._run_polishing(particles, mask, box_size, num_iterations)
-
-    def run(self, particles: str):
-        """Run polishing with existing setup."""
-        # Implementation would go here based on your needs
-        pass
-
-    def _run_polishing(self, particles: str, mask: str, box_size: int, num_iterations: int = 2):
+    def run(self, particles: str, mask: str, box_size: int, num_iterations: int = 2):
         """Execute the main polishing pipeline."""
         self.utils.initialize_ctf_refine()
         self.utils.initialize_bayesian_polish()
+
+        # Should I only set the mask once? Do we ever update our masks? 
+        # This would be the same for box_size and crop size as well
 
         # For now, lets start off with 2 iterations
         for ii in range(num_iterations):
@@ -62,23 +59,24 @@ class ThePolisher:
 
             # Post Process
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
+            self.utils.post_process_job.joboptions['fn_mask'].value = mask
             self.utils.run_post_process(rerunPostProcess=True)
 
             # CTF Refinement
             self.utils.ctf_refine_job.joboptions['in_particles'].value = particles
             self.utils.ctf_refine_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.ctf_refine_job.joboptions['in_refmask'].value = mask
-            self.utils.run_ctf_refine()
+            self.utils.run_ctf_refine(rerunCtfRefine=True)
 
             # Update the tomograms starfile
-            # Here just bayesian polish is ine
+            # Here just bayesian polish is fine
 
             # Bayesian Polishing
             # self.utils.bayesian_polish_job.joboptions['box_size'].value = 
             self.utils.bayesian_polish_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
             self.utils.bayesian_polish_job.joboptions['in_tomograms'].value = self.utils.ctf_refine_job.output_dir + 'tomograms.star'
             self.utils.bayesian_polish_job.joboptions['in_particles'].value = particles
-            self.utils.run_bayesian_polish()
+            self.utils.run_bayesian_polish(re)
 
             # Update motion and tomograms starfile
             # For 1. Pseudo-subtomo, 2. Reconstruct, 3. Post Process, 4. 3D Refinement
@@ -112,11 +110,9 @@ class ThePolisher:
 
     def _update_inputs(self, job):
         """Update job inputs with latest bayesian polish results."""
-        job.joboptions['in_particles'].value = self.utils.bayesian_polish_job.output_dir + 'particles.star'
         job.joboptions['in_tomograms'].value = self.utils.bayesian_polish_job.output_dir + 'tomograms.star'
         job.joboptions['in_trajectories'].value = self.utils.bayesian_polish_job.output_dir + 'motion.star'
-        job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
-
+        
 
 def polishing_options(func):
     """Decorator to add shared options for polishing commands."""
@@ -127,6 +123,10 @@ def polishing_options(func):
                       help="The Particles Star File to Start Polishing",),
         click.option("--mask", type=str, required=True, default='mask.mrc', 
                       help="The Mask to Use for Polishing",),
+        click.option('--tomograms', type=str, required=False, default=None, 
+                      help="The Tomograms Star File to Start Polishing (e.g., 'tomograms.star')",),
+        # click.option('--motion', type=str, required=False, default=None, 
+        #               help="The Motion Star File to Start Polishing (e.g., 'motion.star')",),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
@@ -144,7 +144,8 @@ def polish_pipeline(
     Run polishing and ctf refinement through cli.
     """
 
-    polishing(parameter_path, particles, mask) 
+    polish = ThePolisher(parameter_path)
+    polish.run(particles, mask) 
 
 @click.command(context_settings={"show_default": True})
 @polishing_options
