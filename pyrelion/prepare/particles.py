@@ -146,6 +146,7 @@ def import_pytom_particles(
 @click.option("--copick-name", type=str, required=True, help="Protein Name")
 @click.option("--copick-session-id", type=str, default=None, help="Session ID")
 @click.option("--copick-user-id", type=str, default=None, help="User ID")
+@click.option("--voxel-size", type=float, default=None, help="Voxel Size of Picked Particles' Tomograms")
 @common.add_common_options
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
@@ -154,7 +155,8 @@ def gather_copick_particles(
     session: str,
     copick_name: str, 
     output: str,
-    pixel_size: float, 
+    pixel_size: float,
+    voxel_size: float, 
     copick_session_id: str, 
     copick_user_id: str,
     x: float,
@@ -193,7 +195,7 @@ def gather_copick_particles(
     utils.print_pipeline_parameters(
         'Gathering Copick Particles', config = config, output_path = writePath, 
         copick_name = copick_name, copick_session_id = copick_session_id, copick_user_id = copick_user_id, 
-        pixel_size = pixel_size, tomo_dim_x = x, tomo_dim_y = y, tomo_dim_z = z, voltage = voltage, 
+        pixel_size = pixel_size, voxel_size = voxel_size, tomo_dim_x = x, tomo_dim_y = y, tomo_dim_z = z, voltage = voltage, 
         spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast, 
         optics_group = optics_group, optics_group_name = optics_group_name, 
         header = fname, file_name=f'{output}/import.json'
@@ -213,13 +215,23 @@ def gather_copick_particles(
     myStarFile['rlnAnglePsi'] = []
 
     # Load tomo_ids
-    run_ids = [run.name for run in root.runs] 
+    if voxel_size is None:
+        run_ids = [run.name for run in root.runs]
+    else:
+        run_ids = [run.name for run in root.runs if run.get_voxel_spacing(voxel_size) is not None]
+        skipped_run_ids = [run.name for run in root.runs if run.get_voxel_spacing(voxel_size) is None]    
+        if skipped_run_ids: 
+                print(f"Warning: skipping runs with no voxel spacing {voxel_size}: {skipped_run_ids}")
 
     for runID in tqdm(run_ids):
 
         # Query CopickRun and Picks
         run = root.get_run(runID)
         picks = run.get_picks(object_name = copick_name, session_id = copick_session_id, user_id = copick_user_id)
+
+        if picks is None or len(picks) == 0:
+            print(f"Warning: no picks found for {runID}")
+            continue
 
         # Iterate Through All Available Picks Based On Query
         nPicks = len(picks)
@@ -272,7 +284,7 @@ def gather_copick_particles(
     myStarFile['rlnTomoName'] = myStarFile['rlnTomoName'].str.replace('_Vol', '')
 
     # Assign a default optics group value to all particles
-    myStarFile['rlnOpticsGroup'] = [1] * len(myStarFile['rlnTomoName'])
+    myStarFile['rlnOpticsGroup'] = [optics_group] * len(myStarFile['rlnTomoName'])
 
     # Create optics group metadata as a dictionary
     optics = common.create_optics_metadata(pixel_size, voltage, spherical_aberration, amplitude_contrast, optics_group, optics_group_name)

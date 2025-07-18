@@ -73,7 +73,7 @@ def refine3d(
     utils.update_resolution(binIndex)     
 
     # Primary 3D Refinement Job and Update Input Parameters
-    utils.tomo_refine3D_job.joboptions['fn_img'].value = particles
+    utils.tomo_refine3D_job.joboptions['in_particles'].value = particles
     utils.tomo_refine3D_job.joboptions['fn_ref'].value = reference
 
     # If Mask Path is Not Provided, Query the Last Ran Mask

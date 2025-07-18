@@ -126,7 +126,6 @@ def import_tilt_series(
         tomoXshift = []  # Shifts along X-axis
         tomoYshift = []  # Shifts along Y-axis
         tiltSeriesNames = []  # Filenames of tilt images
-        ctfImageNames = []  # Filenames of CTF images
         defocusU = []  # Defocus U values
         defocusV = []  # Defocus V values
         defocusAngle = []  # Defocus angle values        
@@ -134,23 +133,15 @@ def import_tilt_series(
         # Handle symlinks for MRC stack files
         if symlinks is None:
             tiltSeriesName = f'{tomoPath}/{tomoID}.mrcs'
-            ctfImageName = f'{tomoPath}/{tomoID}_CTF.mrcs'
             if not os.path.isfile(tiltSeriesName):
                 os.symlink(f'{tomoID}.mrc', tiltSeriesName)
-            if not os.path.isfile(ctfImageName):
-                os.symlink(f'{tomoID}_CTF.mrc', ctfImageName)
         else:
             tiltSeriesName = os.path.join(symlinks, f'{tomoID}.mrcs')
-            ctfImageName = os.path.join(symlinks, f'{tomoID}_CTF.mrcs')
 
             tiltSeriesNameAbs = os.path.abspath(f'{tomoPath}/{tomoID}.mrc')
-            ctfImageNameAbs = os.path.abspath(f'{tomoPath}/{tomoID}_CTF.mrc')
 
             if not os.path.isfile(tiltSeriesName):
                 os.symlink(tiltSeriesNameAbs, tiltSeriesName)
-
-            if not os.path.isfile(ctfImageName):
-                os.symlink(ctfImageNameAbs, ctfImageName)
 
         # Iterate Through the Alignment File
         nTilts = orderList.shape[0]
@@ -160,8 +151,6 @@ def import_tilt_series(
             ind = int(alnDF.iloc[tiltInd]['SEC'])
             tiltSeriesName_id = f'{ind}@{tiltSeriesName}'
             tiltSeriesNames.append(tiltSeriesName_id)
-            ctfImageName_id = f'{ind}@{ctfImageName}'
-            ctfImageNames.append(ctfImageName_id)
 
             # Get the Tomogram Tilt Parameters from the Alignment File
             tomoYtilt.append(alnDF['TILT'][tiltInd])
@@ -189,7 +178,6 @@ def import_tilt_series(
         ts_dict['rlnTomoZRot'] = alnDF['ROT'].tolist()
         ts_dict['rlnTomoXShiftAngst'] = tomoXshift
         ts_dict['rlnTomoYShiftAngst'] = tomoYshift
-        ts_dict['rlnCtfImage'] = ctfImageNames
         ts_dict['rlnDefocusU'] = defocusU
         ts_dict['rlnDefocusV'] = defocusV
         ts_dict['rlnDefocusAngle'] = defocusAngle
