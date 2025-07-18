@@ -164,8 +164,7 @@ def import_tilt_series(
 
             # Get the Total Exposure from the Order List
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
-            offset = 0 # old offset was 1, is this correct?
-            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - offset) )
+            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
 
         # Get Number of Rows for the STAR file
         num_rows = len(tiltSeriesNames)
