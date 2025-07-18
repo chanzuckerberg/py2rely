@@ -59,6 +59,8 @@ class HighResolutionRefinement:
         # low_pass = self.utils.get_resolution(self.utils.post_process_job, 'post_process')
         low_pass = self.utils.get_half_fsc(self.utils.post_process_job.output_dir)
 
+        # Check to see if resolution is sufficient - this should be optional. Ignore if not provided
+
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
         self.utils.update_job_binning_box_size(
             self.utils.reconstruct_particle_job,
@@ -84,6 +86,7 @@ class HighResolutionRefinement:
 
     def run_hr_refinement(self, particles: str, low_pass: float, mask: str = None):
         """Execute the main refinement pipeline."""
+
         # Generate Pseudo Sub-Tomograms at Bin = 1
         self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
         self.utils.run_pseudo_subtomo() 
@@ -113,7 +116,7 @@ class HighResolutionRefinement:
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        self.utils.post_process_job.joboptions['low_pass'].value = 0
+        self.utils.post_process_job.joboptions['low_pass'].value = 0 # should this be pixel size or nyquist resolution?
         self.utils.run_post_process(rerunPostProcess=True)
 
 # Decorator for CLI options

@@ -1,5 +1,7 @@
-from pipeliner.jobs.tomography.relion_tomo import tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job
-from pipeliner.jobs.relion import bayesianpolish_job
+from pipeliner.jobs.tomography.relion_tomo import (
+    tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, 
+    tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job, tomo_bayesianpolish_job
+)
 from pyrelion.utils.sta_tools import PipelineHelper
 import os
 
@@ -261,12 +263,12 @@ class Relion5Pipeline(PipelineHelper):
         parsed and set according to the configuration specified in the 'class3D' section 
         of the JSON file.
         """        
-        self.bayesian_polish_job = bayesianpolish_job.RelionBayesPolishJob()
+        self.bayesian_polish_job = tomo_bayesianpolish_job.TomoRelionBayesPolishJob()
         # self.bayesian_polish.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'polish')
+        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'bayesian_polish')
 
         # Apply Output Directories from Previous Job  
-        self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','polish')
+        self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','bayesian_polish')
         try: self.bayesian_polish.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
         except: pass
 
@@ -302,8 +304,6 @@ class Relion5Pipeline(PipelineHelper):
 
             # Print the current reconstruction crop size, box size, and sampling to the console for verification.
             # These values are essential for monitoring the progress and correctness of the reconstruction process.
-            print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
-            print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
             print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
 
         # Update Healpix Order for Refinement when Binning is 2

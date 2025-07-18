@@ -24,8 +24,6 @@ def class3d_options(func):
                       help="Low-Pass Filter to Apply to Model"),
         click.option("--tau-fudge",type=float,required=False,default=3,
                       help="Tau Regularization Parameter for Classification"),
-        click.option( "--nr-classes", type=str, required=False, default='5',
-                    help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" ),
         click.option("--nr-iter",type=int,required=False,default=None,
                       help="Number of Iterations"),
         click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
@@ -41,6 +39,7 @@ def class3d_options(func):
 
 @cli.command(context_settings={"show_default": True})
 @class3d_options
+@click.option( "--nr-classes", type=int, required=False, default=5, help="Number of Classes" )
 def class3d(
     parameter: str,
     particles: str, 
@@ -120,6 +119,8 @@ def class3d(
 
 @cli.command(context_settings={"show_default": True}, name='class3d')
 @class3d_options
+@click.option( "--nr-classes", type=str, required=False, default='5',
+               help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
 def class3d_slurm(
     parameter: str, 
     particles: str, 

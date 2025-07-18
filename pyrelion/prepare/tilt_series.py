@@ -153,8 +153,7 @@ def import_tilt_series(
                 os.symlink(ctfImageNameAbs, ctfImageName)
 
         # Iterate Through the Alignment File
-        # nTilts0 = xfDF.shape[0]
-        nTilts = len(alnDF)
+        nTilts = orderList.shape[0]
         for tiltInd in range(len(alnDF)):
 
             # Determine the Tilt Index from the Alignment File
@@ -176,7 +175,8 @@ def import_tilt_series(
 
             # Get the Total Exposure from the Order List
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
-            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
+            offset = 0 # old offset was 1, is this correct?
+            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - offset) )
 
         # Get Number of Rows for the STAR file
         num_rows = len(tiltSeriesNames)
@@ -186,7 +186,7 @@ def import_tilt_series(
         ts_dict['rlnMicrographName'] = tiltSeriesNames
         ts_dict['rlnTomoXTilt'] = [0] * num_rows
         ts_dict['rlnTomoYTilt'] = tomoYtilt
-        ts_dict['tomoZRot'] = alnDF['ROT'].tolist()
+        ts_dict['rlnTomoZRot'] = alnDF['ROT'].tolist()
         ts_dict['rlnTomoXShiftAngst'] = tomoXshift
         ts_dict['rlnTomoYShiftAngst'] = tomoYshift
         ts_dict['rlnCtfImage'] = ctfImageNames

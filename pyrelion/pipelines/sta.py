@@ -2,6 +2,7 @@ from pyrelion.pipelines.bin1 import HighResolutionRefinement as HRrefine
 from pipeliner.api.manage_project import PipelinerProject
 from pyrelion.pipelines.polishing import ThePolisher
 from pyrelion.utils import relion5_tools
+import subprocess
 import json, click
 
 @click.command(context_settings={"show_default": True}, name='sta')
@@ -99,6 +100,10 @@ def average(
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
         utils.run_auto_refine()
 
+        # Duplicate Particles?  - relion star_handler
+        # if binFactor == 0:
+        #     remove_duplicates(utils, distance_scale=0.3)
+
         #########################################################################################            
 
         # Primary 3D Refinement Job and Update Input Parameters
@@ -154,11 +159,13 @@ def average(
         print('Running Full-Resolution Refinement Pipeline')
         bin1.run(particles)
 
-        #TODO: Complete the Polisher
-        # polish = ThePolisher.from_utils(utils)
-        # particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-        # mask = utils.mask_create_job.output_dir + 'mask.mrc'
-        # polish.run(particles, mask)
+        # Run the Polisher (Ctf refine and bayesian polish)
+        particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+        mask = utils.mask_create_job.output_dir + 'mask.mrc'
+        
+        # Initialize and Run the Polisher
+        polish = ThePolisher.from_utils(utils)
+        polish.run(particles, mask)
 
     # Otherwise, just estimate resolution (e.g., bin 2 is the final)
     else:     
@@ -166,4 +173,9 @@ def average(
         print(f'Exiting the STA Pipeline @ Bin = {utils.binning}, Estimating the Current Resolution...')        
         bin1.run_resolution_estimate(particles)
 
-    print('Pipeline Complete!')
+def remove_duplicates(utils, distance_scale):
+
+    starfile = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+    distance_angstroms = utils.tomo_refine3D_job.joboptions['particle_diameter'] * 0.3
+    cmd = f"relion_star_handler --i {starfile} --remove_duplicates {distance_angstroms} --o {starfile}"
+    subprocess.run(cmd, check=True)

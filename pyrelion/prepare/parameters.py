@@ -134,6 +134,7 @@ class CtfRefine(BaseModel):
     lambda_param: float = Field(alias="lambda") 
     do_scale: str
     do_frame_scale: str
+    nr_threads: int    
 
 class BayesianPolish(BaseModel):
     use_direct_entries: str
@@ -141,6 +142,7 @@ class BayesianPolish(BaseModel):
     do_motion: str
     sigma_vel: float
     sigma_div: float
+    nr_threads: int    
 
 class ProcessingConfigRelion4(BaseModel):
     resolutions: ResolutionParameters

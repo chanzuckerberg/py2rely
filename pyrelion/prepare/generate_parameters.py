@@ -156,14 +156,16 @@ def relion5_parameters(
             do_reg_def="yes",
             lambda_param=0.1,
             do_scale="yes",
-            do_frame_scale="yes"
+            do_frame_scale="yes",
+            nr_threads=16
         ) if 1 in binning_list else None,
         bayesian_polish=parameters.BayesianPolish(
             use_direct_entries="yes",
             max_error=5,
             do_motion="yes",
-            sigma_vel=0.5,
-            sigma_div=0.5
+            sigma_vel=0.2,
+            sigma_div=5000,
+            nr_threads=16
         ) if 1 in binning_list else None
     )
 
