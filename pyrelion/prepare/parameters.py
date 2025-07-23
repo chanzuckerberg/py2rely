@@ -126,7 +126,7 @@ class MaskCreate(BaseModel):
 
 class CtfRefine(BaseModel):
     model_config = {"populate_by_name": True}
-    
+    in_tomograms: str
     use_direct_entries: str
     do_defocus: str
     focus_range: float
@@ -137,6 +137,7 @@ class CtfRefine(BaseModel):
     nr_threads: int    
 
 class BayesianPolish(BaseModel):
+    in_tomograms: str
     use_direct_entries: str
     max_error: float
     do_motion: str

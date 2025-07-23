@@ -101,8 +101,8 @@ def average(
         utils.run_auto_refine()
 
         # Duplicate Particles?  - relion star_handler
-        # if binFactor == 0:
-        #     remove_duplicates(utils, distance_scale=0.3)
+        if binFactor == 0:
+            remove_duplicates(utils, distance_scale=0.3)
 
         #########################################################################################            
 
@@ -176,6 +176,6 @@ def average(
 def remove_duplicates(utils, distance_scale):
 
     starfile = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-    distance_angstroms = utils.tomo_refine3D_job.joboptions['particle_diameter'] * 0.3
+    distance_angstroms = float(utils.tomo_refine3D_job.joboptions['particle_diameter'].value) * 0.3 
     cmd = f"relion_star_handler --i {starfile} --remove_duplicates {distance_angstroms} --o {starfile}"
-    subprocess.run(cmd, check=True)
+    subprocess.run(cmd, shell=True, check=True)

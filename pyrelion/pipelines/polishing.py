@@ -64,33 +64,35 @@ class ThePolisher:
 
             # Reconstruction
             self.utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
-            self.utils.run_reconstruct_particle(rerunReconstruct=True)
+            self.utils.run_reconstruct_particle(rerunReconstruct=False)
 
             # Post Process
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.post_process_job.joboptions['fn_mask'].value = mask
-            self.utils.run_post_process(rerunPostProcess=True)
+            self.utils.run_post_process(rerunPostProcess=False)
 
             # CTF Refinement
-            self.utils.ctf_refine_job.joboptions['in_particles'].value = particles
             self.utils.ctf_refine_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
+            self.utils.ctf_refine_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
+            self.utils.ctf_refine_job.joboptions['in_particles'].value = particles
             self.utils.ctf_refine_job.joboptions['in_refmask'].value = mask
             self.utils.run_ctf_refine(rerunCtfRefine=True)
 
-            # Update the tomograms starfile
-            # Here just bayesian polish is fine
-
             # Bayesian Polishing
+            self.utils.bayesian_polish_job.joboptions['in_refmask'].value = mask
+            self.utils.bayesian_polish_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.bayesian_polish_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
             self.utils.bayesian_polish_job.joboptions['in_tomograms'].value = self.utils.ctf_refine_job.output_dir + 'tomograms.star'
             self.utils.bayesian_polish_job.joboptions['in_particles'].value = particles
-            self.utils.run_bayesian_polish(rerunBayesianPolish=True)
+            self.utils.run_bayesian_polish(rerunPolish=True)
 
-            # Update motion and tomograms starfile
-            # For 1. Pseudo-subtomo, 2. Reconstruct, 3. Post Process, 4. 3D Refinement
+            # Update the Trajectories and Tomograms Starfile for Polish and Ctf Refine
+            self._update_inputs(self.utils.ctf_refine_job)
+            self._update_inputs(self.utils.bayesian_polish_job)
 
             # Pseudo-Subtomogram Extraction
             self._update_inputs(self.utils.pseudo_subtomo_job)
+            self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = self.utils.bayesian_polish_job.output_dir + 'particles.star'
             self.utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
             
             # Reconstruction
@@ -98,20 +100,18 @@ class ThePolisher:
             self.utils.reconstruct_particle_job.joboptions['in_particles'].value = self.utils.pseudo_subtomo_job.output_dir + 'particles.star'
             self.utils.run_reconstruct_particle(rerunReconstruct=True)
 
-            # Post Process     
-            self._update_inputs(self.utils.post_process_job)
+            # Post Process
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
 
             # 3D Refinement
             self._update_inputs(self.utils.tomo_refine3D_job)
             self.utils.tomo_refine3D_job.joboptions['in_particles'].value = self.utils.pseudo_subtomo_job.output_dir + 'particles.star'
-            self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.ctf_refine_job.output_dir + 'run_class001.mrc'
+            self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             # low-pass filter? 
             self.utils.run_auto_refine(rerunRefine=True)
 
             # Post-Process to Estimate Resolution     
-            self._update_inputs(self.utils.post_process_job)
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
 
