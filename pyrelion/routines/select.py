@@ -19,7 +19,7 @@ def select_options(func):
                     help="List of Classes to Keep for Further Refinement"),
         click.option("--class-job",type=str,required=True,default="job001",
                     help="Job that Classes will Be Extracted"),
-        click.option("--run-refinement",type=click.BOOL,required=False,default=True,
+        click.option("--run-refinement",type=click.BOOL,required=False,default=False,
                     help="Run 3D-Refinement After Selecting Best Classes"),
         click.option("--mask-path", type=str,required=False,default=None,
                     help="(Optional) Path to Mask for 3D-Refinement")
@@ -79,7 +79,7 @@ def select(
     if run_refinement:
 
         # Assign Best Class and Output Particle Selection for Sub-Sequent Job      
-        utils.tomo_refine3D_job.joboptions['fn_img'].value = utils.tomo_select_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.tomo_select_job.output_dir + 'particles.star'
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.tomo_class3D_job.output_dir + f'run_it025_class{best_class:03d}.mrc'    
         
         # Estimate Resolution for Low-Pass Filtering

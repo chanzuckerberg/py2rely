@@ -24,8 +24,6 @@ def class3d_options(func):
                       help="Low-Pass Filter to Apply to Model"),
         click.option("--tau-fudge",type=float,required=False,default=3,
                       help="Tau Regularization Parameter for Classification"),
-        click.option( "--nr-classes", type=str, required=False, default='5',
-                    help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" ),
         click.option("--nr-iter",type=int,required=False,default=None,
                       help="Number of Iterations"),
         click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
@@ -41,6 +39,7 @@ def class3d_options(func):
 
 @cli.command(context_settings={"show_default": True})
 @class3d_options
+@click.option( "--nr-classes", type=int, required=False, default=5, help="Number of Classes" )
 def class3d(
     parameter: str,
     particles: str, 
@@ -93,7 +92,7 @@ def class3d(
     if nr_iter is not None:     utils.tomo_class3D_job.joboptions['nr_iter'].value = nr_iter
     else:                       nr_iter = utils.tomo_class3D_job.joboptions['nr_iter'].value    
 
-    if mask_path is not None:   utils.tomo_class3D_job.joboptions['fn_mask'].value = mask_path
+    if mask is not None:   utils.tomo_class3D_job.joboptions['fn_mask'].value = mask
     
     # Is the Reference Map Created by Relion?
     utils.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = ref_correct_greyscale
@@ -102,12 +101,12 @@ def class3d(
     if align_particles:
         utils.tomo_class3D_job.joboptions['dont_skip_align'].value = "yes"
         utils.tomo_class3D_job.joboptions['allow_coarser'].value = "yes"
-        utils.tomo_class3D_job.joboptions['nr_iter'].value = 15
+        utils.tomo_class3D_job.joboptions['nr_iter'].value = nr_iter if nr_iter is not None else 15
         utils.tomo_class3D_job.joboptions['use_gpu'].value = "yes"
         utils.tomo_class3D_job.joboptions['do_local_ang_searches'].value = "no"
 
     # Specify Particles and Reference MRC Volume
-    utils.tomo_class3D_job.joboptions['fn_img'].value = particles
+    utils.tomo_class3D_job.joboptions['in_particles'].value = particles
     utils.tomo_class3D_job.joboptions['fn_ref'].value = reference
 
     # Print Input Parameters
@@ -120,6 +119,8 @@ def class3d(
 
 @cli.command(context_settings={"show_default": True}, name='class3d')
 @class3d_options
+@click.option( "--nr-classes", type=str, required=False, default='5',
+               help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
 def class3d_slurm(
     parameter: str, 
     particles: str, 

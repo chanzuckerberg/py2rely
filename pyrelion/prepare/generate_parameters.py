@@ -133,7 +133,7 @@ def relion5_parameters(
             offset_step= 1,
             do_local_ang_searches="yes",
             allow_coarser= "no",
-            nr_pool= 16, 
+            nr_pool= 30, 
             use_gpu= "no",
             gpu_ids= "",
             nr_threads= 16,
@@ -150,20 +150,24 @@ def relion5_parameters(
             width_mask_edge=5
         ),
         ctf_refine=parameters.CtfRefine(
+            in_tomograms=input_tilt_series,
             use_direct_entries="yes",
             do_defocus="yes",
             focus_range=3000,
             do_reg_def="yes",
             lambda_param=0.1,
             do_scale="yes",
-            do_frame_scale="yes"
+            do_frame_scale="yes",
+            nr_threads=16
         ) if 1 in binning_list else None,
         bayesian_polish=parameters.BayesianPolish(
+            in_tomograms=input_tilt_series,
             use_direct_entries="yes",
             max_error=5,
             do_motion="yes",
-            sigma_vel=0.5,
-            sigma_div=0.5
+            sigma_vel=0.2,
+            sigma_div=5000,
+            nr_threads=16
         ) if 1 in binning_list else None
     )
 

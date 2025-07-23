@@ -377,16 +377,24 @@ class PipelineHelper:
 
         # Update Job with New Binning
         reconstruct_particle_job.joboptions['binfactor'].value = self.binning
-        pseudo_subtomo_job.joboptions['binfactor'].value = self.binning        
+        pseudo_subtomo_job.joboptions['binfactor'].value = self.binning 
 
-        # Define New Box Size Based on User Defined Incremental Scaling
-        reconstruct_particle_job.joboptions['box_size'].value = boxSize
-        pseudo_subtomo_job.joboptions['box_size'].value = boxSize        
+        # Only Set Crop Size to Box Size at Bin = 1, Else Keep at -1
+        if self.binning == 1:
+            reconstruct_particle_job.joboptions['crop_size'].value = boxSize
+            pseudo_subtomo_job.joboptions['crop_size'].value = boxSize
+            scale = 1.5
+        else:
+            scale = 1
 
-        # Set Crop Box Size to Half of Box Size
-        if reconstruct_particle_job.joboptions['crop_size'].value > 0: 
-            reconstruct_particle_job.joboptions['crop_size'].value = int(boxSize / 2)
-            pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)   
+        # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job  
+        index = np.searchsorted(self.boxSizes, boxSize * scale, side='left')
+        reconstruct_particle_job.joboptions['box_size'].value = self.boxSizes[index]
+        pseudo_subtomo_job.joboptions['box_size'].value = self.boxSizes[index]
+
+        # Print the Current Reconstruction Crop and Box Size  
+        print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
+        print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
 
     def get_new_sampling(self, job, update_local=True):
         """

@@ -1,6 +1,8 @@
 from pyrelion.pipelines.bin1 import HighResolutionRefinement as HRrefine
 from pipeliner.api.manage_project import PipelinerProject
+from pyrelion.pipelines.polishing import ThePolisher
 from pyrelion.utils import relion5_tools
+import subprocess
 import json, click
 
 @click.command(context_settings={"show_default": True}, name='sta')
@@ -66,6 +68,8 @@ def average(
     utils.initialize_tomo_class3D()
     utils.initialize_reconstruct_particle()
 
+    # Initial Model Generation
+    input_particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
     if run_denovo_generation:
         # Initialize and I/O for Denovo Initial Model Generation
         utils.initialize_initial_model()       
@@ -76,6 +80,7 @@ def average(
         # Use Classification to Generate Initial Reference 
         print(f'\nGenerating Initial Model with "Class3D"\n')
         refine_reference = utils.run_initial_model_class3D(reference_template, nClasses = 1, nr_iter = 10)
+        input_particles = utils.tomo_class3D_job.output_dir + 'run_it010_data.star'
     else: 
         # Reconstruct with Template Matching Parameters
         print(f'\nGenerating Initial Model with "Reconstruct Particle"\n')
@@ -91,12 +96,13 @@ def average(
         ########################################################################################
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if reference_template is not None:
-            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.tomo_class3D_job.output_dir + 'run_it010_data.star'
-        else:
-            utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['in_particles'].value = input_particles
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
         utils.run_auto_refine()
+
+        # Duplicate Particles?  - relion star_handler
+        if binFactor == 0:
+            remove_duplicates(utils, distance_scale=0.3)
 
         #########################################################################################            
 
@@ -138,27 +144,39 @@ def average(
             # Create PseudoTomogram Generation Job and Update Input Parameters
             utils.pseudo_subtomo_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
             utils.run_pseudo_subtomo()
+            input_particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
         else: 
             # Lets Upsample to bin1 with bin1 pipeline
             print('Completed the Main Refinement, Now Processing to Bin=1 Pipeline')
             continue
 
     # High-resolution refinement should only run if final binning is 1 and we're at 2 or lower
+    bin1 = HRrefine.from_utils(utils)
     particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
     if utils.binning <= 2 and 1 in utils.binningList:
-        # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
-        HRrefine.run(
-            utils, particles,
-        )
 
-        #TODO: Complete the Polisher
+        # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
+        print('Running Full-Resolution Refinement Pipeline')
+        bin1.run(particles)
+
+        # Run the Polisher (Ctf refine and bayesian polish)
+        particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+        mask = utils.mask_create_job.output_dir + 'mask.mrc'
+        
+        # Initialize and Run the Polisher
+        print(f'Bin=1 Pipeline Complete!!\nRunning the Polisher...')
+        polish = ThePolisher.from_utils(utils)
+        polish.run(particles, mask)
 
     # Otherwise, just estimate resolution (e.g., bin 2 is the final)
     else:     
         # Estimate the Resolution of the Final Reconstruction
-        HRrefine.run_resolution_estimate(
-            utils, particles, 
-        )
+        print(f'Exiting the STA Pipeline @ Bin = {utils.binning}, Estimating the Current Resolution...')        
+        bin1.run_resolution_estimate(particles)
 
+def remove_duplicates(utils, distance_scale):
 
-    print('Pipeline Complete!')
+    starfile = utils.tomo_refine3D_job.output_dir + 'run_data.star'
+    distance_angstroms = float(utils.tomo_refine3D_job.joboptions['particle_diameter'].value) * 0.3 
+    cmd = f"relion_star_handler --i {starfile} --remove_duplicates {distance_angstroms} --o {starfile}"
+    subprocess.run(cmd, shell=True, check=True)

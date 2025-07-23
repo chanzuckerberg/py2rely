@@ -1,11 +1,9 @@
-from pipeliner.jobs.tomography.relion_tomo import tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job
-from pipeliner.jobs.relion import bayesianpolish_job, select_job, maskcreate_job, postprocess_job
+from pipeliner.jobs.tomography.relion_tomo import (
+    tomo_reconstruct_job, tomo_reconstructparticle_job, tomo_pseudosubtomo_job, tomo_refine3D_job, 
+    tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job, tomo_bayesianpolish_job
+)
 from pyrelion.utils.sta_tools import PipelineHelper
-import pipeliner.job_manager as job_manager
-import glob, starfile, json, re, mrcfile
-import subprocess, os
-import numpy as np
-import warnings
+import os
 
 class Relion5Pipeline(PipelineHelper):
     """
@@ -30,6 +28,8 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_refine3D_job = None
         self.initial_model_job = None
         self.tomo_class3D_job = None
+        self.ctf_refine_job = None
+        self.bayesian_polish_job = None
 
     def initialize_reconstruct_tomograms(self):
         """
@@ -62,11 +62,13 @@ class Relion5Pipeline(PipelineHelper):
         try: self.pseudo_subtomo_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}/pseudo_subtomo') 
         except: pass
 
-    def run_pseudo_subtomo(self):
+    def run_pseudo_subtomo(self, rerunPseudoSubtomo: bool = False):
         """
         Run the pseudo-subtomogram generation job and handle its execution.
         """        
-        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}')
+        if rerunPseudoSubtomo: pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo')
+        else:                  pseudoSubtomoIter = None
+        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
 
     def initialize_initial_model(self):
         """
@@ -239,7 +241,7 @@ class Relion5Pipeline(PipelineHelper):
         """        
         self.ctf_refine_job = tomo_ctfrefine_job.TomoRelionCtfRefine()
         # self.ctf_refine_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        # self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
+        self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
         
         # Apply Output Directories from Previous Job  
         ctfRefineIter = self.return_job_iter(f'bin{self.binning}','ctf_refine')
@@ -261,12 +263,12 @@ class Relion5Pipeline(PipelineHelper):
         parsed and set according to the configuration specified in the 'class3D' section 
         of the JSON file.
         """        
-        self.bayesian_polish_job = bayesianpolish_job.RelionBayesPolishJob()
+        self.bayesian_polish_job = tomo_bayesianpolish_job.TomoRelionBayesPolishJob()
         # self.bayesian_polish.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        # self.bayesian_polish = self.parse_params(self.bayesian_polish,'polish')
-        
+        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'bayesian_polish')
+
         # Apply Output Directories from Previous Job  
-        self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','polish')
+        self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','bayesian_polish')
         try: self.bayesian_polish.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
         except: pass
 
@@ -277,7 +279,7 @@ class Relion5Pipeline(PipelineHelper):
         if rerunPolish: polishJobIter = self.return_job_iter(f'bin{self.binning}', 'ctf_refine') 
         else:           polishJobIter = None    
 
-        self.run_job(self.ctf_refine_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
+        self.run_job(self.bayesian_polish_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
 
 
     def update_resolution(self, binFactorIndex: int):
@@ -302,8 +304,6 @@ class Relion5Pipeline(PipelineHelper):
 
             # Print the current reconstruction crop size, box size, and sampling to the console for verification.
             # These values are essential for monitoring the progress and correctness of the reconstruction process.
-            print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
-            print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
             print('Current Sampling: ', self.tomo_refine3D_job.joboptions['sampling'].value)
 
         # Update Healpix Order for Refinement when Binning is 2

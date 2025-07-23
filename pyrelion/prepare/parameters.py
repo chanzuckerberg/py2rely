@@ -126,7 +126,7 @@ class MaskCreate(BaseModel):
 
 class CtfRefine(BaseModel):
     model_config = {"populate_by_name": True}
-    
+    in_tomograms: str
     use_direct_entries: str
     do_defocus: str
     focus_range: float
@@ -134,13 +134,16 @@ class CtfRefine(BaseModel):
     lambda_param: float = Field(alias="lambda") 
     do_scale: str
     do_frame_scale: str
+    nr_threads: int    
 
 class BayesianPolish(BaseModel):
+    in_tomograms: str
     use_direct_entries: str
     max_error: float
     do_motion: str
     sigma_vel: float
     sigma_div: float
+    nr_threads: int    
 
 class ProcessingConfigRelion4(BaseModel):
     resolutions: ResolutionParameters
