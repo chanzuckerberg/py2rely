@@ -164,6 +164,7 @@ def average(
         mask = utils.mask_create_job.output_dir + 'mask.mrc'
         
         # Initialize and Run the Polisher
+        print(f'Bin=1 Pipeline Complete!!\nRunning the Polisher...')
         polish = ThePolisher.from_utils(utils)
         polish.run(particles, mask)
 
