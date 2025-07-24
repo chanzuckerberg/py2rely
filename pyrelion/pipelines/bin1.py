@@ -116,7 +116,7 @@ class HighResolutionRefinement:
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        self.utils.post_process_job.joboptions['low_pass'].value = int(self.utils.params['resolutions']['angpix'] * 2)
+        self.utils.post_process_job.joboptions['low_pass'].value = float(self.utils.params['resolutions']['angpix'] * 2)
         self.utils.run_post_process(rerunPostProcess=True)
 
 # Decorator for CLI options
