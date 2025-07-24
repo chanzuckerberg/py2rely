@@ -22,7 +22,6 @@ def slurm_routines():
     """Slurm CLI for pyRelion."""
     pass
 
-# slurm_routines.add_command(high_resolution_slurm)
 slurm_routines.add_command(subroutines_slurm)
 
 if __name__ == "__main__":

@@ -1,0 +1,291 @@
+from class_average.import_micrographs_extract_particles import run_import_extract
+import class_average.spa_pipeline_utilities as pipeline_utils
+from pipeliner.api.manage_project import PipelinerProject
+import click, starfile
+import numpy as np
+
+@click.group()
+@click.pass_context
+def cli(ctx):
+    pass
+
+# Create the boilerplate JSON file with a default file path
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--particles-path",
+    type=str,
+    required=True,
+    default='stack/particles_relion.star',
+    help="Path to Extracted Particles StarFile",
+)
+@click.option(
+    "--tau-fudge",
+    type=float,
+    required=False,
+    default=2,
+    help="Tau Regularization Parameter for Classification"
+)
+@click.option(
+    "--nr-classes",
+    type=int,
+    required=False,
+    default=3,
+    help="Number of Classes for Classificaiton"
+)
+@click.option(
+    "--class-algorithm",
+    required=False,
+    type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
+    default="2DEM",
+    help="Specify Which Classification Algorithm to Use (2DEM or VDAM)",
+)
+@click.option(
+    "--nr-iter",
+    type=int,
+    required=False,
+    default=None,
+    help="Number of Iterations for Class2D"
+)
+@click.option(
+    "--do-ctf-correction",
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    required=False,
+    default='no',
+    help="Do CTF Correction on the Images"
+)
+@click.option(
+    "--ctf-intact-first-peak",
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    required=False,
+    default='no',
+    help="Do CTF Correction on the Images"
+)
+@click.option(
+    "--particle-diameter",
+    type=float,
+    required=False,
+    default=300,
+    help="Diameter of the Particles"
+)
+@click.option(
+    "--highres-limit",
+    type=float,
+    required=False,
+    default=-1,
+    help="High Resolution Limit for Classification in Angstroms (-1 Means Use Nyquist Limit)"
+)
+@click.option(
+    "--dont-skip-align",
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    required=False,
+    default='yes',
+    help="Don't Skip Alignment during classification? (If yes, then Relion will align the particles during classification)"
+)
+@click.option(
+    "--use-gpu",
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    required=False,
+    default='yes',
+    help="Use GPU (Only Available when Alignment is On)"
+)
+@click.option(
+    "--nr-threads",
+    type=int,
+    required=False,
+    default=8,
+    help="Number of Threads to Use"
+)
+def from_particle_stacks(
+    particles_path: str,
+    tau_fudge: float,
+    nr_classes: int,
+    class_algorithm: str,
+    nr_iter: int,
+    do_ctf_correction: str,
+    ctf_intact_first_peak: str,
+    particle_diameter: float,
+    highres_limit: float,
+    dont_skip_align: str,
+    use_gpu: str,
+    nr_threads: int
+    ):
+
+    # Create Pipeliner Project
+    my_project = PipelinerProject(make_new_project=True)
+    utils = pipeline_utils.pipeliner_helper(my_project)
+    utils.read_json_directories_file('output_directories.json')
+
+    # Initialize Classification
+    utils.initialize_classification(class_algorithm, nr_iter)
+    utils.class2D_job.joboptions['fn_img'].value = particles_path 
+
+    # Set the Class2D Parameters
+    utils.class2D_job.joboptions['tau_fudge'].value = tau_fudge
+    utils.class2D_job.joboptions['nr_classes'].value = nr_classes     
+    utils.class2D_job.joboptions['do_ctf_correction'].value = do_ctf_correction
+    utils.class2D_job.joboptions['ctf_intact_first_peak'].value = ctf_intact_first_peak
+    utils.class2D_job.joboptions['particle_diameter'].value = particle_diameter
+    utils.class2D_job.joboptions['highres_limit'].value = highres_limit
+    
+    # Check if Alignment is On and GPU is On
+    utils.class2D_job.joboptions['dont_skip_align'].value = dont_skip_align
+    if dont_skip_align == 'no' and use_gpu == 'yes':
+        raise click.BadParameter("Alignment must be on when using GPU")
+
+    # Assign the number of threads to use
+    utils.class2D_job.joboptions['nr_threads'].value = nr_threads
+
+    # Run the Class2D Job
+    utils.run_class2D()
+
+################################################################################
+
+# Create the boilerplate JSON file with a default file path
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--parameter-path",
+    type=str,
+    required=True,
+    default='class_average_parameters.json',
+    help="The JSON File Containing the Pipeline Parameters",
+)
+@click.option(
+    "--min-class-job",
+    type=int,
+    required=True,
+    default=1,
+    help="The minimum class job number (starting point for bootstrapping)",
+)
+@click.option(
+    "--max-class-job",
+    type=int,
+    required=True,
+    default=25,
+    help="The maximum class job number (end point for bootstrapping)",
+)
+@click.option(
+    "--rank-threshold",
+    type=float,
+    required=False,
+    default=0.5,
+    help="Threshold for determining 'real' classes based on score",
+)
+def auto_class_ranker(
+    parameter_path: str, 
+    min_class_job: int,
+    max_class_job: int,
+    rank_threshold: float
+    ):
+
+    # Create Pipeliner Project
+    my_project = PipelinerProject(make_new_project=True)
+    utils = pipeline_utils.pipeliner_helper(my_project)
+
+    # Load pipeline parameters and output directories from JSON files
+    utils.read_json_params_file(parameter_path)
+    utils.read_json_directories_file('output_directories.json')
+
+    # Read Base Particles DataFrame for BoostStrapping
+    initial_class_job = f'job{min_class_job:03d}'
+    max_iter = utils.find_final_iteration(initial_class_job)  
+    class_inputs = starfile.read(f'Class2D/{initial_class_job}/job.star')
+    master_dataframe = starfile.read(class_inputs['joboptions_values'].iloc[13]['rlnJobOptionValue'])['particles']
+    nParticles = master_dataframe.shape[0]
+
+    # Initialize the auto-selection model for ranking classes
+    utils.initialize_auto_selection() 
+    utils.auto_select_job.joboptions['rank_threshold'].value = rank_threshold
+
+    # Initialize arrays to store the average score and correct classification count for each particle
+    average_score = np.zeros(nParticles); correct_count = np.zeros(nParticles)
+    
+    # Iterate over each class job within the range (bootstrap iterations)
+    for ii in range(min_class_job, max_class_job + 1):
+        
+        print(f'Running Class Ranker on Class3D/Job{ii:03d}')
+
+        # Load the model for the current class job and run the class ranker
+        utils.auto_select_job.joboptions['fn_model'].value = f'Class2D/job{ii:03d}/run_it{max_iter:03d}_optimiser.star'
+        utils.run_auto_select(selectStep = f'iter{ii:03d}')
+
+        # Extract ClassRanker Score and Append to Results Count
+        particle_results = starfile.read(utils.auto_select_job.output_dir + 'rank_data.star')['particles']
+        class_results = starfile.read(utils.auto_select_job.output_dir + 'rank_model.star')
+
+        # Iterate Through All Particles By ParticleID to evaluate the classification score
+        for jj in range(nParticles):
+
+            class_num = particle_results.iloc[jj]['rlnClassNumber']
+            class_score = class_results.iloc[class_num-1]['rlnClassScore']
+
+            # Accumulate the average score across bootstrap iterations
+            average_score[jj] += class_score
+            
+            # Count how many times this particle was classified into a "real" class
+            if class_score > rank_threshold:
+                correct_count[jj] += 1
+        
+    # Average the score based on the number of trials (bootstrap iterations)
+    n_trials = max_class_job - min_class_job + 1
+    average_score /= n_trials
+
+    master_dataframe['rlnAverageScore'] = average_score
+    master_dataframe['rlnCorrectCount'] = correct_count
+    starfile.write(master_dataframe, 'class_ranker_results.star')    
+
+################################################################################
+
+# Create the boilerplate JSON file with a default file path
+@cli.command(context_settings={"show_default": True})
+@click.option(
+    "--parameter-path",
+    type=str,
+    required=True,
+    default='class_average_parameters.json',
+    help="The JSON File Containing the Pipeline Parameters",
+)
+@click.option(
+    "--tau-fudge",
+    type=float,
+    required=False,
+    default=2,
+    help="Tau Regularization Parameter for Classification"
+)
+@click.option(
+    "--nr-classes",
+    type=int,
+    required=False,
+    default=3,
+    help="Number of Classes for Classificaiton"
+)
+@click.option(
+    "--class-algorithm",
+    type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
+    required=False,
+    default='VDAM',
+    help="Specify Which Classification Algorithm to Use",
+)
+@click.option(
+    "--nr-iter",
+    type=int,
+    required=False,
+    default=None,
+    help="Number of Iterations for Class2D"
+)
+def from_relion_extraction(
+    parameter_path: str,
+    tau_fudge: float,
+    nr_classes: int,
+    class_algorithm: str,
+    nr_iter: int
+    ):
+
+    # Import Micrographs and Extract Particles
+    utils = run_import_extract(parameter_path)
+
+    utils.initialize_classification(class_algorithm)
+    utils.class2D_job.joboptions['fn_img'].value = utils.extract_job.output_dir + 'particles.star'  
+    utils.run_class2D()    
+
+if __name__ == "__main__":
+    cli()

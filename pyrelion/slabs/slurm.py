@@ -1,0 +1,248 @@
+from class_average.parameters import pipeline, submit_slurm
+from typing import Any, Dict, List, Optional
+from pydantic import BaseModel
+import json, click, os
+
+@click.group()
+@click.pass_context
+def cli(ctx):
+    pass
+
+@cli.command(context_settings={"show_default": True})
+@click.option("--in-coords", type=str, required=True,   
+              help="Input Coordinates File Path" )
+@click.option( "--in-vols", type=str, required=False, default=None,
+              help="Input Volumes File Path")
+@click.option( "--out-dir", type=str, required=True, 
+              help="Output Directory" )
+@click.option( "--extract-shape", type=str, required=True, default="500 500 400",
+              help="Extraction Shape for Particles Extraction (x y z) in Angstroms" )
+@click.option( "--coords-scale", type=float, required=True,
+              help="The scale factor that converts the input coordinates to Angstrom\n(Select 1 if Reading From Copick Format) or the voxel spacing of the tomogram that 3D template matching was run on" )
+@click.option( "--voxel-spacing", type=float, required=False, default=5,
+              help="Pixel size of tomograms to extract minislabs from in Angstrom" )
+@click.option( "--pixel-size", type=float, required=False, default=1.54,
+              help="Pixel size in Angstroms" )
+@click.option( "--tomo-type", type=str, required=False, default=None,
+              help="Tomogram Type if Extracting from Copick Project" )
+@click.option( "--user-id", type=str, required=False, default=None,
+              help="UserID for Copick Query" )
+@click.option( "--particle-name", type=str, required=False, default=None,
+              help="Particle Name for Copick Query" )
+@click.option( "--session-id", type=str, required=False, default=None,
+              help="SessionID for Copick Query" )
+def shell_slabpick_submit(
+    in_coords: str,
+    in_vols: str, 
+    out_dir: str,
+    extract_shape: str,
+    coords_scale: float,
+    voxel_spacing: float,
+    pixel_size: float,
+    tomo_type: str,
+    user_id: str,
+    particle_name: str,
+    session_id: str
+    ):
+
+    # Check to Make sure a Tomogram Algorithm is Specified if Extracting from Copick Project
+    if tomo_type is None and in_coords.endswith(".json"):
+        raise click.BadParameter("Tomogram Type (--tomo-type) is required when reading from a copick-config (*.json) file")
+
+    make_minislabs_command = f"""
+echo "################################################################################"
+echo "Making Minislabs"
+echo "################################################################################"
+make_minislabs \\
+    --in_coords={in_coords} \\
+    --out_dir={out_dir} \\
+    --extract_shape {extract_shape} \\
+    --coords_scale {coords_scale} --voxel_spacing {voxel_spacing} \\
+    --col_name rlnMicrographName
+"""
+
+    normalize_command = f"""
+echo "################################################################################"
+echo "Normalizing Particles Stack"
+echo "################################################################################"    
+normalize_stack \\
+    --in_stack={out_dir}/stack/particles.mrcs \\
+    --out_stack={out_dir}/stack/particles_relion.mrcs \\
+    --apix {pixel_size}
+"""
+
+    # Collect optional commands into a list
+    optional_commands = []
+
+    if user_id is not None:
+        optional_commands.append(f"--user_id {user_id}")
+
+    if particle_name is not None:
+        optional_commands.append(f"--particle_name {particle_name}")
+
+    if session_id is not None:
+        optional_commands.append(f"--session_id {session_id}")
+
+    if in_vols is not None:
+        optional_commands.append(f'--in_vol {in_vols}')   
+    
+    if tomo_type is not None:
+        optional_commands.append(f'--tomo_type {tomo_type}')
+
+    # Append optional commands to the last line, joined by spaces
+    if optional_commands:
+        make_minislabs_command = make_minislabs_command.rstrip() + " " + " ".join(optional_commands)      
+
+    command = make_minislabs_command + "\n" + normalize_command
+
+    submit_slurm.create_shellsubmit(
+        'minislab', 
+        'minislab.out',
+        'slabpick.sh',
+        command,
+        '18:00:00',
+        num_gpus = 0,
+        big_cpu_memory = True)      
+
+###########################################################################################      
+
+@cli.command(context_settings={"show_default": True})
+@click.option( "--out-dir", type=str, required=True,
+              help="Output Directory that will be the Relion project\n(e.g. /hpc/projects/group.czii/krios1.processsing/24mar08a/ribosome/run001)" )
+@click.option( "--particle-diameter", type=float, required=False, default=300,
+              help="Particle Diameter" )
+@click.option( "--tau-fudge", type=float, required=False, default=2,
+              help="Tau Fudge Factor" )
+@click.option( "--num-classes", type=str, required=False, default='5',
+              help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
+@click.option( "--highres-limit", type=float, required=False, default=-1,
+              help="High Resolution Limit for Classification in Angstroms (-1 Means Use Nyquist Limit)" )
+@click.option( "--class-algorithm",  required=False, default="2DEM",
+             type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
+              help="2D Classification Algorithm, choose either '2DEM' or 'VDAM'." )
+@click.option( "--num-gpus", type=int, required=False, default=2,
+              callback=submit_slurm.validate_num_gpus,
+              help="Number of GPUs for Processing" )
+@click.option( "--gpu-constraint", required=False, default="h100",
+              type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
+              help="GPU Hardware to Reqest for Processing" )
+@click.option( "--num-threads", type=int, required=False, default=8,
+              help="Number of Threads to Use" )
+@click.option( "--bootstrap-ntrials", type=int, required=False, default=0,
+              help="Number of Trials to Run Bootstraping for SAD Method" )
+def shell_class2d_submit(
+    out_dir: str,
+    particle_diameter: float,
+    tau_fudge: float,
+    num_classes: str,
+    class_algorithm: str,
+    highres_limit: float,
+    num_gpus: int,
+    gpu_constraint: str,
+    num_threads: int,
+    bootstrap_ntrials: int,
+    ):
+
+    # Determine number of iterations based on classification algorithm
+    if class_algorithm == "2DEM":
+        niters = 25
+    elif class_algorithm == "VDAM":
+        niters = 200
+
+    num_classes = num_classes.split(',')
+    if len(num_classes) == 1:
+        num_classes = int(num_classes[0])
+        print(f'\nGenerated Number of Classes:\nNclass = {num_classes}')
+        num_classes_command = f"NUM_CLASSES={num_classes}"
+    elif len(num_classes) == 3:
+        class_min, class_max, class_step = map(int, num_classes)
+        num_classes = list(range(class_min, class_max + 1, class_step))
+        print(f'\nGenerated Number of Classes:\nNclass = {num_classes}')
+        num_classes_command = f"""# Define num_classes values in an array
+NUM_CLASSES_LIST=({" ".join(map(str, num_classes))})
+
+# Get the num_classes value for this job
+NUM_CLASSES=${{NUM_CLASSES_LIST[$SLURM_ARRAY_TASK_ID]}}"""
+    else:
+        raise click.BadParameter("Number of Classes must be provided as a single value or a range (min,max,interval)")
+
+    if isinstance(num_classes, list) and len(num_classes) > 1:
+        job_array_flag = f"#SBATCH --array=0-{len(num_classes)-1}"
+    else:
+        job_array_flag = ""
+    
+    class2d_command = f"""
+{num_classes_command}
+
+class2D from-particle-stacks \\
+    --particles-path stack/particles_relion.star \\
+    --particle-diameter {particle_diameter} --highres-limit {highres_limit} \\
+    --nr-classes $NUM_CLASSES --tau-fudge {tau_fudge} \\
+    --class-algorithm {class_algorithm} --nr-iter {niters} --nr-threads {num_threads}
+"""
+
+    # if bootstrap_ntrials > 0:  bootstrap_flag = f'#SBATCH --array=0-{bootstrap_ntrials-1}'
+    # else:                      bootstrap_flag = ""
+
+    # Create Project Directory and Save Shell Script
+    os.makedirs(out_dir, exist_ok=True) 
+    submit_slurm.create_shellsubmit(
+        'class2d', 
+        'class2d.out',
+        'class2d.sh',
+        class2d_command,
+        '18:00:00',
+        num_gpus = num_gpus,
+        gpu_constraint = gpu_constraint,
+        load_relion = True,
+        big_cpu_memory = False, 
+        additional_commands = job_array_flag)
+
+########################################################################################
+
+@cli.command(context_settings={"show_default": True})
+@click.option( "--shell-path", type=str, required=False, default='pipeline_class_average.sh',
+              help="The Saved Parameter Path" )
+@click.option( "--job-name", type=str, required=False, default="bootstrap_relion",
+              help="Job Name Displayed by Slurm Scheduler" )
+@click.option( "--output-file", type=str, required=False, default="bootstrap.out",
+              help="Output Text File that Results" )
+@click.option( "--num-gpus", type=int, required=False, default=1,
+              callback=submit_slurm.validate_num_gpus,
+              help="Number of GPUs for Processing" )
+@click.option( "--gpu-constraint", required=False, default="h100",
+              type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
+              help="GPU Hardware to Reqest for Processing" )
+@click.option( "--min-class-job", type=int, required=False, default=1,
+              help="The minimum class job number (starting point for bootstrapping)" )
+@click.option( "--max-class-job", type=int, required=False, default=20,
+              help="The maximum class job number (end point for bootstrapping)" )
+def shell_classrank_submit(
+    shell_path: str,
+    job_name: str,
+    output_file: str,
+    num_gpus: int,
+    gpu_constraint: str,
+    min_class_job: int,
+    max_class_job: int
+    ):
+
+    class_rank_command = f"""
+class2D auto-class-ranker \\
+    --parameter-path class_average_parameters.json \\
+    --min-class-job {min_class_job} --max-class-job {max_class_job}
+"""
+
+    submit_slurm.create_shellsubmit(
+        'classrank', 
+        'classrank.out',
+        'classrank.sh',
+        class_rank_command,
+        '18:00:00',
+        num_gpus = num_gpus,
+        gpu_constraint = gpu_constraint,
+        load_relion = True,
+        big_cpu_memory = False)
+
+if __name__ == "__main__":
+    cli()
