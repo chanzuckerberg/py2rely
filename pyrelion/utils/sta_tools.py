@@ -297,10 +297,10 @@ class PipelineHelper:
             job_name: Name of the job.
         Returns:
             int: The resolution value extracted from the logs.
-        """        
+        """       
 
         # Define a regular expression pattern to match floating point numbers
-        pattern = r"\d+\.\d+"
+        pattern = r"\d+\.\d+|\d+"
 
         if job_name == 'reconstruct_particles' or job_name == 'post_process': 
             sub_string = 'RESOLUTION'
