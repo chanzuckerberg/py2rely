@@ -1,23 +1,22 @@
+from pyrelion.slabs.class2D import slab_average, auto_class_ranker
+from pyrelion.slabs.slurm import submit_class2d, submit_slabpick
 import click
 
-@click.group(invoke_without_command=True)
-@click.pass_context
-def cli(ctx):
-    """Main entry point for the relion_sta_pipeline."""
-    if ctx.invoked_subcommand is None:
-        list_commands()
+@click.group()
+def slab():
+    """Run Jobs to Execute 2D Class Averaging on Slabs."""
+    pass
 
-@cli.command()
-def list_commands():
-    """List all available CLI commands."""
-    commands = {
-        "create": "Generate parameters or shell submissions for the pipeline.",
-        "class2D": "Run the class-averaging pipeline.",
-        "visualize": "Visualize and Select classes for processing",
-    }
-    click.echo("Available commands:")
-    for cmd, desc in commands.items():
-        click.echo(f"  {cmd}: {desc}")
+slab.add_command(slab_average)
+slab.add_command(auto_class_ranker) 
+
+@click.group()
+def slab_slurm(name='slab'):
+    """Run Jobs to Execute 2D Class Averaging on Slabs on Slurm."""
+    pass
+
+slab_slurm.add_command(submit_class2d)
+slab_slurm.add_command(submit_slabpick)
 
 if __name__ == "__main__":
-    cli()
+    slab()

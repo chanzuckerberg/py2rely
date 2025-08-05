@@ -141,3 +141,8 @@ def complete_log_compute_utilization():
     return """# Stop logging after job completion
 pkill -P $$  # Kills the background logging process
 """
+
+def validate_num_gpus(ctx, param, value):
+    if value is not None and (value < 1 or value > 4):
+        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
+    return value  

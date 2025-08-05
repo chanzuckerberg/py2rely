@@ -1,4 +1,5 @@
-from class_average.parameters import pipeline, submit_slurm
+from pyrelion.slabs.preprocess import parameters
+from pyrelion.routines import submit_slurm
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 import json, click, os
@@ -31,7 +32,7 @@ def cli(ctx):
               help="Particle Name for Copick Query" )
 @click.option( "--session-id", type=str, required=False, default=None,
               help="SessionID for Copick Query" )
-def shell_slabpick_submit(
+def submit_slabpick(
     in_coords: str,
     in_vols: str, 
     out_dir: str,
@@ -130,7 +131,7 @@ normalize_stack \\
               help="Number of Threads to Use" )
 @click.option( "--bootstrap-ntrials", type=int, required=False, default=0,
               help="Number of Trials to Run Bootstraping for SAD Method" )
-def shell_class2d_submit(
+def submit_class2d(
     out_dir: str,
     particle_diameter: float,
     tau_fudge: float,
@@ -217,7 +218,7 @@ class2D from-particle-stacks \\
               help="The minimum class job number (starting point for bootstrapping)" )
 @click.option( "--max-class-job", type=int, required=False, default=20,
               help="The maximum class job number (end point for bootstrapping)" )
-def shell_classrank_submit(
+def submit_classrank(
     shell_path: str,
     job_name: str,
     output_file: str,

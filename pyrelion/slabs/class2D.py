@@ -1,6 +1,5 @@
-from class_average.import_micrographs_extract_particles import run_import_extract
-import class_average.spa_pipeline_utilities as pipeline_utils
 from pipeliner.api.manage_project import PipelinerProject
+from pyrelion.slabs.pipeline import SlabAveragePipeline
 import click, starfile
 import numpy as np
 
@@ -9,94 +8,62 @@ import numpy as np
 def cli(ctx):
     pass
 
+def add_class2D_options(func):
+    """Decorator to add common options to a Click command."""
+    options = [
+        click.option("--particles", type=str, required=True, default='stack/particles_relion.star', help="Path to Extracted Particles StarFile"),
+        click.option("--tau-fudge", type=float, required=False, default=2, help="Tau Regularization Parameter for Classification"),
+        click.option("--nr-classes", type=int, required=False, default=3, help="Number of Classes for Classificaiton"),
+        click.option("--class-algorithm", required=False, default="2DEM", type=click.Choice(["2DEM", "VDAM"], case_sensitive=False), help="Specify Which Classification Algorithm to Use (2DEM or VDAM)"),
+        click.option("--nr-iter", type=int, required=False, default=None, help="Number of Iterations for Class2D"),
+    ]
+    for option in reversed(options):  # Add options in reverse order to preserve correct order
+        func = option(func)
+    return func
+
 # Create the boilerplate JSON file with a default file path
 @cli.command(context_settings={"show_default": True})
-@click.option(
-    "--particles-path",
-    type=str,
-    required=True,
-    default='stack/particles_relion.star',
-    help="Path to Extracted Particles StarFile",
-)
-@click.option(
-    "--tau-fudge",
-    type=float,
-    required=False,
-    default=2,
-    help="Tau Regularization Parameter for Classification"
-)
-@click.option(
-    "--nr-classes",
-    type=int,
-    required=False,
-    default=3,
-    help="Number of Classes for Classificaiton"
-)
-@click.option(
-    "--class-algorithm",
-    required=False,
-    type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
-    default="2DEM",
-    help="Specify Which Classification Algorithm to Use (2DEM or VDAM)",
-)
-@click.option(
-    "--nr-iter",
-    type=int,
-    required=False,
-    default=None,
-    help="Number of Iterations for Class2D"
-)
+@add_class2D_options
 @click.option(
     "--do-ctf-correction",
+    required=False, default='no', help="Do CTF Correction on the Images",
     type=click.Choice(["yes", "no"], case_sensitive=False),
-    required=False,
-    default='no',
-    help="Do CTF Correction on the Images"
 )
 @click.option(
     "--ctf-intact-first-peak",
+    required=False, default='no',
+    help="Do CTF Correction on the Images",
     type=click.Choice(["yes", "no"], case_sensitive=False),
-    required=False,
-    default='no',
-    help="Do CTF Correction on the Images"
 )
 @click.option(
     "--particle-diameter",
-    type=float,
-    required=False,
-    default=300,
-    help="Diameter of the Particles"
+    type=float, required=False, default=300,
+    help="Diameter of the Particles",
 )
 @click.option(
     "--highres-limit",
-    type=float,
-    required=False,
-    default=-1,
+    type=float, required=False, default=-1,
     help="High Resolution Limit for Classification in Angstroms (-1 Means Use Nyquist Limit)"
 )
 @click.option(
     "--dont-skip-align",
+    required=False, default='yes',
     type=click.Choice(["yes", "no"], case_sensitive=False),
-    required=False,
-    default='yes',
     help="Don't Skip Alignment during classification? (If yes, then Relion will align the particles during classification)"
 )
 @click.option(
     "--use-gpu",
+    required=False, default='yes',
     type=click.Choice(["yes", "no"], case_sensitive=False),
-    required=False,
-    default='yes',
     help="Use GPU (Only Available when Alignment is On)"
 )
 @click.option(
     "--nr-threads",
-    type=int,
-    required=False,
-    default=8,
+    type=int, required=False, default=8,
     help="Number of Threads to Use"
 )
-def from_particle_stacks(
-    particles_path: str,
+def slab_average(
+    particles: str,
     tau_fudge: float,
     nr_classes: int,
     class_algorithm: str,
@@ -112,12 +79,12 @@ def from_particle_stacks(
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
-    utils = pipeline_utils.pipeliner_helper(my_project)
+    utils = SlabAveragePipeline(my_project)
     utils.read_json_directories_file('output_directories.json')
 
     # Initialize Classification
     utils.initialize_classification(class_algorithm, nr_iter)
-    utils.class2D_job.joboptions['fn_img'].value = particles_path 
+    utils.class2D_job.joboptions['fn_img'].value = particles 
 
     # Set the Class2D Parameters
     utils.class2D_job.joboptions['tau_fudge'].value = tau_fudge
@@ -144,30 +111,23 @@ def from_particle_stacks(
 @cli.command(context_settings={"show_default": True})
 @click.option(
     "--parameter-path",
-    type=str,
-    required=True,
+    type=str, required=True,
     default='class_average_parameters.json',
     help="The JSON File Containing the Pipeline Parameters",
 )
 @click.option(
     "--min-class-job",
-    type=int,
-    required=True,
-    default=1,
+    type=int, required=True, default=1,
     help="The minimum class job number (starting point for bootstrapping)",
 )
 @click.option(
     "--max-class-job",
-    type=int,
-    required=True,
-    default=25,
+    type=int, required=True, default=25,
     help="The maximum class job number (end point for bootstrapping)",
 )
 @click.option(
     "--rank-threshold",
-    type=float,
-    required=False,
-    default=0.5,
+    type=float, required=False, default=0.5,
     help="Threshold for determining 'real' classes based on score",
 )
 def auto_class_ranker(
@@ -179,7 +139,7 @@ def auto_class_ranker(
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
-    utils = pipeline_utils.pipeliner_helper(my_project)
+    utils = SlabAveragePipeline(my_project)
 
     # Load pipeline parameters and output directories from JSON files
     utils.read_json_params_file(parameter_path)
@@ -232,60 +192,7 @@ def auto_class_ranker(
     master_dataframe['rlnAverageScore'] = average_score
     master_dataframe['rlnCorrectCount'] = correct_count
     starfile.write(master_dataframe, 'class_ranker_results.star')    
-
-################################################################################
-
-# Create the boilerplate JSON file with a default file path
-@cli.command(context_settings={"show_default": True})
-@click.option(
-    "--parameter-path",
-    type=str,
-    required=True,
-    default='class_average_parameters.json',
-    help="The JSON File Containing the Pipeline Parameters",
-)
-@click.option(
-    "--tau-fudge",
-    type=float,
-    required=False,
-    default=2,
-    help="Tau Regularization Parameter for Classification"
-)
-@click.option(
-    "--nr-classes",
-    type=int,
-    required=False,
-    default=3,
-    help="Number of Classes for Classificaiton"
-)
-@click.option(
-    "--class-algorithm",
-    type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
-    required=False,
-    default='VDAM',
-    help="Specify Which Classification Algorithm to Use",
-)
-@click.option(
-    "--nr-iter",
-    type=int,
-    required=False,
-    default=None,
-    help="Number of Iterations for Class2D"
-)
-def from_relion_extraction(
-    parameter_path: str,
-    tau_fudge: float,
-    nr_classes: int,
-    class_algorithm: str,
-    nr_iter: int
-    ):
-
-    # Import Micrographs and Extract Particles
-    utils = run_import_extract(parameter_path)
-
-    utils.initialize_classification(class_algorithm)
-    utils.class2D_job.joboptions['fn_img'].value = utils.extract_job.output_dir + 'particles.star'  
-    utils.run_class2D()    
+  
 
 if __name__ == "__main__":
     cli()
