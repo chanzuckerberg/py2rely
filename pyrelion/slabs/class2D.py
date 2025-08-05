@@ -59,7 +59,7 @@ def add_class2D_options(func):
 )
 @click.option(
     "--nr-threads",
-    type=int, required=False, default=8,
+    type=int, required=False, default=16,
     help="Number of Threads to Use"
 )
 def slab_average(
@@ -76,6 +76,23 @@ def slab_average(
     use_gpu: str,
     nr_threads: int
     ):
+    """
+    Run Class2D on an Extracted Minislab Particle Stack
+
+    Args:
+        particles (str): The path to the particles stack
+        tau_fudge (float): The tau fudge factor
+        nr_classes (int): The number of classes to use
+        class_algorithm (str): The classification algorithm to use
+        nr_iter (int): The number of iterations to run
+        do_ctf_correction (str): Whether to do CTF correction
+        ctf_intact_first_peak (str): Whether to keep the first peak of the CTF
+        particle_diameter (float): The particle diameter in Angstroms
+        highres_limit (float): The high resolution limit in Angstroms
+        dont_skip_align (str): Whether to skip alignment
+        use_gpu (str): Whether to use GPU
+        nr_threads (int): The number of threads to use
+    """
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -98,6 +115,7 @@ def slab_average(
     utils.class2D_job.joboptions['dont_skip_align'].value = dont_skip_align
     if dont_skip_align == 'no' and use_gpu == 'yes':
         raise click.BadParameter("Alignment must be on when using GPU")
+    utils.class2D_job.joboptions['use_gpu'].value = use_gpu
 
     # Assign the number of threads to use
     utils.class2D_job.joboptions['nr_threads'].value = nr_threads
@@ -136,6 +154,15 @@ def auto_class_ranker(
     max_class_job: int,
     rank_threshold: float
     ):
+    """
+    Run the Class Ranker on a Range of Class2D Jobs
+
+    Args:
+        parameter_path (str): The path to the parameter file
+        min_class_job (int): The minimum class job number
+        max_class_job (int): The maximum class job number
+        rank_threshold (float): The threshold for determining 'real' classes
+    """
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

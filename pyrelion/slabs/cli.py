@@ -10,8 +10,8 @@ def slab():
 slab.add_command(slab_average)
 slab.add_command(auto_class_ranker) 
 
-@click.group()
-def slab_slurm(name='slab'):
+@click.group(name='slab')
+def slab_slurm():
     """Run Jobs to Execute 2D Class Averaging on Slabs on Slurm."""
     pass
 

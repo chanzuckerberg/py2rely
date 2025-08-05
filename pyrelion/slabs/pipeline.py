@@ -1,5 +1,5 @@
 from pipeliner.jobs.relion import import_job, extract_job, class2D_job, select_job
-from pyrelion.slabs.preprocess import parameters
+from pyrelion.slabs.preprocess import default_parameters
 from pyrelion.slabs.visualize import gallery
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile

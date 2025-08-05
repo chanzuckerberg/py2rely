@@ -45,6 +45,15 @@ def submit_slabpick(
     particle_name: str,
     session_id: str
     ):
+    """
+    Create a Slurm Shell Script to Run Extract Minislabs
+
+    Args:
+        in_coords (str): The input coordinates file path
+        in_vols (str): The input volumes file path
+        out_dir (str): The output directory
+        extract_shape (str): The extraction shape for particles extraction (x y z) in Angstroms
+    """
 
     # Check to Make sure a Tomogram Algorithm is Specified if Extracting from Copick Project
     if tomo_type is None and in_coords.endswith(".json"):
@@ -96,7 +105,7 @@ normalize_stack \\
 
     command = make_minislabs_command + "\n" + normalize_command
 
-    submit_slurm.create_shellsubmit(
+    create_shellsubmit(
         'minislab', 
         'minislab.out',
         'slabpick.sh',
@@ -108,8 +117,6 @@ normalize_stack \\
 ###########################################################################################      
 
 @cli.command(context_settings={"show_default": True})
-@click.option( "--out-dir", type=str, required=True,
-              help="Output Directory that will be the Relion project\n(e.g. /hpc/projects/group.czii/krios1.processsing/24mar08a/ribosome/run001)" )
 @click.option( "--particle-diameter", type=float, required=False, default=300,
               help="Particle Diameter" )
 @click.option( "--tau-fudge", type=float, required=False, default=2,
@@ -127,12 +134,11 @@ normalize_stack \\
 @click.option( "--gpu-constraint", required=False, default="h100",
               type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
               help="GPU Hardware to Reqest for Processing" )
-@click.option( "--num-threads", type=int, required=False, default=8,
+@click.option( "--num-threads", type=int, required=False, default=16,
               help="Number of Threads to Use" )
 @click.option( "--bootstrap-ntrials", type=int, required=False, default=0,
               help="Number of Trials to Run Bootstraping for SAD Method" )
 def submit_class2d(
-    out_dir: str,
     particle_diameter: float,
     tau_fudge: float,
     num_classes: str,
@@ -143,6 +149,20 @@ def submit_class2d(
     num_threads: int,
     bootstrap_ntrials: int,
     ):
+    """
+    Create a Slurm Shell Script to Run Class2D
+
+    Args:
+        particle_diameter (float): The particle diameter in Angstroms
+        tau_fudge (float): The tau fudge factor
+        num_classes (str): The number of classes to use
+        class_algorithm (str): The classification algorithm to use
+        highres_limit (float): The high resolution limit in Angstroms
+        num_gpus (int): The number of GPUs to use
+        gpu_constraint (str): The GPU constraint
+        num_threads (int): The number of threads to use
+        bootstrap_ntrials (int): The number of bootstrap trials to run
+    """
 
     # Determine number of iterations based on classification algorithm
     if class_algorithm == "2DEM":
@@ -175,8 +195,11 @@ NUM_CLASSES=${{NUM_CLASSES_LIST[$SLURM_ARRAY_TASK_ID]}}"""
     class2d_command = f"""
 {num_classes_command}
 
-class2D from-particle-stacks \\
-    --particles-path stack/particles_relion.star \\
+# Copy Particles Stack to the Current Working Directory
+cp stack/particles_relion.mrcs .
+
+pyrelion slab slab-average \\
+    --particles stack/particles_relion.star \\
     --particle-diameter {particle_diameter} --highres-limit {highres_limit} \\
     --nr-classes $NUM_CLASSES --tau-fudge {tau_fudge} \\
     --class-algorithm {class_algorithm} --nr-iter {niters} --nr-threads {num_threads}
@@ -185,9 +208,11 @@ class2D from-particle-stacks \\
     # if bootstrap_ntrials > 0:  bootstrap_flag = f'#SBATCH --array=0-{bootstrap_ntrials-1}'
     # else:                      bootstrap_flag = ""
 
-    # Create Project Directory and Save Shell Script
-    os.makedirs(out_dir, exist_ok=True) 
-    submit_slurm.create_shellsubmit(
+    # Copy the Particles Stack to the Current Working Directory
+    os.copyfile('stack/particles_relion.mrcs', '.')
+
+    # Save Shell Script
+    create_shellsubmit(
         'class2d', 
         'class2d.out',
         'class2d.sh',
@@ -229,12 +254,12 @@ def submit_classrank(
     ):
 
     class_rank_command = f"""
-class2D auto-class-ranker \\
-    --parameter-path class_average_parameters.json \\
+pyrelion slab auto-class-ranker \\
+    --parameters class_average_parameters.json \\
     --min-class-job {min_class_job} --max-class-job {max_class_job}
 """
 
-    submit_slurm.create_shellsubmit(
+    create_shellsubmit(
         'classrank', 
         'classrank.out',
         'classrank.sh',
@@ -244,6 +269,53 @@ class2D auto-class-ranker \\
         gpu_constraint = gpu_constraint,
         load_relion = True,
         big_cpu_memory = False)
+
+def create_shellsubmit(
+    job_name, 
+    output_file,
+    shell_name,
+    command,
+    total_time = '12:00:00',
+    num_gpus = 1, 
+        gpu_constraint = 'h100',
+    load_relion = True,
+    big_cpu_memory = False,
+    additional_commands = ''):
+
+    if num_gpus > 0:
+        slurm_gpus = f'#SBATCH --ntasks=1\n#SBATCH --nodes=1\n#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}'
+    else:
+        slurm_gpus = f'#SBATCH --partition=cpu'
+
+    if big_cpu_memory:
+        slurm_mem = f'#SBATCH --mem-per-cpu=196G'
+    else:
+        slurm_mem = f'#SBATCH --mem-per-cpu=16G'
+        slurm_cpu = f'#SBATCH --cpus-per-task=8'
+
+    if load_relion:
+        load_relion_command = submit_slurm.get_load_relion_command()
+
+    shell_script_content = f"""#!/bin/bash
+
+{slurm_gpus}
+#SBATCH --time={total_time}
+{slurm_mem}
+#SBATCH --job-name={job_name}
+#SBATCH --output={output_file}
+{additional_commands}
+
+{load_relion_command}
+
+ml anaconda 
+conda activate /hpc/projects/group.czii/conda_environments/pyRelion
+{command}
+"""
+
+    with open(shell_name, 'w') as file:
+        file.write(shell_script_content)
+
+    print(f"\nShell script {shell_name} created successfully.\n")
 
 if __name__ == "__main__":
     cli()
