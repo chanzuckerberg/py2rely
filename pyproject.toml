@@ -13,11 +13,13 @@ dependencies = [
     "pydantic",
     "tqdm",
     "copick",
-    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main"    
+    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
+    "slabpick @ git+https://github.com/apeck12/slabpick.git@main"
 ]
 
 [project.optional-dependencies]
-pytom = ["pytom-match-pick @ git+https://github.com/SBC-Utrecht/pytom-match-pick@0.6.0"]
+pytom = ["pytom-match-pick"]
+slabs = ["PyQt5", "pyqtgraph"]
 
 [tool.hatch.metadata]
 allow-direct-references = true

@@ -4,6 +4,7 @@ from pyrelion.utils.converters import converters
 from pyrelion.pipelines.cli import pipelines
 from pyrelion.routines.export import export 
 from pyrelion.prepare.cli import prepare
+from pyrelion.slabs.cli import slab, slab_slurm
 import click
 
 @click.group()
@@ -16,14 +17,15 @@ routines.add_command(subroutines)
 routines.add_command(export)
 routines.add_command(converters)
 routines.add_command(pipelines)
+routines.add_command(slab)
 
 @click.group()
 def slurm_routines():
     """Slurm CLI for pyRelion."""
     pass
 
-# slurm_routines.add_command(high_resolution_slurm)
 slurm_routines.add_command(subroutines_slurm)
+slurm_routines.add_command(slab_slurm)
 
 if __name__ == "__main__":
     cli()
