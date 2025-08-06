@@ -2,7 +2,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
 import json, click
 
-class ImportMicrograhs(BaseModel):
+class ImportMicrographs(BaseModel):
     fn_in_raw: str
     is_multiframe: str
     angpix: int
@@ -37,7 +37,7 @@ class SelectParticles(BaseModel):
     select_label: str
     
 class ProcessingConfig(BaseModel):
-    import_micrographs: Optional[ImportMicrograhs]
+    import_micrographs: Optional[ImportMicrographs]
     extract: Optional[ExtractParticles]
     class2D: Class2D
     select: SelectParticles
@@ -55,7 +55,7 @@ def write_extraction_pipeline(
     require_extraction: bool,
     ):
     default_config = ProcessingConfig(
-        import_micrographs=ImportMicrograhs(
+        import_micrographs=ImportMicrographs(
             fn_in_raw="input/*.mrc",
             is_multiframe="no",
             angpix=pixel_size,
