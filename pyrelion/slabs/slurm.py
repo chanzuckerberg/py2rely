@@ -2,7 +2,7 @@ from pyrelion.slabs.preprocess import parameters
 from pyrelion.routines import submit_slurm
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
-import json, click, os
+import json, click, shutil
 
 @click.group()
 @click.pass_context
@@ -65,10 +65,10 @@ echo "Making Minislabs"
 echo "################################################################################"
 make_minislabs \\
     --in_coords={in_coords} \\
-    --out_dir={out_dir} \\
+    --out_dir={out_dir}/stack \\
     --extract_shape {extract_shape} \\
     --coords_scale {coords_scale} --voxel_spacing {voxel_spacing} \\
-    --col_name rlnMicrographName
+    --col_name rlnMicrographName --make_stack
 """
 
     normalize_command = f"""
@@ -207,9 +207,6 @@ pyrelion slab slab-average \\
 
     # if bootstrap_ntrials > 0:  bootstrap_flag = f'#SBATCH --array=0-{bootstrap_ntrials-1}'
     # else:                      bootstrap_flag = ""
-
-    # Copy the Particles Stack to the Current Working Directory
-    os.copyfile('stack/particles_relion.mrcs', '.')
 
     # Save Shell Script
     create_shellsubmit(
