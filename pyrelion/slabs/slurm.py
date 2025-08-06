@@ -2,7 +2,7 @@ from pyrelion.slabs.preprocess import parameters
 from pyrelion.routines import submit_slurm
 from typing import Any, Dict, List, Optional
 from pydantic import BaseModel
-import json, click, shutil
+import json, click
 
 @click.group()
 @click.pass_context
