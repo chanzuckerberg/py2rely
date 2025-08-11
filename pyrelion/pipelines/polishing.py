@@ -39,6 +39,9 @@ class ThePolisher:
         # Initialize the Auto Refine Job
         self.utils.initialize_auto_refine()
 
+        # Max Counts before terminating the Polisher
+        self.max_counts = 2
+
     @classmethod
     def from_utils(cls, utils):
         """Create instance directly from utils object."""
@@ -59,6 +62,10 @@ class ThePolisher:
     def run(self, particles: str, mask: str, num_iterations: int = 2):
         """Execute the main polishing pipeline."""
 
+        # Initialize the Best Resolution
+        self.best_resolution = 999
+        self.counter = 0
+
         # For now, lets start off with 2 iterations
         for ii in range(num_iterations):
 
@@ -70,6 +77,7 @@ class ThePolisher:
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.post_process_job.joboptions['fn_mask'].value = mask
             self.utils.run_post_process(rerunPostProcess=False)
+            if self._check_stopping_criteria(): break
 
             # CTF Refinement
             self.utils.ctf_refine_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
@@ -103,6 +111,7 @@ class ThePolisher:
             # Post Process
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
+            if self._check_stopping_criteria(): break
 
             # 3D Refinement
             self._update_inputs(self.utils.tomo_refine3D_job)
@@ -114,12 +123,29 @@ class ThePolisher:
             # Post-Process to Estimate Resolution     
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
+            if self._check_stopping_criteria(): break
 
     def _update_inputs(self, job):
         """Update job inputs with latest bayesian polish results."""
         job.joboptions['in_tomograms'].value = self.utils.bayesian_polish_job.output_dir + 'tomograms.star'
         job.joboptions['in_trajectories'].value = self.utils.bayesian_polish_job.output_dir + 'motion.star'
-        
+
+    def _check_stopping_criteria(self):
+        """ Check to See if Best Resolution Needs Updating """
+
+        curr_resolution = self.utils.get_resolution(self.utils.post_process_job, 'post_process')
+        if curr_resolution < self.best_resolution:
+            self.best_resolution = curr_resolution
+            print(f"New best resolution: {self.best_resolution:.2f} Å")
+            return False
+        else:
+            self.counter += 1
+            if self.counter >= self.max_counts:
+                print("Max counts reached, stopping the polisher.")
+                return True
+            else:
+                print(f"No improvement. Counter: {self.counter}/{self.max_counts}")
+                return False
 
 def polishing_options(func):
     """Decorator to add shared options for polishing commands."""
