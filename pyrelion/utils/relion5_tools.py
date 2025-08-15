@@ -27,7 +27,6 @@ class Relion5Pipeline(PipelineHelper):
         self.tomo_class3D_job = None   
         self.tomo_refine3D_job = None
         self.initial_model_job = None
-        self.tomo_class3D_job = None
         self.ctf_refine_job = None
         self.bayesian_polish_job = None
 

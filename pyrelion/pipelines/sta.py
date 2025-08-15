@@ -1,5 +1,6 @@
 from pyrelion.pipelines.bin1 import HighResolutionRefinement as HRrefine
 from pipeliner.api.manage_project import PipelinerProject
+from pyrelion.pipelines.classify import TheClassifier
 from pyrelion.pipelines.polishing import ThePolisher
 from pyrelion.utils import relion5_tools
 import subprocess
@@ -100,19 +101,20 @@ def average(
         utils.tomo_refine3D_job.joboptions['fn_ref'].value = refine_reference
         utils.run_auto_refine()
 
-        # Duplicate Particles?  - relion star_handler
+        # Duplicate Particles? 
         if binFactor == 0:
             remove_duplicates(utils, distance_scale=0.3)
+        current_particles = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
 
         #########################################################################################            
 
         # Primary 3D Refinement Job and Update Input Parameters
-        if run_class3d:         
-            utils.tomo_class3D_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-            utils.tomo_class3D_job.joboptions['fn_ref'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
-            utils.tomo_class3D_job.joboptions['ini_high'].value = utils.get_resolution( utils.tomo_refine3D_job ) * 1.15
-            utils.run_tomo_class3D()
+        if run_class3d and binFactor == 0:
 
+            # Classification
+            classifier = TheClassifier.from_utils(utils)
+            current_particles = classifier.run(current_particles, utils.tomo_refine3D_job.output_dir + 'run_class001.mrc')
+            
         #########################################################################################
 
         # Only Increase Resolution when Binning is Greater than 2
@@ -122,7 +124,7 @@ def average(
             utils.update_resolution(binFactor+1)
 
             # Reconstruct Particle at New Binning and Create mask From That Resolution 
-            utils.reconstruct_particle_job.joboptions['in_particles'].value = utils.tomo_refine3D_job.output_dir + 'run_data.star'  
+            utils.reconstruct_particle_job.joboptions['in_particles'].value = current_particles
             utils.run_reconstruct_particle()    
             refine_reference = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
 
