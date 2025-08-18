@@ -189,7 +189,7 @@ class TheClassifier:
         particles = starfile.read(output)
         all_particles = particles['particles']
         for ii in range(1, len(final_particles)):
-            sub_particles = self._subset_select(final_particles['iter{ii}'][0], output, final_particles['iter{ii}'][1])['particles']
+            sub_particles = self._subset_select(final_particles[f'iter{ii}'][0], output, final_particles[f'iter{ii}'][1])['particles']
             all_particles = all_particles.append(sub_particles, ignore_index=True)
         particles['particles'] = all_particles
 
