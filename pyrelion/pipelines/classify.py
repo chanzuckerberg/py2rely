@@ -42,7 +42,7 @@ class TheClassifier:
         output = starfile.read(input)['model_classes']
         results = output[metric]
 
-        # If the resolutions are identitcal, we use the translations accuracy
+        # If the resolutions are identical, we use the translations accuracy
         if results[0] != results[1]:
             best_class = results.argmin() + 1
         else: 
