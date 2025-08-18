@@ -41,8 +41,14 @@ class TheClassifier:
         input = input.replace('data','model')
         output = starfile.read(input)['model_classes']
         results = output[metric]
-        best_class = results.argmin() + 1
-        current_resolution = output['rlnEstimatedResolution'][results.argmin()]
+
+        # If the resolutions are identitcal, we use the translations accuracy
+        if results[0] != results[1]:
+            best_class = results.argmin() + 1
+        else: 
+            results = output['rlnAccuracyTranslationsAngst']
+            best_class = results.argmin() + 1
+        current_resolution = output['rlnEstimatedResolution'][best_class-1]
 
         return best_class, current_resolution
 
@@ -76,8 +82,24 @@ class TheClassifier:
         self.utils.tomo_select_job.joboptions['select_minval'].value = best_class
         self.utils.tomo_select_job.joboptions['select_maxval'].value = best_class
         self.utils.run_subset_select()
-        output = self.utils.tomo_select_job.output_dir + 'particles.star'
 
+        # Set Up Refinement Job
+        current_particles = self.utils.tomo_select_job.output_dir + 'particles.star'
+        if self.utils.binning == 2:
+
+            # Re-run Refinement
+            self.utils.tomo_refine3D_job.joboptions['ini_high'].value = current_res * 1.5
+            self.utils.tomo_refine3D_job.joboptions['in_particles'].value = current_particles
+            self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = reference
+            self.utils.run_auto_refine(rerunRefine=True)
+            output = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
+
+            # Re-Run Masking
+            self.utils.mask_create_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
+            self.utils.mask_create_job.joboptions['lowpass_filter'].value = self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D') * 1.25
+            self.utils.run_mask_create(self.utils.tomo_refine3D_job, None, rerunMaskCreate = True)
+        else:
+            output = self.utils.tomo_select_job.output_dir + 'particles.star'
         return output
 
     def run_iterative(self, particles: str, reference: str, mask: str = None, num_iterations: int = 2):
@@ -115,6 +137,8 @@ class TheClassifier:
                 particles = self.utils.tomo_class3D_job.output_dir + 'rejected_particles.star'
                 sub_particles = self._subset_select(maxIter, best_class, include=False)
                 starfile.write(sub_particles, particles)
+
+                # We need to Update the Mask...
 
             # Reset the Current resolution if we get a lower value:
             if current_res < best_resA:

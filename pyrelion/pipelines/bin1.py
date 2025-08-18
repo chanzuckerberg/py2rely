@@ -53,7 +53,7 @@ class HighResolutionRefinement:
         """Run refinement with existing setup, estimating resolution first."""
         
         # Run Resolution Estimate to Get Low-Pass Filter
-        self.run_resolution_estimate(particles)
+        self.run_resolution_estimate()
 
         # Which of these two do we want?
         # low_pass = self.utils.get_resolution(self.utils.post_process_job, 'post_process')
@@ -71,7 +71,7 @@ class HighResolutionRefinement:
         # Run the High Resolution Refinement Pipeline
         self.run_hr_refinement(particles, low_pass)
 
-    def run_resolution_estimate(self, particles: str):
+    def run_resolution_estimate(self):
         """Run resolution estimation for high-resolution refinement."""
         # Add Logic to Check if Mask is Available, if not create a new mask
         if self.utils.mask_create_job.output_dir == '': 
