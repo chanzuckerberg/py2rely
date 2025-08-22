@@ -15,9 +15,9 @@ def add_masking_options(func):
                     help="(Optional) Path for Mask to Measure the Map Resolution. If none provide, a new mask will be created."),
         click.option("--low-pass", type=str, required=False, default=15, 
                      help="User Input Low Pass Filter"),
-        click.option("--extend", type=int, required=False, default=None, 
+        click.option("--extend", type=int, required=False, default=0, 
                      help="The initial binary mask is extended this number of pixels in all directions."),
-        click.option("--soft-edge", type=int, required=False, default=None, 
+        click.option("--soft-edge", type=int, required=False, default=10, 
                      help="Add a soft-edge of this many pixels."),
         click.option("--tomogram", type=str, required=False, default=None, 
                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)") 
@@ -133,6 +133,8 @@ def reconstruct_particle_slurm(
 @cli.command(context_settings={"show_default": True})
 @click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
               help="Sub-Tomogram Refinement Parameter Path")
+@click.option("--reconstruction", type=str, required=True, 
+              help="Path to Reconstruction Job")
 @add_masking_options
 def mask_post_process(
     parameter: str,
@@ -178,7 +180,8 @@ def create_mask_and_post_process(
 
     # Get Binning
     recon_params = starfile.read( os.path.join(reconstruction, 'job.star') )
-    currentBinning = int(recon_params['joboptions_values']['rlnJobOptionValue'][21])
+    index = recon_params['joboptions_values'].index[ recon_params['joboptions_values']['rlnJobOptionVariable'] == 'binfactor' ][0]
+    currentBinning = int(recon_params['joboptions_values']['rlnJobOptionValue'][index])
     binIndex = utils.binningList.index(currentBinning)    
 
     print(f'\n[Mask Create - Post Process]\nRunning Mask Creation and Post-Processing at Bin Factor: {currentBinning}')
@@ -209,39 +212,3 @@ def create_mask_and_post_process(
     utils.post_process_job.joboptions['low_pass'].value = low_pass
     utils.run_post_process(rerunPostProcess=True)
     
-# Post Process Command
-@cli.command(context_settings={"show_default": True})
-@click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
-              help="Sub-Tomogram Refinement Parameter Path")
-@click.option('--mask', type=str, required=True, 
-              help="Path to Mask to Measure the Map Resolution")
-@click.option('--half-map', type=str, required=True, 
-              help="Path to Half Map to Post Process")
-@click.option('--low-pass', type=float, required=False, default=None, 
-              help='Low Pass Filter to Use for Post Processing')
-def post_process(
-    parameter: str,
-    mask: str,
-    half_map: str,
-    low_pass: float,
-    ):
-
-    # Create Pipeliner Project
-    my_project = PipelinerProject(make_new_project=True)
-    utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter)
-    utils.read_json_directories_file('output_directories.json')
-
-    # Initialize the Processes Job
-    utils.initialize_post_process()
-
-    # Update the Post Process Job with the Mask and Half Map
-    utils.post_process_job.joboptions['fn_in'].value = half_map
-    utils.post_process_job.joboptions['fn_mask'].value = mask
-
-    if low_pass is not None:
-        utils.post_process_job.joboptions['low_pass'].value = low_pass  
-
-    # Run the Post Process Job
-    utils.run_post_process(rerunPostProcess=True)
-

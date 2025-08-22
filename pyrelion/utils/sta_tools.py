@@ -278,8 +278,8 @@ class PipelineHelper:
             self.save_new_output_directory()     
 
             # Automatically Exit if Classification (User Needs to Export Best Class)
-            if classifyStep:
-                    exit()
+            # if classifyStep:
+            #         exit()
 
             if keepClasses is not None: 
                 self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   

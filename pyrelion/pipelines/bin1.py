@@ -53,7 +53,7 @@ class HighResolutionRefinement:
         """Run refinement with existing setup, estimating resolution first."""
         
         # Run Resolution Estimate to Get Low-Pass Filter
-        self.run_resolution_estimate(particles)
+        self.run_resolution_estimate()
 
         # Which of these two do we want?
         # low_pass = self.utils.get_resolution(self.utils.post_process_job, 'post_process')
@@ -71,7 +71,7 @@ class HighResolutionRefinement:
         # Run the High Resolution Refinement Pipeline
         self.run_hr_refinement(particles, low_pass)
 
-    def run_resolution_estimate(self, particles: str):
+    def run_resolution_estimate(self):
         """Run resolution estimation for high-resolution refinement."""
         # Add Logic to Check if Mask is Available, if not create a new mask
         if self.utils.mask_create_job.output_dir == '': 
@@ -116,7 +116,9 @@ class HighResolutionRefinement:
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        self.utils.post_process_job.joboptions['low_pass'].value = float(self.utils.params['resolutions']['angpix'] * 2)
+        # self.utils.post_process_job.joboptions['low_pass'].value = float(self.utils.params['resolutions']['angpix'] * 2)
+        self.utils.post_process_job.joboptions['autob_lowres'].value =  self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D')
+
         self.utils.run_post_process(rerunPostProcess=True)
 
 # Decorator for CLI options
