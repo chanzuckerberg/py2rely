@@ -5,6 +5,8 @@ import click
 
 class ThePolisher:
     """Class for high-resolution polishing with two entry points."""
+        
+    max_counts = 2 # Max Counts before terminating the Polisher
 
     def __init__(self, parameter_path: str, 
                  tomograms: str = None, motion: str = None,
@@ -39,8 +41,6 @@ class ThePolisher:
         # Initialize the Auto Refine Job
         self.utils.initialize_auto_refine()
 
-        # Max Counts before terminating the Polisher
-        self.max_counts = 2
 
     @classmethod
     def from_utils(cls, utils):

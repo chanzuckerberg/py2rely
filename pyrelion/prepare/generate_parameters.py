@@ -85,8 +85,8 @@ def relion5_parameters(
             crop_size=-1,
             do_float16="yes",
             do_output_2dstacks="yes",            
-            nr_threads=16,
-            mpi_command="mpirun"
+            nr_threads=4,
+            nr_mpi=15,
         ),
         refine3D=parameters.Refine3D(
             in_tomograms=input_tilt_series,   
@@ -108,7 +108,7 @@ def relion5_parameters(
             nr_pool= 30,   
             use_gpu= "yes",
             gpu_ids= "",
-            nr_threads= 16,
+            nr_threads=16,
             mpi_command="mpirun",
             other_args="" # --maxsig 3000
         ),
@@ -136,7 +136,7 @@ def relion5_parameters(
             nr_pool= 30, 
             use_gpu= "no",
             gpu_ids= "",
-            nr_threads= 16,
+            nr_threads=16,
             mpi_command="mpirun",
             sigma_tilt= 0
         ),

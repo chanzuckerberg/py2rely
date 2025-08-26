@@ -146,6 +146,7 @@ def import_pytom_particles(
 @click.option("--copick-name", type=str, required=True, help="Protein Name")
 @click.option("--copick-session-id", type=str, default=None, help="Session ID")
 @click.option("--copick-user-id", type=str, default=None, help="User ID")
+@click.option("--run-ids", type=str, default=None, help="Run IDs to filter (comma-separated)")
 @click.option("--voxel-size", type=float, default=None, help="Voxel Size of Picked Particles' Tomograms")
 @common.add_common_options
 @common.add_optics_options
@@ -159,6 +160,7 @@ def gather_copick_particles(
     voxel_size: float, 
     copick_session_id: str, 
     copick_user_id: str,
+    run_ids: str,
     x: float,
     y: float, 
     z: float,
@@ -215,11 +217,15 @@ def gather_copick_particles(
     myStarFile['rlnAnglePsi'] = []
 
     # Load tomo_ids
-    if voxel_size is None:
+    if run_ids is None:
         run_ids = [run.name for run in root.runs]
     else:
-        run_ids = [run.name for run in root.runs if run.get_voxel_spacing(voxel_size) is not None]
-        skipped_run_ids = [run.name for run in root.runs if run.get_voxel_spacing(voxel_size) is None]    
+        run_ids = run_ids.split(',')
+        run_ids = [run_id.strip() for run_id in run_ids]
+
+    if voxel_size is not None:
+        run_ids = [run_id for run_id in run_ids if root.get_run(run_id).get_voxel_spacing(voxel_size) is not None]
+        skipped_run_ids = [run_id for run_id in run_ids if root.get_run(run_id).get_voxel_spacing(voxel_size) is None]
         if skipped_run_ids: 
                 print(f"Warning: skipping runs with no voxel spacing {voxel_size}: {skipped_run_ids}")
 
@@ -336,6 +342,9 @@ def combine_star_files_particles(
 
     # Write the Merged DataFrame to New StarFile
     # if os.path.exists(output):
+
+    if not os.path.exists(os.path.dirname(output)):
+        os.makedirs(os.path.dirname(output))
 
     starfile.write({'optics': merged_optics, 'particles': merged_particles}, output)
 

@@ -103,14 +103,15 @@ def average(
 
         # Duplicate Particles? 
         if binFactor == 0:
-            remove_duplicates(utils, distance_scale=0.3)
+            starfile = utils.tomo_refine3D_job.output_dir + 'run_data.star'            
+            remove_duplicates(utils, starfile, distance_scale=0.3)
         particles = utils.tomo_refine3D_job.output_dir + 'run_data.star' 
 
         #########################################################################################            
 
         # Classification Job
-        if run_class3d and binFactor == 0:
-
+        # if run_class3d and binFactor == 0:
+        if run_class3d and utils.binning > 1:
             classifier = TheClassifier.from_utils(utils)
             particles = classifier.run(particles, utils.tomo_refine3D_job.output_dir + 'run_class001.mrc')
             
@@ -173,9 +174,9 @@ def average(
         print(f'Exiting the STA Pipeline @ Bin = {utils.binning}, Estimating the Current Resolution...')        
         bin1.run_resolution_estimate(particles)
 
-def remove_duplicates(utils, distance_scale):
+def remove_duplicates(utils, starfile, distance_scale):
 
-    starfile = utils.tomo_refine3D_job.output_dir + 'run_data.star'
-    distance_angstroms = float(utils.tomo_refine3D_job.joboptions['particle_diameter'].value) * 0.3 
+    distance_angstroms = float(utils.tomo_refine3D_job.joboptions['particle_diameter'].value) * distance_scale
     cmd = f"relion_star_handler --i {starfile} --remove_duplicates {distance_angstroms} --o {starfile}"
+    print(f"Removing duplicate particles with a distance of {distance_angstroms} A")
     subprocess.run(cmd, shell=True, check=True)
