@@ -67,7 +67,7 @@ class Relion5Pipeline(PipelineHelper):
         """        
         if rerunPseudoSubtomo: pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo')
         else:                  pseudoSubtomoIter = None
-        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Psuedo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
+        self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Pseudo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
 
     def initialize_initial_model(self):
         """

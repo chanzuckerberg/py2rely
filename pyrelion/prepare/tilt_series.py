@@ -216,6 +216,9 @@ def import_tilt_series(
         'rlnOpticsGroupName': [optics_group_name] * nRows,
         'rlnTomoTiltSeriesPixelSize': [pixel_size] * nRows,
         'rlnTomoTiltSeriesStarFile': tiltSeriesStarNames,
+        'rlnTomoSizeX': [0] * nRows, # need 0s at least because of RELION bug.
+        'rlnTomoSizeY': [0] * nRows,
+        'rlnTomoSizeZ': [0] * nRows,
     }
     fn = os.path.join(tiltSeriesDirectory, "aligned_tilt_series.star")
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
@@ -255,6 +258,9 @@ def combine_star_files_tomograms(
 
     # Write the Merged DataFrame to New StarFile
     # if os.path.exists(output):
+
+    if not os.path.exists(os.path.dirname(output)):
+        os.makedirs(os.path.dirname(output))
 
     starfile.write({'global': merged_alignments}, output)
 

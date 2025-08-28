@@ -62,7 +62,7 @@ class PseudoSubtomo(BaseModel):
     do_float16: str
     do_output_2dstacks: Optional[str] = None
     nr_threads: int
-    mpi_command: str
+    nr_mpi: int
 
 class Refine3D(BaseModel):
     in_tomograms: str
