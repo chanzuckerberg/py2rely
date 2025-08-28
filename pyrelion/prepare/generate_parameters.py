@@ -86,7 +86,7 @@ def relion5_parameters(
             do_float16="yes",
             do_output_2dstacks="yes",            
             nr_threads=4,
-            nr_mpi=15,
+            nr_mpi=3,
         ),
         refine3D=parameters.Refine3D(
             in_tomograms=input_tilt_series,   
