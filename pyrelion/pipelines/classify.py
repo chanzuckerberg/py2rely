@@ -65,13 +65,12 @@ class TheClassifier:
             self._create_mask(reference)
 
         # Core Classification Parameters
-        self.utils.tomo_class3D_job.joboptions['ini_high'].value = self.low_pass
+        self.utils.tomo_class3D_job.joboptions['sym_name'].value = 'C1'
         self.utils.tomo_class3D_job.joboptions['fn_ref'].value = reference
-        self.utils.tomo_class3D_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc' 
-
-        # Run Classification
         self.utils.tomo_class3D_job.joboptions['in_particles'].value = particles
-        self.utils.run_tomo_class3D()           
+        self.utils.tomo_class3D_job.joboptions['ini_high'].value = self.low_pass
+        self.utils.tomo_class3D_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc' 
+        self.utils.run_tomo_class3D()
 
         # Determine Best Class
         maxIter = self.utils.find_final_iteration()

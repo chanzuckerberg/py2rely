@@ -58,17 +58,19 @@ def create_shellsubmit(
     shell_script_content = f"""#!/bin/bash
 
 {slurm_gpus}
+#SBATCH --nodes=1
 #SBATCH --time={total_time}
-#SBATCH --cpus-per-task=16
+#SBATCH --cpus-per-task=6
 #SBATCH --mem-per-cpu=16G
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
 
-{get_load_relion_command()}
-
 ml anaconda 
 conda activate /hpc/projects/group.czii/conda_environments/pyRelion
+
+{get_load_relion_command()}
+
 {command}
 
 """
