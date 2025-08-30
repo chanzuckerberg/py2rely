@@ -65,7 +65,6 @@ class TheClassifier:
             self._create_mask(reference)
 
         # Core Classification Parameters
-        self.utils.tomo_class3D_job.joboptions['sym_name'].value = 'C1'
         self.utils.tomo_class3D_job.joboptions['fn_ref'].value = reference
         self.utils.tomo_class3D_job.joboptions['in_particles'].value = particles
         self.utils.tomo_class3D_job.joboptions['ini_high'].value = self.low_pass
