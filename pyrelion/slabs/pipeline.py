@@ -1,349 +1,291 @@
 from pipeliner.jobs.relion import import_job, extract_job, class2D_job, select_job
 from pyrelion.slabs.preprocess import default_parameters
+from pyrelion.utils.sta_tools import PipelineHelper  # Import the parent class
 from pyrelion.slabs.visualize import gallery
-import pipeliner.job_manager as job_manager
-import glob, starfile, json, re, mrcfile
-import subprocess, os, glob
-import warnings, subprocess
+import glob, starfile, os, re
 import numpy as np
 
-# Suppress all future warnings
-warnings.simplefilter(action='ignore', category=FutureWarning)
-
-class SlabAveragePipeline:
-
-    def __init__(self,inProject):
-
-        self.myProject = inProject
-
-        self.check_if_relion_is_available()
-
-        self.params = default_parameters.get_config()
-
-    def check_if_relion_is_available(self):
+class SlabAveragePipeline(PipelineHelper):
+    """
+    A specialized pipeline for slab averaging that inherits from PipelineHelper.
+    Leverages parent class's job tracking and rerun capabilities.
+    """
+    
+    def __init__(self, inProject):
         """
-        Check if Relion is available on the system by attempting to run `relion --help`.
-        Exits the program if Relion is not found.
-        """
-        try:
-            result = subprocess.run('relion --help', shell=True, check=True, capture_output=True, text=True)
-        except subprocess.CalledProcessError as e:
-            print(f"Standard Error:\n{e.stderr}")
-            exit()
-
-    def print_pipeline_parameters(self, process, header=None, **kwargs):
-        """
-        Print pipeline parameters to the console and optionally save them to a JSON file
-        under a specific header.
-
-        Args:
-            process: The name of the process or step in the pipeline.
-            header: An optional header name under which the parameters will be saved in the JSON file.
-            **kwargs: Arbitrary keyword arguments representing parameters to print or save.
-                    If 'file_name' is provided in kwargs, parameters will be saved to a JSON file.
-        """
-        # Check if 'file_name' is provided in kwargs. If so, extract it and save the parameters to a JSON file.
-        file_name = kwargs.pop('file_name', None)
-
-        # Prepare the dictionary for saving or printing.
-        json_data = {header: kwargs} if header else kwargs
-
-        if file_name:
-
-            # Read JSON File If Available
-            if os.path.exists(file_name):
-                with open(file_name, 'r') as json_file:
-                    existing_data = json.load(json_file)
-            else: 
-                existing_data = {}
-            existing_data.update(json_data)
-
-            # Save the parameters to the specified JSON file with the same indentation.
-            with open(file_name, 'w') as json_file:
-                json.dump(existing_data, json_file, indent=4)
-
-            # Print the file name and a confirmation message.
-            print(f"\nParameters saved to {file_name} under the header '{header}'" if header else f"\nParameters saved to {file_name}")
+        Initialize the SlabAveragePipeline with the given project.
         
-        # Print the parameters in a JSON-formatted string with the same indentation.
-        print(f"\n[{process}] Parameters (JSON format):\n")
-        print(json.dumps(json_data, indent=4))            
-
-    def read_json_params_file(self, json_fname):
+        Args:
+            inProject: The project instance that manages the pipeline.
         """
-        Read parameters from a JSON file.
-
+        # Call parent class constructor
+        super().__init__(inProject, requireRelion=True)
+        
+        # Override params with slab-specific default parameters
+        self.params = default_parameters.get_config()
+        
+        # Initialize slab-specific job attributes
+        self.import_micrographs_job = None
+        self.extract_job = None
+        self.class2D_job = None
+        self.auto_select_job = None
+        self.classPath = None
+        
+        # For slab averaging, we use a fixed binning of 1
+        self.binning = 1
+        self.binningList = [1]
+    
+    def read_json_params_file(self, json_fname: str):
+        """
+        Read parameters from a JSON file for slab averaging.
+        Sets up binning as 1 for compatibility with parent class.
+        
         Args:
             json_fname: Path to the JSON file containing pipeline parameters.
-        """        
-
-        # Check if the provided JSON file path exists. If not, raise a FileNotFoundError 
-        # with a message to notify the user to check the path.
+        """
         if not os.path.exists(json_fname):
-            raise FileNotFoundError(f"The file '{json_fname}' does not exist. Please check the path and try again.")        
-
+            raise FileNotFoundError(f"The file '{json_fname}' does not exist. Please check the path and try again.")
+        
         self.params = self.read_json(json_fname)
-
-    def read_json_directories_file(self,json_fname):
-        """
-        Read output directories from a JSON file.
-
-        Args:
-            json_fname: Path to the JSON file containing output directories.
-        """        
-        self.outputDirectories = self.read_json(json_fname) 
-
-    def read_json(self, json_fname):
-        """
-        Read data from a JSON file.
-
-        Args:
-            json_fname: Path to the JSON file
-        Returns:
-            dict: Parsed JSON data.
-        """
-
-        try:
-            readFile = open(json_fname)
-            outData = json.load(readFile)
-        except:
-            outData = {}
-
-        return outData
-
-    def parse_params(self,job,step):
-        """
-        Parse parameters from the JSON file and set them for a given job.
-
-        Args:
-            job: A pipeline job object.
-            step (str): The step of the pipeline to retrieve parameters for.
-
-        Returns:
-            job: The job with updated parameters.
-        """        
-
-        for key,value in self.params[step].items():
-            job.joboptions[key].value = value
-        return job
+        # Set fixed binning for slab averaging
+        self.binning = 1
+        self.binningList = [1]
     
-    def run_job(self, job, jobName, jobTag, classifyStep = None, keepClasses = None):
+    # ============ Slab-specific methods ============
+    
+    def initialize_import_micrographs(self):
+        """Initialize the import micrographs job."""
+        self.import_micrographs_job = import_job.RelionImportMovies()
+        self.import_micrographs_job = self.parse_params(self.import_micrographs_job, 'import_micrographs')
+        
+        # Try to set output directory if already exists
+        try:
+            self.import_micrographs_job.output_dir = self.outputDirectories[f'bin{self.binning}']['import_micrographs']
+        except:
+            pass
+    
+    def run_import_micrographs(self, rerunImport: bool = False):
         """
-        Run a job and handle its completion status.
-
+        Run the import micrographs job.
+        
         Args:
-            job: A pipeline job object.
-            jobName: Name of the job.
-            jobTag: Tag to identify the job in logs.
-            classifyStep (optional): Classification step to stop at, if provided.
-            keepClasses (optional): List of classes to keep after classification.
-        """             
-
-        if not self.check_if_job_already_completed(job,jobName):
-
-            # Run Import Tomograms Job
-            print(f'\n[{jobTag}] Starting Job...')
-
-            # Run Import Job
-            self.myProject.run_job(job)
-
-            # Wait up to 24 hours for the job to finish
-            result = job_manager.wait_for_job_to_finish(job)
-
-            print('[{}] Job Complete!'.format(jobTag))
-            print('[{}] Job Result :: '.format(jobTag) + result)
-
-            if result == 'Failed': print(f'{jobTag} Failed!...\n'); exit()
-
-            self.outputDirectories[jobName] = job.output_dir
-            self.save_new_output_directory()
-
-            # We Want to Automatically Exit if We're Performing Several Rounds of Classification
-            # if classifyStep is not None:
-            #     exit()   
-            # This is not true anymore      
-
-            if keepClasses is not None: 
-                self.custom_select(keepClasses=keepClasses)    
-                
-    def find_final_iteration(self, classPath):
+            rerunImport: If True, force rerun even if job exists
         """
-        Find the final iteration file based on the highest iteration number.
-
+        if rerunImport:
+            importJobIter = self.return_job_iter(f'bin{self.binning}', 'import_micrographs')
+        else:
+            importJobIter = None
+        
+        self.run_job(self.import_micrographs_job, 'import_micrographs', 'Import Micrographs', jobIter=importJobIter)
+    
+    def initialize_particle_extraction(self):
+        """Initialize the particle extraction job."""
+        self.extract_job = extract_job.RelionExtract()
+        self.extract_job = self.parse_params(self.extract_job, 'extract')
+        
+        try:
+            self.extract_job.output_dir = self.outputDirectories[f'bin{self.binning}']['extract']
+        except:
+            pass
+    
+    def run_extract(self, rerunExtract: bool = False):
+        """
+        Run the particle extraction job.
+        
+        Args:
+            rerunExtract: If True, force rerun even if job exists
+        """
+        if rerunExtract:
+            extractJobIter = self.return_job_iter(f'bin{self.binning}', 'extract')
+        else:
+            extractJobIter = None
+        
+        self.run_job(self.extract_job, 'extract', 'Particle Extraction', jobIter=extractJobIter)
+    
+    def initialize_classification(self, classifyMethod: str = '2DEM', nr_iter: int = None, classifyStep: str = None):
+        """
+        Initialize 2D classification job.
+        
+        Args:
+            classifyMethod: Classification method ('2DEM' or 'VDAM').
+            nr_iter: Number of iterations for classification.
+            classifyStep: Optional step identifier for multiple classification rounds
+        """
+        # Specify 2D-Classification Algorithm (EM vs VDAM)
+        if classifyMethod == 'VDAM':
+            self.class2D_job = class2D_job.RelionClass2DVDAM()
+            if nr_iter is not None:
+                self.class2D_job.joboptions['nr_iter_grad'].value = nr_iter
+            print(f'\nRunning Class2D with VDAM Algorithm\n')
+        else:
+            self.class2D_job = class2D_job.RelionClass2DEM()
+            if nr_iter is not None:
+                self.class2D_job.joboptions['nr_iter_em'].value = nr_iter
+            print(f'\nRunning Class2D with EM Algorithm\n')
+        
+        # Parse Parameters
+        self.class2D_job = self.parse_params(self.class2D_job, 'class2D')
+        
+        # Generate job name based on classifyStep
+        jobName = self.check_custom_job_name('class2D', classifyStep)
+        
+        # Try to set output directory if already exists
+        try:
+            self.class2D_job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
+        except:
+            pass
+    
+    def run_class2D(self, classifyStep: str = None, rerunClass2D: bool = True):
+        """
+        Run 2D classification job with proper iteration tracking.
+        
+        Args:
+            classifyStep: Optional classification step identifier
+            rerunClass2D: If True, force rerun even if job exists
+        """
+        # Generate job name
+        jobName = self.check_custom_job_name('class2D', classifyStep)
+        
+        # Determine if we should track iterations
+        if rerunClass2D:
+            class2DJobIter = self.return_job_iter(f'bin{self.binning}', jobName)
+        else:
+            class2DJobIter = None
+        
+        self.run_job(self.class2D_job, jobName, '2D Classification', jobIter=class2DJobIter)
+        
+        # Get final class averages and visualize
+        class_job = self.class2D_job.output_dir.split('/')[1]
+        final_class_averages = self.find_final_iteration_2D(class_job).replace('data.star', 'classes.mrcs')
+        
+        # Plot the Class Averages
+        gallery.class_average_gallery(final_class_averages)
+    
+    def find_final_iteration_2D(self, classPath: str):
+        """
+        Find the final iteration file for 2D classification.
+        
+        Args:
+            classPath: Path to the class job directory.
+        
         Returns:
             str: Path to the final iteration star file.
-        """              
-
-        # Find the Final Iteration 
-        iterationStarFiles = glob.glob( os.path.join('Class2D', classPath, 'run_*_data.star') )
+        """
+        # Find the Final Iteration for 2D classification
+        iterationStarFiles = glob.glob(os.path.join('Class2D', classPath, 'run_*_data.star'))
         maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
         self.maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
         return maxIterationStarFile
     
-    def find_best_particle_class(self):
+    def initialize_auto_selection(self, selectStep: str = None):
         """
-        Find the best particle class based on the maximum class distribution.
-
-        Returns:
-            tuple: (class index, path to MRC file of the best class)
-        """             
-
-        # Find the Final Iteration Model Star File and Pull out the Iteraiton Number 
-        iterationStarFiles = glob.glob(self.tomo_class3D_job.output_dir + 'run_*_model.star')
-        maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
-        maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
-
-        # Read the Corresponding Classification Star File
-        classification = starfile.read(maxIterationStarFile)
-
-        # Pull out the Max Class Index and Corresponding MRC - Reconstruction 
-        maxClassIndex = classification['model_classes']['rlnClassDistribution'].idxmax() + 1
-        maxClassMrc = self.tomo_class3D_job.output_dir  + 'run_it{:03}_class{:03}.mrc'.format(maxIter,maxClassIndex)
-
-        return (maxClassIndex, maxClassMrc)
+        Initialize auto selection job for 2D classification.
         
-    def save_new_output_directory(self):
-        """
-        Save the updated output directories to the JSON file.
-        """        
-
-        with open('output_directories.json', 'w') as outFile: 
-            json.dump(self.outputDirectories,outFile,indent=4)  
-
-    def check_if_job_already_completed(self, job, job_name):
-        """
-        Check if a job has already been completed by looking for its output directory.
-
         Args:
-            job: A pipeline job object.
-            job_name: Name of the job.
-
-        Returns:
-            bool: True if the job is already completed, False otherwise.
-        """        
-
-        try: 
-            job.output_dir = self.outputDirectories[job_name]
-            return True
-        except: 
-            return False
-
-    def check_custom_job_name(self,baseJobName,customStep):
+            selectStep: Optional selection step identifier.
         """
-        Generate a custom job name based on the base job name and an optional custom step.
-
-        Args:
-            baseJobName: The base name of the job.
-            customStep: An optional custom step name.
-
-        Returns:
-            str: The generated job name.
-        """        
-
-        if customStep is not None:
-            jobName = f'{customStep}_{baseJobName}'
-            customStep = customStep + '_'
-        else:
-            jobName = f'{baseJobName}'
-            customStep = ''
-        
-        return jobName            
-    
-    def initialize_import_micrographs(self):
-
-        self.import_micrographs_job = import_job.RelionImportMovies()
-        self.import_micrographs_job = self.parse_params(self.import_micrographs_job,'import_micrographs')
-
-    def run_import_micrographs(self):
-
-        self.run_job(self.import_micrographs_job, 'import_micrographs', 'Import Micrographs')     
-
-    def initialize_particle_extraction(self):
-
-        self.extract_job = extract_job.RelionExtract()
-        self.extract_job = self.parse_params(self.extract_job,'extract')
-
-    def run_extract(self):
-
-        self.run_job(self.extract_job, 'extract', f'Particle Extraction')
-    
-    def initialize_classification(self, 
-                                  classifyMethod: str ='2DEM', 
-                                  nr_iter: int = None):
-
-        # Specify 2D-Classification Algorithm (EM vs VDAM)
-        if classifyMethod == 'VDAM':  
-            self.class2D_job = class2D_job.RelionClass2DVDAM()
-            if nr_iter is not None:
-                self.class2D_job.joboptions['nr_iter_grad'].value = nr_iter
-            print(f'\nRunning Class2D with VDAM Algorithm\n')                
-        else:                          
-            self.class2D_job = class2D_job.RelionClass2DEM()
-            if nr_iter is not None:
-                self.class2D_job.joboptions['nr_iter_em'].value = nr_iter            
-            print(f'\nRunning Class2D with EM Algorithm\n')                 
-
-        # Parse Paramters 
-        self.class2D_job = self.parse_params(self.class2D_job,'class2D')    
-        try: self.class2D_job.output_dir = self.outputDirectories[self.check_custom_job_name('class2D',classifyStep)]
-        except: pass
-
-    # Classify 3D Job 
-    def run_class2D(self,classifyStep=None):
-
-        try: 
-            previous_jobs = glob.glob('Class2D/job*')
-            classIter = len(previous_jobs) + 1
-        except:
-            classIter = 1
-
-        jobName = f'class2D_iter{classIter}'
-        self.run_job(self.class2D_job, jobName, f'2D Classification', classifyStep = classifyStep)
-
-        class_job = self.class2D_job.output_dir.split('/')[1]
-        final_class_averages = self.find_final_iteration(class_job).replace('data.star', 'classes.mrcs')
-
-        # Plot the Class Averages
-        gallery.class_average_gallery(final_class_averages) 
-    
-    # Subset Selection Job
-    def initialize_selection(self,selectStep=''):
-
-        self.tomo_select_job = select_job.RelionSelectOnValue()
-        self.tomo_select_job.joboptions['select_label'].value = "rlnClassNumber" 
-
-        try: self.tomo_select_job.output_dir = self.outputDirectories[self.check_custom_job_name('select',selectStep)]
-        except: pass
-
-    # Select Class Job - Pick class with Largest Distribution
-    def run_subset_select(self, keepClasses=None, selectStep=None, classPath = None):
-
-        jobName = self.check_custom_job_name(selectStep,'select') 
-        self.classPath = classPath         
-        self.run_job(self.tomo_select_job, jobName, f'Subset Selection', keepClasses=keepClasses)           
-
-    def initialize_auto_selection(self, selectStep=''):
-
         self.auto_select_job = select_job.RelionSelectClass2DAuto()
+        
+        jobName = self.check_custom_job_name('auto_select', selectStep)
+        
+        try:
+            self.auto_select_job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
+        except:
+            pass
+    
+    def run_auto_select(self, selectStep: str = None, rerunAutoSelect: bool = True):
+        """
+        Run auto selection job with iteration tracking.
+        
+        Args:
+            selectStep: Optional selection step identifier
+            rerunAutoSelect: If True, force rerun even if job exists
+        """
+        jobName = self.check_custom_job_name('auto_select', selectStep)
+        
+        if rerunAutoSelect:
+            autoSelectJobIter = self.return_job_iter(f'select', jobName)
+        else:
+            autoSelectJobIter = None
+        
+        self.run_job(self.auto_select_job, jobName, 'Auto Selection', jobIter=autoSelectJobIter)
+    
+    def run_subset_select(self, keepClasses: list = None, # selectStep: str = None, 
+                         classPath: str = None, rerunSelect: bool = True):
+        """
+        Run subset selection with full iteration tracking from parent class.
+        
+        Args:
+            keepClasses: List of classes to keep.
+            selectStep: Optional selection step identifier.
+            classPath: Path to the class file.
+            rerunSelect: If True, force rerun even if job exists
+        """
+        # Store classPath for custom_select
+        if classPath:
+            self.classPath = classPath
+        
+        # Generate job name
+        # jobName = self.check_custom_job_name('select', selectStep)
+        
+        # Use parent class's iteration tracking
+        if rerunSelect:
+            selectJobIter = self.return_job_iter(f'bin{self.binning}', 'select')
+        else:
+            selectJobIter = None
+        
+        # Run using parent's run_job with full tracking
+        self.run_job(self.tomo_select_job, 'select', 'Subset Selection', 
+                    keepClasses=keepClasses, jobIter=selectJobIter)
+    
+    def custom_select(self, classPath: str, keepClasses: list, uniqueExport: str = None):
+        """
+        Perform custom selection for 2D classification.
+        Simplified version for 2D workflows.
+        
+        Args:
+            classPath: Path to the class file to select from (or uses self.classPath)
+            keepClasses: List of classes to keep.
+            uniqueExport: Optional custom export path.
+        """
 
-        try: self.auto_select_job.output_dir = self.outputDirectories[self.check_custom_job_name('auto_select',selectStep)]
-        except: pass
-
-    # Select Class Job - Pick class with Largest Distribution
-    def run_auto_select(self, selectStep=None):
-
-        jobName = self.check_custom_job_name(selectStep,'auto_select')         
-        self.run_job(self.auto_select_job, jobName, f'Auto Selection')                   
-
-    # Edit the Selection Job For the Pre-defined Best Class and Apply top 
-    def custom_select(self, keepClasses):
-
-        particlesFile = starfile.read(self.classPath)
-
+        # Make sure indexing is correct
+        keepClasses = np.array(keepClasses) + 1
+        
+        # Read particles file
+        particlesFile = starfile.read(classPath)
         optics = particlesFile['optics']
         particles = particlesFile['particles']
-
-        # I need to Pull out Data Optics
+        
+        # Filter particles by class
         filteredParticles = particles[particles['rlnClassNumber'].isin(keepClasses)]
+        
+        # Define write directory
+        if uniqueExport is None:
+            uniqueExport = self.tomo_select_job.output_dir + 'particles.star'
+            # Remove old file if it exists
+            if os.path.exists(uniqueExport):
+                os.remove(uniqueExport)
+        
+        # Write filtered particles
+        starfile.write({'optics': optics, 'particles': filteredParticles}, uniqueExport)
 
-        starfile.write({'optics':optics, 'particles':filteredParticles}, self.tomo_select_job.output_dir + 'particles.star')            
+    def find_final_iteration(self):
+        # Find the Final Iteration
+        # iterationStarFiles = glob.glob(os.path.join('Class2D', classPath, 'run_*_data.star'))
+        # maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
+        # maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
+        # Filter out unwanted filenames (exclude 'run_annon_itXXX_*' cases)
+
+        # Find the Final Iteration, Ignore User Submission Runs
+        iterationStarFiles = glob.glob(os.path.join(self.class2D_job.output_dir, 'run_it*_data.star'))
+        iterationStarFiles = [f for f in iterationStarFiles if re.search(r'run_it\d+_data\.star$', f)]
+        
+        if not iterationStarFiles:
+            raise ValueError(f"No valid iteration files found in {os.path.join(self.class2D_job.output_dir)}")
+        
+        # Extract iteration number and find the max iteration
+        maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'run_it(\d+)_', x).group(1)))
+        maxIter = int(re.search(r'run_it(\d+)_', maxIterationStarFile).group(1))
+
+        return os.path.join(self.class2D_job.output_dir, f'run_it{maxIter:03d}_data.star')

@@ -99,7 +99,7 @@ def parse_int_list(ctx, param, value):
 def add_compute_options(func):
     """Decorator to add common compute options to a Click command."""
     options = [
-        click.option("--num-gpus",type=int,required=False,default=2,
+        click.option("--num-gpus",type=int,required=False,default=4,
                     help="Number of GPUs to Use for Refinement",
                     callback=validate_even_gpus),
         click.option("--gpu-constraint",required=False,default="h100",

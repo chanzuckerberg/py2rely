@@ -13,6 +13,8 @@ dependencies = [
     "pydantic",
     "tqdm",
     "copick",
+    "PyQt5",
+    "pyqtgraph",    
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main"
 ]
