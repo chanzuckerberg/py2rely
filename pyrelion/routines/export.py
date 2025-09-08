@@ -202,11 +202,11 @@ def starfile_to_copick(
     help='Particle Name to Save Copick Query'
 )
 @click.option(
-    "--user-id", type=str,required=False, default="relion",
+    "--user-id", type=str,required=False, default="pyrelion",
     help="UserID to Export Picks"
 )   
 @click.option(
-    "--session-id", type=int,required=False, default=99,
+    "--session-id", type=str,required=False, default="1",
     help="SessionID to Export Picks"
 )
 @click.option(
@@ -257,13 +257,12 @@ def relion4_to_copick(
             orientations[jj,:3,:3] = rot.inv().as_matrix()
         orientations[:,3,3] = 1
 
-        myrun = uniqueRun + '_Vol'
-        try:
-            root.add_run(myrun)
-        except:
-            pass
-
         # Get Run and Picks 
-        run = root.get_run(myrun)
-        picks = run.new_picks(object_name = particle_name, user_id = user_id, session_id = session_id)
+        run = root.get_run(uniqueRun)
+        if run is None:
+            run = root.new_run(uniqueRun)
+        picks = run.new_picks(
+            object_name = particle_name, 
+            user_id = user_id, session_id = session_id, 
+            exist_ok=True)
         picks.from_numpy(points, orientations)
