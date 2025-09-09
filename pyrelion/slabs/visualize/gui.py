@@ -1,4 +1,5 @@
-import class_average.spa_pipeline_utilities as pipeline_utils
+from pyrelion.slabs.pipeline import SlabAveragePipeline as pipeline
+# from pyrelion.utils.sta_tools import PipelineHelper as pipeline
 from pipeliner.api.manage_project import PipelinerProject
 from PyQt5 import QtWidgets, QtCore
 from pyqtgraph import TextItem
@@ -134,9 +135,9 @@ def find_final_iteration(classPath):
 
     return maxIter
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings={"show_default": True}, name='extract')
 @click.option(
-    '--class-job', 
+    '--job', 
     required=True, 
     type=str, 
     default='job001', 
@@ -160,29 +161,29 @@ def find_final_iteration(classPath):
     default=128,
     help='Size of the images')
 def classes(
-    class_job: str,
+    job: str,
     extract_classes: bool,
     grid_columns: int,
     image_size: int):
 
     # Check to Make Sure a Valid Class Path is Provided
-    if not os.path.isdir(os.path.join('Class2D', class_job)):
-        print(f'\nInvalid Class Job: Class2D/{class_job}\n')
+    if not os.path.isdir(os.path.join('Class2D', job)):
+        print(f'\nInvalid Class Job: Class2D/{job}\n')
         print(f'Available Class Jobs: {os.listdir("Class2D")}')
         print(f'Exiting...')
         sys.exit(1)
 
     app = QtWidgets.QApplication(sys.argv)
-    maxIter = find_final_iteration(class_job)
-    dataset = mrcfile.read(os.path.join('Class2D',class_job,f'run_it{maxIter:03d}_classes.mrcs'))
+    maxIter = find_final_iteration(job)
+    dataset = mrcfile.read(os.path.join('Class2D',job,f'run_it{maxIter:03d}_classes.mrcs'))
 
     num_images = dataset.shape[0]
     text_list = [f"Class {i+1}" for i in range(num_images)]  # Example text for each image
 
-    resultsStarFile = starfile.read( os.path.join('Class2D', class_job, f'run_it{maxIter:03d}_model.star'))
+    resultsStarFile = starfile.read( os.path.join('Class2D', job, f'run_it{maxIter:03d}_model.star'))
     resolution_list = [f"{round(resultsStarFile['model_classes']['rlnEstimatedResolution'][i],2)} A" for i in range(num_images)]    
 
-    particlesStarPath = os.path.join('Class2D', class_job, f'run_it{maxIter:03d}_data.star')
+    particlesStarPath = os.path.join('Class2D', job, f'run_it{maxIter:03d}_data.star')
     particlesStarFile = starfile.read( particlesStarPath )
     nParticles = particlesStarFile['particles'].shape[0]
     particle_count_list = [ f"{int(resultsStarFile['model_classes']['rlnClassDistribution'][i] * nParticles)} Particles" for i in range(num_images) ]  
@@ -198,7 +199,7 @@ def classes(
 
         # Create Pipeliner Project
         my_project = PipelinerProject(make_new_project=True)
-        utils = pipeline_utils.pipeliner_helper(my_project)
+        utils = pipeline(my_project)
         utils.read_json_directories_file('output_directories.json')
 
         selected_classes = ex.selected_indices  
@@ -208,26 +209,16 @@ def classes(
             print(f'No Classes Selected, Exiting...\n')
             exit(1)
 
-        # Find the key that contains the substring in its value
-        key_with_substring = None
-        for key, value in utils.outputDirectories.items():
-            if class_job in value:
-                key_with_substring = key
-                break 
-        
-        if key_with_substring is None:
-            print(f'\n[Error] Class Job: Class2D/{class_job} didnt complete sucessfully\n') 
-            print('Available Class Jobs:')
-            # Collect all filtered entries in a list
-            available_class_jobs = [value for key, value in utils.outputDirectories.items() if 'class2d' in key.lower()]        
-            exit(1)    
-
-        class2DIteration = key_with_substring.split('_')[1]
+        # class2DIteration = key_with_substring.split('_')[1]
         utils.initialize_selection()
+        utils.initialize_classification()
+        utils.class2D_job.output_dir = os.path.join('Class2D', job)
         utils.tomo_select_job.joboptions['fn_data'].value = particlesStarPath
         utils.tomo_select_job.joboptions['select_minval'].value = selected_classes[0]
         utils.tomo_select_job.joboptions['select_maxval'].value = selected_classes[0]        
-        utils.run_subset_select(keepClasses = selected_classes, selectStep = class2DIteration, classPath = particlesStarPath)
+        utils.run_subset_select(keepClasses = selected_classes, classPath = particlesStarPath)
+
+        print(f'✅ Particles Exported to: {utils.tomo_select_job.output_dir}particles.star')
 
 
 @cli.command(context_settings={"show_default": True})

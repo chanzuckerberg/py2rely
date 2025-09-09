@@ -120,8 +120,8 @@ class ThePolisher:
             # low-pass filter? 
             self.utils.run_auto_refine(rerunRefine=True)
 
-            # Post-Process to Estimate Resolution     
-            self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
+            # Post-Process to Estimate Resolution   
+            self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfiltered.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
             if self._check_stopping_criteria(): break
 

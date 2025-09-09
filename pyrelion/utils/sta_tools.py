@@ -230,7 +230,8 @@ class PipelineHelper:
         """        
 
         # Set Timeout to XX hours
-        nHours = 72
+        nDays = 14
+        nHours = nDays * 24
 
         # Assume We Are Re-Running a Job if JobIter is not None
         if not self.check_if_job_already_completed(job,jobName) or jobIter:
@@ -703,11 +704,16 @@ class PipelineHelper:
         """
         Get the half FSC curve from the post-process job.
         """
-        
+
         # Read the FSC curve and resolutions
         fsc_df = starfile.read(post_process_path + 'postprocess.star')
         curve =  fsc_df['fsc']['rlnFourierShellCorrelationCorrected']
         resolutions =  fsc_df['fsc']['rlnAngstromResolution']
+
+        if curve.str.contains('-nan').any():
+            print('[WARNING] Post Processing is Corrupted (the FSC resolution curve contains NAN values)')
+            print('Please Check the Refinement Results..\n')
+            exit()
 
         # Find the index of the value closest to target_fsc
         closest_index = (np.abs(curve - target_fsc)).idxmin()
