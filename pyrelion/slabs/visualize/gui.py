@@ -209,22 +209,7 @@ def classes(
             print(f'No Classes Selected, Exiting...\n')
             exit(1)
 
-        # Find the key that contains the substring in its value
-        # key_with_substring = None
-        # for key, value in utils.outputDirectories.items():
-        #     import pdb; pdb.set_trace()
-        #     if job in value:
-        #         key_with_substring = key
-        #         break 
-        
-        # if key_with_substring is None:
-        #     print(f'\n[Error] Class Job: Class2D/{job} didnt complete sucessfully\n') 
-        #     print('Available Class Jobs:')
-        #     # Collect all filtered entries in a list
-        #     available_class_jobs = [value for key, value in utils.outputDirectories.items() if 'class2d' in key.lower()]        
-        #     exit(1)    
-
-        # class2DIterat ion = key_with_substring.split('_')[1]
+        # class2DIteration = key_with_substring.split('_')[1]
         utils.initialize_selection()
         utils.initialize_classification()
         utils.class2D_job.output_dir = os.path.join('Class2D', job)
