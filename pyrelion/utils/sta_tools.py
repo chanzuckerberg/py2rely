@@ -710,7 +710,8 @@ class PipelineHelper:
         curve =  fsc_df['fsc']['rlnFourierShellCorrelationCorrected']
         resolutions =  fsc_df['fsc']['rlnAngstromResolution']
 
-        if curve.str.contains('-nan').any():
+        # Check for NaN values in the curve
+        if (curve == '-nan').any():
             print('[WARNING] Post Processing is Corrupted (the FSC resolution curve contains NAN values)')
             print('Please Check the Refinement Results..\n')
             exit()
