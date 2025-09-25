@@ -198,7 +198,7 @@ NUM_CLASSES=${{NUM_CLASSES_LIST[$SLURM_ARRAY_TASK_ID]}}"""
 # Copy Particles Stack to the Current Working Directory
 cp stack/particles_relion.mrcs .
 
-pyrelion slab slab-average \\
+pyrelion slab class2d \\
     --particles stack/particles_relion.star \\
     --particle-diameter {particle_diameter} --highres-limit {highres_limit} \\
     --nr-classes $NUM_CLASSES --tau-fudge {tau_fudge} \\

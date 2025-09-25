@@ -158,6 +158,7 @@ def average(
         # Run the High Resolution Pipeline (e.g., bin 2 -> bin 1 refinement)
         print('Running Full-Resolution Refinement Pipeline')
         bin1.run(particles)
+        particles = utils.tomo_refine3D_job.output_dir + 'run_data.star'
 
         # Run the Polisher (Ctf refine and bayesian polish)
         mask = utils.mask_create_job.output_dir + 'mask.mrc'

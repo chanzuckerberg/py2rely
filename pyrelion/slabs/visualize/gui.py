@@ -244,6 +244,9 @@ def particle_stacks(
     grid_columns: int,
     image_size: int
     ):
+    """
+    Extract Particles from Selected 2D Classes.    
+    """
 
     app = QtWidgets.QApplication(sys.argv)
     dataset = mrcfile.read(particles_path)
