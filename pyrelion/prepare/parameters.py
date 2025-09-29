@@ -114,6 +114,7 @@ class Class3D(BaseModel):
     nr_threads: int
     mpi_command: str
     sigma_tilt: int
+    other_args: str
 
 class SelectParticles(BaseModel):
     do_select_values: str
