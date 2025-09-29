@@ -6,6 +6,18 @@ import subprocess, os
 import numpy as np
 import warnings
 
+# Define Custom Postprocess Job to Avoid Future Warnings
+from pipeliner.job_options import JobOptionValidationResult
+from pipeliner.jobs.relion.postprocess_job import PostprocessJob
+from typing import List
+
+class CustomPostprocessJob(PostprocessJob):
+    """
+    Custom Post Processing Job to Supress the Requirement for Auto Sharpening
+    """
+    def additional_joboption_validation(self) -> List[JobOptionValidationResult]:
+        return []
+##############################################################################
 
 # Suppress all future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -553,8 +565,10 @@ class PipelineHelper:
         """
         Initialize the post-processing job with default settings.
         """        
-        self.post_process_job = postprocess_job.PostprocessJob()
+        # self.post_process_job = postprocess_job.PostprocessJob()
+        self.post_process_job = CustomPostprocessJob()
         self.post_process_job.joboptions['angpix'].value = -1
+        self.post_process_job.joboptions['do_auto_bfac'].value = 'no'
 
         # Initialize Current Resolution as 1 micron
         self.current_resolution = 999
@@ -568,7 +582,7 @@ class PipelineHelper:
         # If Completed Post Process Already Exists, Start Logging New Iterations if rerunPostProcess is True. 
         if rerunPostProcess: postProcessJobIter = self.return_job_iter(f'bin{self.binning}', 'post_process')
         else:                postProcessJobIter = None
-        self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
+        # self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
         self.run_job(self.post_process_job, 'post_process', 'Post Process', jobIter = postProcessJobIter)  
 
     # Mask Creation Job
