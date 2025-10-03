@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 
 class ResolutionParameters(BaseModel):
     angpix: float
@@ -62,7 +62,7 @@ class PseudoSubtomo(BaseModel):
     do_float16: str
     do_output_2dstacks: Optional[str] = None
     nr_threads: int
-    nr_mpi: int
+    mpi_command: str
 
 class Refine3D(BaseModel):
     in_tomograms: str
@@ -114,7 +114,6 @@ class Class3D(BaseModel):
     nr_threads: int
     mpi_command: str
     sigma_tilt: int
-    other_args: str
 
 class SelectParticles(BaseModel):
     do_select_values: str
@@ -126,25 +125,20 @@ class MaskCreate(BaseModel):
     width_mask_edge: int
 
 class CtfRefine(BaseModel):
-    model_config = {"populate_by_name": True}
-    in_tomograms: str
     use_direct_entries: str
     do_defocus: str
     focus_range: float
     do_reg_def: str
-    lambda_param: float = Field(alias="lambda") 
+    lambda: str
     do_scale: str
     do_frame_scale: str
-    nr_threads: int    
 
 class BayesianPolish(BaseModel):
-    in_tomograms: str
     use_direct_entries: str
     max_error: float
     do_motion: str
     sigma_vel: float
     sigma_div: float
-    nr_threads: int    
 
 class ProcessingConfigRelion4(BaseModel):
     resolutions: ResolutionParameters
@@ -167,5 +161,3 @@ class ProcessingConfigRelion5(BaseModel):
     class3D: Class3D
     select: SelectParticles
     mask_create: MaskCreate
-    ctf_refine: Optional[CtfRefine]
-    bayesian_polish: Optional[BayesianPolish]

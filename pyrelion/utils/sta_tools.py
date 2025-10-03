@@ -6,18 +6,6 @@ import subprocess, os
 import numpy as np
 import warnings
 
-# Define Custom Postprocess Job to Avoid Future Warnings
-from pipeliner.job_options import JobOptionValidationResult
-from pipeliner.jobs.relion.postprocess_job import PostprocessJob
-from typing import List
-
-class CustomPostprocessJob(PostprocessJob):
-    """
-    Custom Post Processing Job to Supress the Requirement for Auto Sharpening
-    """
-    def additional_joboption_validation(self) -> List[JobOptionValidationResult]:
-        return []
-##############################################################################
 
 # Suppress all future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
@@ -242,8 +230,7 @@ class PipelineHelper:
         """        
 
         # Set Timeout to XX hours
-        nDays = 14
-        nHours = nDays * 24
+        nHours = 72
 
         # Assume We Are Re-Running a Job if JobIter is not None
         if not self.check_if_job_already_completed(job,jobName) or jobIter:
@@ -291,8 +278,8 @@ class PipelineHelper:
             self.save_new_output_directory()     
 
             # Automatically Exit if Classification (User Needs to Export Best Class)
-            # if classifyStep:
-            #         exit()
+            if classifyStep:
+                    exit()
 
             if keepClasses is not None: 
                 self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
@@ -310,7 +297,7 @@ class PipelineHelper:
             job_name: Name of the job.
         Returns:
             int: The resolution value extracted from the logs.
-        """       
+        """        
 
         # Define a regular expression pattern to match floating point numbers
         pattern = r"\d+\.\d+|\d+"
@@ -390,24 +377,16 @@ class PipelineHelper:
 
         # Update Job with New Binning
         reconstruct_particle_job.joboptions['binfactor'].value = self.binning
-        pseudo_subtomo_job.joboptions['binfactor'].value = self.binning 
+        pseudo_subtomo_job.joboptions['binfactor'].value = self.binning        
 
-        # Only Set Crop Size to Box Size at Bin = 1, Else Keep at -1
-        if self.binning == 1:
-            reconstruct_particle_job.joboptions['crop_size'].value = boxSize
-            pseudo_subtomo_job.joboptions['crop_size'].value = boxSize
-            scale = 1.5
-        else:
-            scale = 1
+        # Define New Box Size Based on User Defined Incremental Scaling
+        reconstruct_particle_job.joboptions['box_size'].value = boxSize
+        pseudo_subtomo_job.joboptions['box_size'].value = boxSize        
 
-        # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job  
-        index = np.searchsorted(self.boxSizes, boxSize * scale, side='left')
-        reconstruct_particle_job.joboptions['box_size'].value = self.boxSizes[index]
-        pseudo_subtomo_job.joboptions['box_size'].value = self.boxSizes[index]
-
-        # Print the Current Reconstruction Crop and Box Size  
-        print('Current Reconstruct Box Size: ', self.reconstruct_particle_job.joboptions['box_size'].value)
-        print('Current Reconstruct Crop Size: ', self.reconstruct_particle_job.joboptions['crop_size'].value)
+        # Set Crop Box Size to Half of Box Size
+        if reconstruct_particle_job.joboptions['crop_size'].value > 0: 
+            reconstruct_particle_job.joboptions['crop_size'].value = int(boxSize / 2)
+            pseudo_subtomo_job.joboptions['crop_size'].value = int(boxSize / 2)   
 
     def get_new_sampling(self, job, update_local=True):
         """
@@ -565,10 +544,8 @@ class PipelineHelper:
         """
         Initialize the post-processing job with default settings.
         """        
-        # self.post_process_job = postprocess_job.PostprocessJob()
-        self.post_process_job = CustomPostprocessJob()
+        self.post_process_job = postprocess_job.PostprocessJob()
         self.post_process_job.joboptions['angpix'].value = -1
-        self.post_process_job.joboptions['do_auto_bfac'].value = 'no'
 
         # Initialize Current Resolution as 1 micron
         self.current_resolution = 999
@@ -582,7 +559,7 @@ class PipelineHelper:
         # If Completed Post Process Already Exists, Start Logging New Iterations if rerunPostProcess is True. 
         if rerunPostProcess: postProcessJobIter = self.return_job_iter(f'bin{self.binning}', 'post_process')
         else:                postProcessJobIter = None
-        # self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
+        self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
         self.run_job(self.post_process_job, 'post_process', 'Post Process', jobIter = postProcessJobIter)  
 
     # Mask Creation Job
@@ -718,17 +695,11 @@ class PipelineHelper:
         """
         Get the half FSC curve from the post-process job.
         """
-
+        
         # Read the FSC curve and resolutions
         fsc_df = starfile.read(post_process_path + 'postprocess.star')
         curve =  fsc_df['fsc']['rlnFourierShellCorrelationCorrected']
         resolutions =  fsc_df['fsc']['rlnAngstromResolution']
-
-        # Check for NaN values in the curve
-        if (curve == '-nan').any():
-            print('[WARNING] Post Processing is Corrupted (the FSC resolution curve contains NAN values)')
-            print('Please Check the Refinement Results..\n')
-            exit()
 
         # Find the index of the value closest to target_fsc
         closest_index = (np.abs(curve - target_fsc)).idxmin()

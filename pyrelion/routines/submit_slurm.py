@@ -1,31 +1,5 @@
 import click
 
-def get_load_relion_command():
-    load_relion_command = """
-# Read the GPU names into an array
-IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
-
-# Access the first GPU name
-first_gpu_name="${gpu_names[0]}"
-
-# Figure Out which Relion Module to Load
-echo "Detected GPU: $first_gpu_name"
-if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80    
-elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80
-elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
-    echo "Loading relion/CU86"
-    module load relion/ver5.0-12cf15de-CU86
-else
-    echo "Loading relion/CU90"
-    module load relion/ver5.0-12cf15de-CU90 
-fi"""
-
-    return load_relion_command
-
 def create_shellsubmit(
     job_name, 
     output_file,
@@ -58,19 +32,37 @@ def create_shellsubmit(
     shell_script_content = f"""#!/bin/bash
 
 {slurm_gpus}
-#SBATCH --nodes=1
 #SBATCH --time={total_time}
-#SBATCH --cpus-per-task=6
+#SBATCH --cpus-per-task=8
 #SBATCH --mem-per-cpu=16G
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
 
+# Read the GPU names into an array
+IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+
+# Access the first GPU name
+first_gpu_name="${{gpu_names[0]}}"
+
+# Figure Out which Relion Module to Load
+echo "Detected GPU: $first_gpu_name"
+if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80    
+elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
+    echo "Loading relion/CU80"
+    module load relion/ver5.0-12cf15de-CU80
+elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
+    echo "Loading relion/CU86"
+    module load relion/ver5.0-12cf15de-CU86
+else
+    echo "Loading relion/CU90"
+    module load relion/ver5.0-12cf15de-CU90 
+fi
+
 ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/pyRelion
-
-{get_load_relion_command()}
-
+conda activate /hpc/projects/group.czii/krios1.processing/relion/kagglePipeline
 {command}
 
 """
@@ -99,7 +91,7 @@ def parse_int_list(ctx, param, value):
 def add_compute_options(func):
     """Decorator to add common compute options to a Click command."""
     options = [
-        click.option("--num-gpus",type=int,required=False,default=4,
+        click.option("--num-gpus",type=int,required=False,default=2,
                     help="Number of GPUs to Use for Refinement",
                     callback=validate_even_gpus),
         click.option("--gpu-constraint",required=False,default="h100",
@@ -149,8 +141,3 @@ def complete_log_compute_utilization():
     return """# Stop logging after job completion
 pkill -P $$  # Kills the background logging process
 """
-
-def validate_num_gpus(ctx, param, value):
-    if value is not None and (value < 1 or value > 4):
-        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
-    return value  

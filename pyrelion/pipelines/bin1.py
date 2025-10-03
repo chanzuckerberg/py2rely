@@ -8,118 +8,124 @@ import numpy as np
 class HighResolutionRefinement:
     """Class for high-resolution refinement with two entry points."""
 
-    def __init__(self, parameter_file: str, tomograms: str = None, rerun: bool = False):
-        """Initialize the refinement pipeline with configuration file."""
+    @staticmethod
+    def run_new_pipeline( 
+        parameter: str,
+        particles: str,
+        low_pass: float,
+        mask: str = None,
+        tomograms: str = None,
+        rerun: bool = False
+        ):
 
-        self.project = PipelinerProject(make_new_project=True)
-        self.utils = relion5_tools.Relion5Pipeline(self.project)
-        self.utils.read_json_params_file(parameter_file)
-        self.utils.read_json_directories_file('output_directories.json')
+        # Create Pipeliner Project
+        my_project = PipelinerProject(make_new_project=True)
+        utils = relion5_tools.Relion5Pipeline(my_project)
+        utils.read_json_params_file(parameter)
+        utils.read_json_directories_file('output_directories.json')
 
         # If a Path for Refined Tomograms is Provided, Assign it 
         if tomograms is not None:
-            self.utils.set_new_tomograms_starfile(tomograms)            
-        
-        # Initialize the processes
-        self.utils.initialize_pseudo_tomos()
-        self.utils.initialize_reconstruct_particle()
-        self.utils.initialize_mask_create()
-        self.utils.initialize_auto_refine()
+            utils.set_new_tomograms_starfile(tomograms)    
+
+        # Initialize the Processes
+        utils.initialize_pseudo_tomos()
+        utils.initialize_reconstruct_particle() 
 
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
-        self.utils.update_job_binning_box_size(
-            self.utils.reconstruct_particle_job,
-            self.utils.pseudo_subtomo_job,
-            None,
-            binningFactor=1
-        )
+        utils.update_job_binning_box_size(utils.reconstruct_particle_job,
+                                        utils.pseudo_subtomo_job,
+                                        None,
+                                        binningFactor = 1)         
 
         # Initialize the Mask Create and Auto Refine Jobs
         utils.initialize_mask_create()
-        utils.initialize_auto_refine()         
+        utils.initialize_auto_refine() 
 
-        # Store the rerun flag
-        self.rerun = rerun
+        HighResolutionRefinement._run_high_resolution_refinement(
+            utils, particles, low_pass, mask, rerun)
 
-    @classmethod
-    def from_utils(cls, utils):
-        """Create instance directly from utils object."""
-        instance = cls.__new__(cls)  # Create instance without calling __init__
-        instance.utils = utils
-        instance.rerun = False  # Default to not rerun
-        return instance
+    @staticmethod
+    def run( 
+        utils,
+        particles: str, 
+    ):
 
-    def run(self, particles: str):
-        """Run refinement with existing setup, estimating resolution first."""
-        
         # Run Resolution Estimate to Get Low-Pass Filter
-        self.run_resolution_estimate()
+        utils = HighResolutionRefinement.run_resolution_estimate(utils, particles)
 
         # Which of these two do we want?
-        # low_pass = self.utils.get_resolution(self.utils.post_process_job, 'post_process')
-        low_pass = self.utils.get_half_fsc(self.utils.post_process_job.output_dir)
-
-        # Check to see if resolution is sufficient - this should be optional. Ignore if not provided
+        # low_pass = utils.get_resolution(utils.post_process_job, 'post_process')
+        low_pass = utils.get_half_fsc(utils.post_process_job.output_dir)
 
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
-        self.utils.update_job_binning_box_size(
-            self.utils.reconstruct_particle_job,
-            self.utils.pseudo_subtomo_job,
-            None, binningFactor=1
+        utils.update_job_binning_box_size(
+            utils.reconstruct_particle_job,
+            utils.pseudo_subtomo_job,
+            None, binningFactor = 1
         )
 
         # Run the High Resolution Refinement Pipeline
-        self.run_hr_refinement(particles, low_pass)
+        HighResolutionRefinement._run_high_resolution_refinement(
+            utils, particles, low_pass)
 
-    def run_resolution_estimate(self):
+    @staticmethod
+    def run_resolution_estimate(
+        utils, 
+        particles: str,
+    ):
         """Run resolution estimation for high-resolution refinement."""
+
         # Add Logic to Check if Mask is Available, if not create a new mask
-        if self.utils.mask_create_job.output_dir == '': 
-            self.utils.mask_create_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
-            self.utils.mask_create_job.joboptions['lowpass_filter'].value = self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D') * 1.25
-            self.utils.run_mask_create(self.utils.tomo_refine3D_job, None)       
+        if utils.mask_create_job.output_dir == '': 
+            utils.mask_create_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_class001.mrc'
+            utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
+            utils.run_mask_create(utils.tomo_refine3D_job, None)        
 
         # Run Another Post Process to Estimate Low-Pass Filter
-        self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
-        self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        self.utils.run_post_process(rerunPostProcess=True)
+        utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+        utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
+        utils.run_post_process(rerunPostProcess=True)
 
-    def run_hr_refinement(self, particles: str, low_pass: float, mask: str = None):
-        """Execute the main refinement pipeline."""
+        # Return the updated utils object
+        return utils
 
+
+    @staticmethod
+    def _run_high_resolution_refinement( 
+        utils, particles, low_pass, mask = None, rerun = False  ):
+        
         # Generate Pseudo Sub-Tomograms at Bin = 1
-        self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
-        self.utils.run_pseudo_subtomo() 
+        utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
+        utils.run_pseudo_subtomo() 
 
         # Reconstruct the Particle at Bin = 1
-        self.utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
-        self.utils.run_reconstruct_particle(rerunReconstruct=self.rerun)
+        utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
+        utils.run_reconstruct_particle(rerunReconstruct=rerun)
 
         # Automatically Create Mask if None is Provided
         if mask is None:
-            auto_mask_create(self.utils, low_pass)
+            auto_mask_create(utils, low_pass)
 
         # Processing Parameters for Auto Refine
-        self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24
-        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass 
-        self.utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
-        self.utils.tomo_refine3D_job.joboptions['sampling'].value = self.utils.sampling[5]
-        self.utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = self.utils.sampling[5]    
+        utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24
+        utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass 
+        utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
+        utils.tomo_refine3D_job.joboptions['sampling'].value = utils.sampling[5]
+        utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = utils.sampling[5]    
         
         # Inputs for Auto Refine
-        self.utils.tomo_refine3D_job.joboptions['in_particles'].value = self.utils.pseudo_subtomo_job.output_dir + 'particles.star'
-        self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
+        utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.pseudo_subtomo_job.output_dir + 'particles.star'
+        utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.reconstruct_particle_job.output_dir + 'half1.mrc'
 
         # Run the Auto Refine at Bin = 1
-        self.utils.run_auto_refine(rerunRefine=self.rerun)
+        utils.run_auto_refine(rerunRefine=rerun)
 
         # Run Post Process
-        self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
-        self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        # self.utils.post_process_job.joboptions['low_pass'].value = float(self.utils.params['resolutions']['angpix'] * 2)
-        self.utils.post_process_job.joboptions['autob_lowres'].value =  self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D')
-
-        self.utils.run_post_process(rerunPostProcess=True)
+        utils.post_process_job.joboptions['fn_in'].value = utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+        utils.post_process_job.joboptions['fn_mask'].value = utils.mask_create_job.output_dir + 'mask.mrc'
+        utils.post_process_job.joboptions['low_pass'].value = 0
+        utils.run_post_process(rerunPostProcess=True)
 
 # Decorator for CLI options
 def high_resolution_options(func):
@@ -156,10 +162,8 @@ def high_resolution_cli(
     """
     Run the high-resolution refinement through cli.
     """
-
-    # Create Instance of HighResolutionRefinement Class and Run the Pipeline
-    bin1 = HighResolutionRefinement(parameter, tomograms, rerun)
-    bin1.run_hr_refinement(particles, low_pass, mask)
+    HighResolutionRefinement.run_new_pipeline(
+        parameter, particles, low_pass,  mask, tomograms, rerun)
 
 
 @click.command(context_settings={"show_default": True}, name='bin1-pipeline')

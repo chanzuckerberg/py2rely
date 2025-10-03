@@ -91,6 +91,13 @@ def import_tilt_series(
         tomoPath = '/'.join(tomos.split('/')[:-1])
         tomoID = '_'.join(tomos.split('/')[-1].split('_')[:-1])
 
+        # Read IMOD *.xf alignment Parameters 
+        xfPath = os.path.join(tomoPath, tomoID + '_Imod', tomoID + '_st.xf')
+        xfDF = np.loadtxt(xfPath)
+
+        if len(xfDF.shape) < 2 or xfDF.shape[1] < 6:
+            continue
+
         # Add session and tomogram ID to the list
         tomoNames.append(session + '_' + tomoID)
 
@@ -126,6 +133,7 @@ def import_tilt_series(
         tomoXshift = []  # Shifts along X-axis
         tomoYshift = []  # Shifts along Y-axis
         tiltSeriesNames = []  # Filenames of tilt images
+        ctfImageNames = []  # Filenames of CTF images
         defocusU = []  # Defocus U values
         defocusV = []  # Defocus V values
         defocusAngle = []  # Defocus angle values        
@@ -133,24 +141,34 @@ def import_tilt_series(
         # Handle symlinks for MRC stack files
         if symlinks is None:
             tiltSeriesName = f'{tomoPath}/{tomoID}.mrcs'
+            ctfImageName = f'{tomoPath}/{tomoID}_CTF.mrcs'
             if not os.path.isfile(tiltSeriesName):
                 os.symlink(f'{tomoID}.mrc', tiltSeriesName)
+            if not os.path.isfile(ctfImageName):
+                os.symlink(f'{tomoID}_CTF.mrc', ctfImageName)
         else:
             tiltSeriesName = os.path.join(symlinks, f'{tomoID}.mrcs')
+            ctfImageName = os.path.join(symlinks, f'{tomoID}_CTF.mrcs')
 
             tiltSeriesNameAbs = os.path.abspath(f'{tomoPath}/{tomoID}.mrc')
+            ctfImageNameAbs = os.path.abspath(f'{tomoPath}/{tomoID}_CTF.mrc')
 
             if not os.path.isfile(tiltSeriesName):
                 os.symlink(tiltSeriesNameAbs, tiltSeriesName)
 
+            if not os.path.isfile(ctfImageName):
+                os.symlink(ctfImageNameAbs, ctfImageName)
+
         # Iterate Through the Alignment File
-        nTilts = orderList.shape[0]
+        nTilts = xfDF.shape[0]
         for tiltInd in range(len(alnDF)):
 
             # Determine the Tilt Index from the Alignment File
             ind = int(alnDF.iloc[tiltInd]['SEC'])
             tiltSeriesName_id = f'{ind}@{tiltSeriesName}'
             tiltSeriesNames.append(tiltSeriesName_id)
+            ctfImageName_id = f'{ind}@{ctfImageName}'
+            ctfImageNames.append(ctfImageName_id)
 
             # Get the Tomogram Tilt Parameters from the Alignment File
             tomoYtilt.append(alnDF['TILT'][tiltInd])
@@ -166,17 +184,23 @@ def import_tilt_series(
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
             totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
 
-        # Get Number of Rows for the STAR file
+
         num_rows = len(tiltSeriesNames)
+
+        # Count Number of Rows that Reflects Tilts Used for Alignment / Reconstruction
+        # nRows = np.count_nonzero(~np.isnan(alnDF['TILT']))
+        tomoZRot.extend([alnDF['ROT'][0]] * num_rows)            
 
         # Save TS_XX_YY starfile
         ts_dict = {}
         ts_dict['rlnMicrographName'] = tiltSeriesNames
+        # ts_dict['rlnTomoXTilt'] = [0] * nRows
         ts_dict['rlnTomoXTilt'] = [0] * num_rows
         ts_dict['rlnTomoYTilt'] = tomoYtilt
-        ts_dict['rlnTomoZRot'] = alnDF['ROT'].tolist()
+        ts_dict['rlnTomoZRot'] = tomoZRot
         ts_dict['rlnTomoXShiftAngst'] = tomoXshift
         ts_dict['rlnTomoYShiftAngst'] = tomoYshift
+        ts_dict['rlnCtfImage'] = ctfImageNames
         ts_dict['rlnDefocusU'] = defocusU
         ts_dict['rlnDefocusV'] = defocusV
         ts_dict['rlnDefocusAngle'] = defocusAngle
@@ -216,9 +240,6 @@ def import_tilt_series(
         'rlnOpticsGroupName': [optics_group_name] * nRows,
         'rlnTomoTiltSeriesPixelSize': [pixel_size] * nRows,
         'rlnTomoTiltSeriesStarFile': tiltSeriesStarNames,
-        'rlnTomoSizeX': [0] * nRows, # need 0s at least because of RELION bug.
-        'rlnTomoSizeY': [0] * nRows,
-        'rlnTomoSizeZ': [0] * nRows,
     }
     fn = os.path.join(tiltSeriesDirectory, "aligned_tilt_series.star")
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
@@ -258,9 +279,6 @@ def combine_star_files_tomograms(
 
     # Write the Merged DataFrame to New StarFile
     # if os.path.exists(output):
-
-    if not os.path.exists(os.path.dirname(output)):
-        os.makedirs(os.path.dirname(output))
 
     starfile.write({'global': merged_alignments}, output)
 
