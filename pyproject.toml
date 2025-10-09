@@ -17,7 +17,7 @@ dependencies = [
     "pyqtgraph",
     "scipy>=1.9.3,<1.10.0",   # aligns with pipeliner
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
-    "slabpick @ git+https://github.com/jtschwar/slabpick.git@main"
+    "slabpick @ git+https://github.com/apeck12/slabpick.git@main"
 ]
 
 [project.optional-dependencies]
