@@ -3,6 +3,7 @@ import pyrelion.prepare.parameters as parameters
 from pyrelion.utils import sta_tools
 from typing import List
 import json, click, os
+import starfile
 
 @click.group()
 @click.pass_context
@@ -42,12 +43,21 @@ def relion5_parameters(
     protein_diameter: float,
     denovo_generation: bool,
     box_scaling: float,
-    binning_list: List[int]
+    binning_list: List[int],
     ):
     """
     Generate a JSON file with the default parameters for the pyrelion.
     """
+    if not os.path.exists(input_particles):
+        raise FileNotFoundError(f"Input particles file not found: {input_particles}")
 
+    if not os.path.exists(input_tilt_series):
+        raise FileNotFoundError(f"Input tiltseries file not found: {input_tilt_series}")
+
+    # TODO: validate:
+    # - each job that can use mpi has parameters set to use mpi
+    # - the mpi parameters set are actual being applied to the job
+    # - pass in the ntasks value and cpus-per-task value into here and use that instead of hard coded numbers(or ensure they align somehow)
     default_config = parameters.ProcessingConfigRelion5(
         resolutions=parameters.ResolutionParameters(
             angpix=tilt_series_pixel_size,
@@ -75,17 +85,17 @@ def relion5_parameters(
             do_from2d="yes",
             crop_size=-1,
             point_group=symmetry,
-            nr_threads=16,
+            nr_threads=8,
             mpi_command="mpirun"
         ),
         pseudo_subtomo=parameters.PseudoSubtomo(
             in_tomograms=input_tilt_series,
-            in_particles=input_particles,  
+            in_particles=input_particles,
             do_use_direct_entries="yes",
             crop_size=-1,
             do_float16="yes",
-            do_output_2dstacks="yes",            
-            nr_threads=4,
+            do_output_2dstacks="yes",
+            nr_threads=8,
             nr_mpi=3,
         ),
         refine3D=parameters.Refine3D(
@@ -108,7 +118,7 @@ def relion5_parameters(
             nr_pool= 30,   
             use_gpu= "yes",
             gpu_ids= "",
-            nr_threads=16,
+            nr_threads=8,
             mpi_command="mpirun",
             other_args="" # --maxsig 3000
         ),
@@ -136,10 +146,9 @@ def relion5_parameters(
             nr_pool= 30, 
             use_gpu= "no",
             gpu_ids= "",
-            nr_threads=16,
+            nr_threads=8,
             mpi_command="mpirun",
-            sigma_tilt= 0,
-            other_args="" 
+            sigma_tilt= 0
         ),
         select=parameters.SelectParticles(
             do_select_values="yes",
@@ -159,7 +168,7 @@ def relion5_parameters(
             lambda_param=0.1,
             do_scale="yes",
             do_frame_scale="yes",
-            nr_threads=16
+            nr_threads=8
         ) if 1 in binning_list else None,
         bayesian_polish=parameters.BayesianPolish(
             in_tomograms=input_tilt_series,
@@ -168,7 +177,7 @@ def relion5_parameters(
             do_motion="yes",
             sigma_vel=0.2,
             sigma_div=5000,
-            nr_threads=16
+            nr_threads=8
         ) if 1 in binning_list else None
     )
 
