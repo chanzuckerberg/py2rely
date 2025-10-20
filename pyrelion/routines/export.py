@@ -195,11 +195,15 @@ def star2copick(
         run = root.get_run(myrun + '_Vol')
 
         # Save Picks - Overwrite if exists
-        picks = run.new_picks(
+        picks = run.get_picks(
             object_name = particle_name, 
             user_id=export_user_id, 
-            session_id = export_session_id,
-            exist_ok=True)
+            session_id = export_session_id)
+        if len(picks) == 0:
+            picks = run.new_picks(
+                object_name = particle_name, 
+                user_id=export_user_id, 
+                session_id = export_session_id)
         picks.from_numpy(points, orientations)
 
 
@@ -228,7 +232,7 @@ def star2copick(
 #     "--pixel-size", type=float, required=True, default=1.0,
 #     help="Pixel Size of the Tilt Series [Angstroms]"
 # )
-# def relion4_to_copick(
+# def relion4tocopick(
 #     particles: str,
 #     config: str,
 #     particle_name: str,
