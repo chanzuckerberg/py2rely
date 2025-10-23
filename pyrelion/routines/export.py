@@ -140,7 +140,6 @@ def star2copick(
     if missing_sessions:
         print('[Warning]: Some specified sessions are not present in the particles star file.')
         print(f'Missing sessions: {missing_sessions}')
-        export_sessions = np.array([s for s in export_sessions if s not in missing_sessions])
 
     # Error if no valid sessions
     if not valid_sessions:
