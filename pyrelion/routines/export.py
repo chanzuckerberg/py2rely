@@ -204,6 +204,9 @@ def star2copick(
                 object_name = particle_name, 
                 user_id=export_user_id, 
                 session_id = export_session_id)
+        else: 
+            # Assume only one picks object per run with this name
+            picks = picks[0]  
         picks.from_numpy(points, orientations)
 
 
