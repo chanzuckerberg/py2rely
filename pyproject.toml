@@ -21,7 +21,6 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-pytom = ["pytom-match-pick"]
 slabs = ["PyQt5", "pyqtgraph"]
 
 [tool.hatch.metadata]
