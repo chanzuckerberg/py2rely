@@ -54,7 +54,7 @@ class Relion5Pipeline(PipelineHelper):
         """
 
         if self._use_python_implementation():
-            from portal_particle_extraction.pipeliner.subtomo_extract_pipeliner_job import PythonRelionPseudoSubtomoJob
+            from zarr_particle_tools.pipeliner.subtomo_extract_pipeliner_job import PythonRelionPseudoSubtomoJob
             self.pseudo_subtomo_job = PythonRelionPseudoSubtomoJob()
         else:
             self.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
@@ -101,7 +101,7 @@ class Relion5Pipeline(PipelineHelper):
             includeSphereMask: If True, creates an initial spherical mask. Defaults to False.
         """
         if self._use_python_implementation():
-            from portal_particle_extraction.pipeliner.subtomo_reconstruct_pipeliner_job import (
+            from zarr_particle_tools.pipeliner.subtomo_reconstruct_pipeliner_job import (
                 PythonRelionSubtomoReconstructJob,
             )
             self.reconstruct_particle_job = PythonRelionSubtomoReconstructJob()
