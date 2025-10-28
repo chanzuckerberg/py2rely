@@ -148,7 +148,8 @@ def relion5_parameters(
             gpu_ids= "",
             nr_threads=8,
             mpi_command="mpirun",
-            sigma_tilt= 0
+            sigma_tilt= 0,
+            other_args=""
         ),
         select=parameters.SelectParticles(
             do_select_values="yes",
