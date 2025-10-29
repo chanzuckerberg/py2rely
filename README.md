@@ -1,4 +1,4 @@
-# relion-sub-tomogram-pipelines
+# pyRelion
 **Py**thonic **RELION** interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
 
 ## Introduction
