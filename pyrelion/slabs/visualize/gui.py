@@ -165,6 +165,9 @@ def classes(
     extract_classes: bool,
     grid_columns: int,
     image_size: int):
+    """
+    Launch Class Selector GUI from a 2DClass Job.
+    """
 
     # Check to Make Sure a Valid Class Path is Provided
     if not os.path.isdir(os.path.join('Class2D', job)):
