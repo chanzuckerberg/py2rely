@@ -186,12 +186,12 @@ def generate_template_from_map(
 
 def phase_randomize_template(template: npt.NDArray[np.floating], seed: int = 321) -> npt.NDArray[np.floating]:
     import numpy as np
+    from scipy.fft import rfftn, irfftn
 
     """CPU-only phase randomization (permute phases up to Nyquist, keep amplitudes)."""
     tpl = np.asarray(template, dtype=np.float32, order="C")
     ft = rfftn(tpl)
     amp = np.abs(ft)
-    phase = np.angle(ft).ravel()
 
     grid = np.fft.ifftshift(radial_reduced_grid(tpl.shape), axes=(0, 1)).ravel()
     relevant = grid <= 1.0
