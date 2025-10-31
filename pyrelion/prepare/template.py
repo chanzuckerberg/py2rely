@@ -100,11 +100,10 @@ def radial_reduced_grid(
 def create_gaussian_low_pass(
     shape: Tuple[int, int, int] | Tuple[int, int], spacing: float, resolution: float
 ) -> npt.NDArray[np.floating]:
-    import numpy as np
-
     """Gaussian LPF in reduced Fourier space using the same convention you provided.
     cutoff (HWHM) in Fourier space = 2 * spacing / resolution.
     """
+    import numpy as np
     q = radial_reduced_grid(shape)
     sigma_fourier = hwhm_to_sigma(2.0 * float(spacing) / float(resolution))
     lpf = np.exp(-(q ** 2) / (2.0 * sigma_fourier ** 2))
