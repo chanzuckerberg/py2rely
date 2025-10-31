@@ -13,6 +13,7 @@ from pyrelion.prepare.generate_parameters import (
     relion5_parameters,
     relion5_pipeline,
 )
+from pyrelion.prepare.template import create_template
 import click
 
 @click.group()
@@ -30,6 +31,7 @@ prepare.add_command(combine_star_files_tomograms)
 prepare.add_command(relion5_parameters)
 prepare.add_command(relion5_pipeline)
 prepare.add_command(remove_unused_tomograms)
+prepare.add_command(create_template)
 
 if __name__ == "__main__":
     prepare()
