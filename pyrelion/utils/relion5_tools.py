@@ -3,6 +3,7 @@ from pipeliner.jobs.tomography.relion_tomo import (
     tomo_initialmodel_job, tomo_class3D_job, tomo_ctfrefine_job, tomo_bayesianpolish_job
 )
 from pyrelion.utils.sta_tools import PipelineHelper
+import starfile
 import os
 
 class Relion5Pipeline(PipelineHelper):
@@ -50,10 +51,15 @@ class Relion5Pipeline(PipelineHelper):
         Initialize the job for generating pseudo-subtomograms. The job parameters are 
         parsed and set according to the configuration specified in the 'pseudo_subtomo' 
         section of the JSON file.
-        """        
-        self.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
+        """
+
+        if self._use_python_implementation():
+            from zarr_particle_tools.pipeliner.subtomo_extract_pipeliner_job import PythonRelionPseudoSubtomoJob
+            self.pseudo_subtomo_job = PythonRelionPseudoSubtomoJob()
+        else:
+            self.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
         self.pseudo_subtomo_job = self.parse_params(self.pseudo_subtomo_job,'pseudo_subtomo')
-        
+
         self.pseudo_subtomo_job.joboptions['binfactor'].value = self.binning
         self.pseudo_subtomo_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)
 
@@ -64,9 +70,8 @@ class Relion5Pipeline(PipelineHelper):
     def run_pseudo_subtomo(self, rerunPseudoSubtomo: bool = False):
         """
         Run the pseudo-subtomogram generation job and handle its execution.
-        """        
-        if rerunPseudoSubtomo: pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo')
-        else:                  pseudoSubtomoIter = None
+        """
+        pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo') if rerunPseudoSubtomo else None
         self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Pseudo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
 
     def initialize_initial_model(self):
@@ -95,8 +100,15 @@ class Relion5Pipeline(PipelineHelper):
         Args:
             includeSphereMask: If True, creates an initial spherical mask. Defaults to False.
         """
-        self.reconstruct_particle_job = tomo_reconstructparticle_job.RelionReconstructParticleJob()
-        self.reconstruct_particle_job = self.parse_params(self.reconstruct_particle_job,'reconstruct')  
+        if self._use_python_implementation():
+            from zarr_particle_tools.pipeliner.subtomo_reconstruct_pipeliner_job import (
+                PythonRelionSubtomoReconstructJob,
+            )
+            self.reconstruct_particle_job = PythonRelionSubtomoReconstructJob()
+        else:
+            self.reconstruct_particle_job = tomo_reconstructparticle_job.RelionReconstructParticleJob()
+
+        self.reconstruct_particle_job = self.parse_params(self.reconstruct_particle_job,'reconstruct')
 
         self.reconstruct_particle_job.joboptions['binfactor'].value = self.binning
         self.reconstruct_particle_job.joboptions['box_size'].value = self.return_new_box_size(self.binning)
@@ -327,3 +339,15 @@ class Relion5Pipeline(PipelineHelper):
             print(f"Created symbolic link: {symlink_path} -> {target_path}")
         else:
             print(f"Symbolic link already exists: {symlink_path}")
+
+    def _use_python_implementation(self, params: str = 'pseudo_subtomo') -> bool:
+        input_tilt_series = self.params[params].get('in_tomograms')
+        tilt_files = starfile.read(input_tilt_series)["rlnTomoTiltSeriesStarFile"].tolist()
+        for tilt_file in tilt_files:
+            if not os.path.exists(tilt_file):
+                raise FileNotFoundError(f"Input individual tiltseries file not found: {tilt_file}")
+            tilt_df = starfile.read(tilt_file)
+            if "tomoTiltSeriesURI" in tilt_df:
+                print("Discovered subtomoTiltSeriesURI, using Python implementation of subtomogram extraction/reconstruction.")
+                return True
+        return False

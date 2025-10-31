@@ -6,6 +6,7 @@ from typing import List
 from tqdm import tqdm
 import pandas as pd
 import numpy as np
+import mrcfile
 
 @click.group()
 @click.pass_context
@@ -68,7 +69,24 @@ def import_tilt_series(
     # Locate all CTF parameter files in the project directory
     inputPath = os.path.join( base_project, session, run, '*_CTF.txt')
     print(f'Searching for Data from the Following Search Path: {inputPath}')
-    tiltSeries = np.array(glob.glob(inputPath), dtype=str)
+    all_tiltSeries = np.array(glob.glob(inputPath), dtype=str)
+
+    # Filter out tiltseries with different pixel size
+    tiltSeries = []
+    removed_tiltSeries =[]
+    for ts_ctf_path in all_tiltSeries:
+        tsPath = ts_ctf_path.replace('_CTF.txt', '.mrc')
+        with mrcfile.open(tsPath, 'r', header_only=True) as mrc:
+            if np.isclose(mrc.voxel_size.x, pixel_size) and np.isclose(mrc.voxel_size.y, pixel_size):
+                tiltSeries.append(ts_ctf_path)
+            else:
+                removed_tiltSeries.append(ts_ctf_path)
+
+    if len(removed_tiltSeries) > 0:
+        print(f"Removed {len(removed_tiltSeries)} tilt series with pixel size different from {pixel_size} Å.")
+
+    if len(tiltSeries) == 0:
+        raise ValueError(f"No tilt series found with pixel size {pixel_size} Å.")
 
     # Ensure the symlink directory exists if specified
     try: 
@@ -128,7 +146,8 @@ def import_tilt_series(
         tiltSeriesNames = []  # Filenames of tilt images
         defocusU = []  # Defocus U values
         defocusV = []  # Defocus V values
-        defocusAngle = []  # Defocus angle values        
+        defocusAngle = []  # Defocus angle values
+        phase_shift = []
 
         # Handle symlinks for MRC stack files
         if symlinks is None:
@@ -162,6 +181,9 @@ def import_tilt_series(
             defocusV.append(ctfText[ind-1, 2])
             defocusAngle.append(ctfText[ind-1, 3])
 
+            # Get phase shift information
+            phase_shift.append(float(ctfText[ind-1, 4]) * 180.0 / np.pi)  # Convert from radians to degrees
+
             # Get the Total Exposure from the Order List
             acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
             totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
@@ -180,7 +202,8 @@ def import_tilt_series(
         ts_dict['rlnDefocusU'] = defocusU
         ts_dict['rlnDefocusV'] = defocusV
         ts_dict['rlnDefocusAngle'] = defocusAngle
-        ts_dict['rlnMicrographPreExposure'] = totalExposure        
+        ts_dict['rlnPhaseShift'] = phase_shift
+        ts_dict['rlnMicrographPreExposure'] = totalExposure
 
         # Placeholders
         # ts_dict['rlnMicrographMovieName'] = ["none" for _ in range(num_rows)]

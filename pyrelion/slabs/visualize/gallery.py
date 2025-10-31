@@ -1,5 +1,5 @@
 from matplotlib.backends.backend_pdf import PdfPages
-import mrcfile, os, starfile, math
+import mrcfile, os, starfile, math, click
 import matplotlib.pyplot as plt
 import numpy as np
 
@@ -65,3 +65,17 @@ def class_average_gallery(stack_path: str,
             plt.close(fig)
 
     print(f"Gallery saved as {output_pdf_path}")
+
+@click.command(context_settings={"show_default": True})
+@click.option('-i', '--input', 
+              required=True, 
+              type=str, 
+              help='Path to MRCs Particle Stack Classes.')
+def summary(input):
+    """
+    Generate a gallery report for the class averages.
+
+    Example: 
+    pyrelion slab summary -i Class2D/job001/run_it025_classes.mrcs
+    """
+    class_average_gallery(stack_path=input)

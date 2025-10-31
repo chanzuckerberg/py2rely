@@ -107,7 +107,7 @@ class PipelineHelper:
         Exits the program if Relion is not found.
         """
         try:
-            result = subprocess.run('relion --help', shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run('relion_refine --help', shell=True, check=True, capture_output=True, text=True)
         except subprocess.CalledProcessError as e:
             print(f"Standard Error:\n{e.stderr}")
             exit()          
@@ -207,7 +207,10 @@ class PipelineHelper:
         """
 
         for key,value in self.params[step].items():
-            job.joboptions[key].value = value
+            if key in job.joboptions:
+                job.joboptions[key].value = value
+            else:
+                print(f"Warning: Key '{key}' not found in job options, not adding.")
         return job
 
     def set_new_tomograms_starfile(self, tomogram_path):
