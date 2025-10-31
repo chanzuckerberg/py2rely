@@ -1,9 +1,9 @@
-# pyRelion
+# py2rely - Python 2 Rely On
 **Py**thonic **RELION** interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
 
 ## Introduction
 
-pyrelion simplifies and accelerates the execution of RELION-based sub-tomogram averaging (STA) workflows on SLURM-based high-performance computing (HPC) systems. Designed for rapid iteration and evaluation of particle picking strategies, pyrelion integrates with existing tilt series alignment from AreTomo and particle coordinate storage from [copick](https://github.com/copick/copick), making it ideal for automated benchmarking and structure validation.
+py2rely simplifies and accelerates the execution of RELION-based sub-tomogram averaging (STA) workflows on SLURM-based high-performance computing (HPC) systems. Designed for rapid iteration and evaluation of particle picking strategies, py2rely integrates with existing tilt series alignment from AreTomo and particle coordinate storage from [copick](https://github.com/copick/copick), making it ideal for automated benchmarking and structure validation.
 
 ## 💫 Key Features
 
@@ -16,17 +16,17 @@ pyrelion simplifies and accelerates the execution of RELION-based sub-tomogram a
 ## Installation
 To create, first we need to generate a conda environment:
 
-`conda create --prefix=/path/to/pyRelion -c conda-forge gcc_linux-64 cupy python=3.10` 
+`conda create --prefix=/path/to/py2rely -c conda-forge gcc_linux-64 cupy python=3.10` 
 
 Once the environment is created, activate it:
-`conda activate /path/to/pyRelion`
+`conda activate pyRely`
 
 Then install the code with:
 `pip install -e .`
 
 ## 📚 Documentation 
 
-For comprehensive guides, usage examples, and API references, visit the pyrelion documentation.
+For comprehensive guides, usage examples, and API references, visit the py2rely documentation.
 
 ## 🤝 Contributing 
 
