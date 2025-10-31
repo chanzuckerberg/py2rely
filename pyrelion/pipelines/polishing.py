@@ -69,29 +69,22 @@ class ThePolisher:
         # For now, lets start off with 2 iterations
         for ii in range(num_iterations):
 
-            # Reconstruction
-            self.utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
-            self.utils.run_reconstruct_particle(rerunReconstruct=False)
-
-            # Post Process
-            self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
-            self.utils.post_process_job.joboptions['fn_mask'].value = mask
-            self.utils.run_post_process(rerunPostProcess=False)
-            if self._check_stopping_criteria(): break
+            # Half Map from Refinement
+            half_map = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
 
             # CTF Refinement
-            self.utils.ctf_refine_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.ctf_refine_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
             self.utils.ctf_refine_job.joboptions['in_particles'].value = particles
+            self.utils.ctf_refine_job.joboptions['in_halfmaps'].value = half_map
             self.utils.ctf_refine_job.joboptions['in_refmask'].value = mask
             self.utils.run_ctf_refine(rerunCtfRefine=True)
 
             # Bayesian Polishing
-            self.utils.bayesian_polish_job.joboptions['in_refmask'].value = mask
-            self.utils.bayesian_polish_job.joboptions['in_halfmaps'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.bayesian_polish_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
             self.utils.bayesian_polish_job.joboptions['in_tomograms'].value = self.utils.ctf_refine_job.output_dir + 'tomograms.star'
             self.utils.bayesian_polish_job.joboptions['in_particles'].value = particles
+            self.utils.bayesian_polish_job.joboptions['in_halfmaps'].value = half_map
+            self.utils.bayesian_polish_job.joboptions['in_refmask'].value = mask
             self.utils.run_bayesian_polish(rerunPolish=True)
 
             # Update the Trajectories and Tomograms Starfile for Polish and Ctf Refine
@@ -117,7 +110,6 @@ class ThePolisher:
             self._update_inputs(self.utils.tomo_refine3D_job)
             self.utils.tomo_refine3D_job.joboptions['in_particles'].value = self.utils.pseudo_subtomo_job.output_dir + 'particles.star'
             self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
-            # low-pass filter? 
             self.utils.run_auto_refine(rerunRefine=True)
 
             # Post-Process to Estimate Resolution   

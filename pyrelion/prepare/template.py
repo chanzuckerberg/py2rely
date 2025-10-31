@@ -1,3 +1,15 @@
+"""
+CPU-only reimplementation of pytom-match-pick template generation tools.
+
+This module provides CPU-based (NumPy/SciPy) implementations of template 
+generation functions originally from pytom-match-pick, avoiding GPU dependencies (CuPy/voltools)
+while maintaining compatible output for template matching workflows.
+
+Original GPU-accelerated implementation:
+https://github.com/SBC-Utrecht/pytom-match-pick/blob/main/src/pytom_tm/template.py
+"""
+
+
 from __future__ import annotations
 
 from typing import Optional, Tuple, TYPE_CHECKING
