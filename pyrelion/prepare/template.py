@@ -248,14 +248,14 @@ POSINT = LargerThanZeroInt()
     ),
 )
 @click.option(
-    "--input-voxel-size",
+    "-ivs", "--input-voxel-size",
     type=POSFLOAT, required=False,
     help=(
         "Voxel size of input map (Å). If omitted, read from MRC header (make sure it's correct)."
     ),
 )
 @click.option(
-    "--output-voxel-size",
+    "-ovs", "--output-voxel-size",
     type=POSFLOAT, required=True,
     help=(
         "Output voxel size (Å). Map will be downsampled to this spacing; should match tomograms."
