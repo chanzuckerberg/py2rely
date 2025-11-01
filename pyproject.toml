@@ -18,10 +18,10 @@ dependencies = [
     "scipy>=1.9.3,<1.10.0",   # aligns with pipeliner
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
-    "zarr-particle-tools @ git+ssh://git@github.com/czimaginginstitute/zarr-particle-tools.git@main",
 ]
 
 [project.optional-dependencies]
+dataportal=["zarr-particle-tools @ git+ssh://git@github.com/czimaginginstitute/zarr-particle-tools.git@main"]
 slabs = ["PyQt5", "pyqtgraph"]
 
 [tool.hatch.metadata]
