@@ -112,6 +112,9 @@ class ThePolisher:
             self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_auto_refine(rerunRefine=True)
 
+            # Update Particles for Next Iteration
+            particles = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
+
             # Post-Process to Estimate Resolution     
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
