@@ -16,7 +16,7 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 ## Installation
 To create, first we need to generate a conda environment:
 
-`conda create --prefix=/path/to/py2rely -c conda-forge gcc_linux-64 cupy python=3.10` 
+`conda create -n pyRely python=3.10` 
 
 Once the environment is created, activate it:
 `conda activate pyRely`
