@@ -26,7 +26,7 @@ Then install the code with:
 
 ## 📚 Documentation 
 
-For comprehensive guides, usage examples, and API references, visit the py2rely documentation.
+For comprehensive guides, usage examples, and API references, visit the [py2rely documentation](https://chanzuckerberg.github.io/py2rely/).
 
 ## 🤝 Contributing 
 
