@@ -3,7 +3,7 @@ requires = ["hatchling", "hatch-vcs"]
 build-backend = "hatchling.build"
 
 [project]
-name = "pyrelion"
+name = "py2rely"
 requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = [
@@ -18,10 +18,10 @@ dependencies = [
     "scipy>=1.9.3,<1.10.0",   # aligns with pipeliner
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
-    "zarr-particle-tools @ git+ssh://git@github.com/czimaginginstitute/zarr-particle-tools.git@main",
 ]
 
 [project.optional-dependencies]
+dataportal=["zarr-particle-tools @ git+ssh://git@github.com/czimaginginstitute/zarr-particle-tools.git@main"]
 slabs = ["PyQt5", "pyqtgraph"]
 
 [tool.hatch.metadata]
@@ -35,9 +35,9 @@ readme = "README.md"
 license = {file = "LICENSE"}
 
 [project.scripts]
-pyrelion = "pyrelion.main:routines"
-pyrelion-slurm = "pyrelion.main:slurm_routines"
-convert-star = "pyrelion.utils.convert_ts_to_position:cli"
+py2rely = "py2rely.main:routines"
+py2rely-slurm = "py2rely.main:slurm_routines"
+convert-star = "py2rely.utils.convert_ts_to_position:cli"
 
 [tool.hatch.version]
 source = "vcs"
