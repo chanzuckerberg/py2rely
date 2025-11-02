@@ -1,7 +1,8 @@
 site_name: Relion Sub-tomogram Pipelines
 site_description: Documentation for Relion Sub-tomogram Processing Pipelines
-repo_url: https://github.com/yourusername/relion-sub-tomogram-pipelines
-repo_name: relion-sub-tomogram-pipelines
+site_url: https://chanzuckerberg.github.io/py2rely/
+repo_url: https://github.com/chanzuckerberg/py2rely
+repo_name: py2rely
 
 theme:
   name: material
