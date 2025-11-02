@@ -1,5 +1,5 @@
-# py2rely - Python 2 Rely On
-**Py**thonic **RELION** interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
+# py2rely - The Python Pipeline To Rely On 
+Pythonic to Relion interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
 
 ## Introduction
 
