@@ -37,7 +37,6 @@ license = {file = "LICENSE"}
 [project.scripts]
 py2rely = "py2rely.main:routines"
 py2rely-slurm = "py2rely.main:slurm_routines"
-convert-star = "py2rely.utils.convert_ts_to_position:cli"
 
 [tool.hatch.version]
 source = "vcs"

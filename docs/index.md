@@ -1,6 +1,6 @@
-# Welcome to Relion Sub-tomogram Pipelines
+# Welcome to the py2rely Documentation
 
-Welcome to the documentation for Relion Sub-tomogram Processing Pipelines. This documentation will guide you through the installation, usage, and advanced features of our pipeline.
+Welcome to the documentation for Relion Sub-tomogram Processing Python Pipeline. This documentation will guide you through the installation, usage, and advanced features of our pipeline.
 
 ## Quick Links
 
