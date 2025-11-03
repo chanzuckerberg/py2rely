@@ -5,9 +5,10 @@ from py2rely.pipelines.cli import pipelines
 from py2rely.routines.export import export 
 from py2rely.prepare.cli import prepare
 from py2rely.slabs.cli import slab, slab_slurm
+from py2rely import cli_context
 import click
 
-@click.group()
+@click.group(context_settings=cli_context)
 def routines():
     " py2rely - The Python Execution of Sub-Tomogram Refinement"
     pass
@@ -19,7 +20,7 @@ routines.add_command(converters)
 routines.add_command(pipelines)
 routines.add_command(slab)
 
-@click.group()
+@click.group(context_settings=cli_context)
 def slurm_routines():
     """Slurm CLI for py2rely."""
     pass

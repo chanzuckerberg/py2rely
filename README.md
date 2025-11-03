@@ -13,7 +13,9 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 * 🚀 SLURM-native execution: Jobs are launched, monitored, and managed directly on HPC SLURM environments.
 * 🧠 Validation-ready: Quickly test new particle picking algorithms and assess their reconstruction outcomes with minimal setup.
 
-## Installation
+## 🚀 Getting Started
+
+### Installation
 To create, first we need to generate a conda environment:
 
 `conda create -n pyRely python=3.10` 
@@ -24,13 +26,21 @@ Once the environment is created, activate it:
 Then install the code with:
 `pip install -e .`
 
+### Basic Usage
+`py2rely` provides a clean, scriptable command-line interface. Run the following command to view all the available sub-commands:
+```
+py2rely -h
+```
+
 ## 📚 Documentation 
 
 For comprehensive guides, usage examples, and API references, visit the [py2rely documentation](https://chanzuckerberg.github.io/py2rely/).
 
 ## 🤝 Contributing 
 
-This project adheres to the Contributor Covenant code of conduct. By participating, you are expected to uphold this code. Please report unacceptable behavior to opensource@chanzuckerberg.com.
+This project adheres to the Contributor Covenant [code of conduct](https://github.com/chanzuckerberg/.github/blob/master/CODE_OF_CONDUCT.md).
+By participating, you are expected to uphold this code. 
+Please report unacceptable behavior to [opensource@chanzuckerberg.com](mailto:opensource@chanzuckerberg.com).
 
 ## 🔒 Security
 
