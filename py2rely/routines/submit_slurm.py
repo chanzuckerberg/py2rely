@@ -67,7 +67,7 @@ def create_shellsubmit(
 {additional_commands}
 
 ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/py2rely
+conda activate /hpc/projects/group.czii/conda_environments/pyrely
 
 {get_load_relion_command()}
 
