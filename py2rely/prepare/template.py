@@ -274,11 +274,11 @@ POSINT = LargerThanZeroInt()
     ),
 )
 @click.option(
-    "--center", is_flag=True, default=False,
+    "-c", "--center", is_flag=True, default=False,
     help="Center density by center of mass before filtering.",
 )
 @click.option(
-    "--low-pass",
+    "-lp", "--low-pass",
     type=POSFLOAT, required=False,
     help=(
         "Apply Gaussian low-pass to this resolution (Å). Default is 2 * output voxel size."

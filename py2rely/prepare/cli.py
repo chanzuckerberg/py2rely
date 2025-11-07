@@ -2,11 +2,11 @@ from py2rely.prepare.particles import (
     import_particles,
     import_pytom_particles,
     gather_copick_particles,
-    combine_star_files_particles,
+    combine_particles,
 )
 from py2rely.prepare.tilt_series import (
     import_tilt_series,
-    combine_star_files_tomograms,
+    combine_tilt_series,
     remove_unused_tomograms,
 )
 from py2rely.prepare.generate_parameters import (
@@ -23,11 +23,11 @@ def prepare():
 
 # Add subcommands to the group
 prepare.add_command(import_particles)
-prepare.add_command(import_pytom_particles)
+# prepare.add_command(import_pytom_particles)
 prepare.add_command(gather_copick_particles)
-prepare.add_command(combine_star_files_particles)
+prepare.add_command(combine_particles)
 prepare.add_command(import_tilt_series)
-prepare.add_command(combine_star_files_tomograms)
+prepare.add_command(combine_tilt_series)
 prepare.add_command(relion5_parameters)
 prepare.add_command(relion5_pipeline)
 prepare.add_command(remove_unused_tomograms)

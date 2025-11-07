@@ -279,19 +279,19 @@ def run_import_tilt_series(
 @click.option( "-o","--output", type=str, required=False,
                default="input/aligned_tilt_series.star",
                help="Output Filename to Write Merged Starfile" )
-def combine_star_files_tomograms(
+def combine_tilt_series(
     input: List[str],
     output: str
     ):
     """
-    Combine multiple starfiles into a single starfile.
+    Combine multiple starfiles for tilt series.
     """
 
-    run_combine_star_files_tomograms(
+    run_combine_tilt_series(
         input, output
     )
 
-def run_combine_star_files_tomograms(
+def run_combine_tilt_series(
     input: List[str],
     output: str
     ):

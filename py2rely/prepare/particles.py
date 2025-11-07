@@ -28,17 +28,6 @@ def import_particles(
     ):
     """
     Import particles from STAR files.
-
-    Args:   
-        -i, --input: Input STAR-file with coordinates
-        -o, --output: Output STAR-file
-        -x: X dimension of the tomogram
-        -y: Y dimension of the tomogram
-        -z: Z dimension of the tomogram
-        -pixel_size: Pixel size of the tomogram
-        -voltage: Voltage of the tomogram
-        -spherical_aberration: Spherical aberration of the tomogram
-        -amplitude_contrast: Amplitude contrast of the tomogram
     """
 
     run_import_particles(
@@ -61,7 +50,20 @@ def run_import_particles(
     optics_group: int,
     optics_group_name: str
     ):
-    """Import particles from STAR files (e.g, PyTom)."""
+    """
+    Import particles from STAR files.
+
+    Args:   
+        -i, --input: Input STAR-file with coordinates
+        -o, --output: Output STAR-file
+        -x: X dimension of the tomogram
+        -y: Y dimension of the tomogram
+        -z: Z dimension of the tomogram
+        -pixel_size: Pixel size of the tomogram
+        -voltage: Voltage of the tomogram
+        -spherical_aberration: Spherical aberration of the tomogram
+        -amplitude_contrast: Amplitude contrast of the tomogram
+    """
     from py2rely.utils import sta_tools
     import os, starfile
     import pandas as pd
@@ -97,111 +99,6 @@ def run_import_particles(
 ###########################################################################################
 
 @cli.command(context_settings=cli_context)
-@click.option("-i","--input", type=str, required=True, help="Input STAR-file with coordinates")
-@click.option("-o","--output", type=str, default='input', help="Output folder to save STAR-file as 'picks.star'")
-@click.option("-b","--binning-factor", type=float, default=4, required=True, help='Binning factor for the tomogram')
-@common.add_common_options
-@common.add_optics_options
-def import_pytom_particles(
-    input: str,
-    output: str,
-    x: float,
-    y: float,
-    z: float,
-    pixel_size: float,
-    voltage: float, 
-    spherical_aberration: float, 
-    amplitude_contrast: float,
-    optics_group: int,
-    optics_group_name: str,
-    binning_factor: float
-    ):
-
-    run_import_pytom_particles(
-        input, output, x, y, z, pixel_size, 
-        voltage, spherical_aberration, amplitude_contrast, 
-        optics_group, optics_group_name, binning_factor
-    )
-
-
-def run_import_pytom_particles(
-    input: str,
-    output: str,
-    x: float,
-    y: float,
-    z: float,
-    pixel_size: float,
-    voltage: float, 
-    spherical_aberration: float, 
-    amplitude_contrast: float,
-    optics_group: int,
-    optics_group_name: str,
-    binning_factor: float
-    ):
-
-    from py2rely.utils import sta_tools
-    from tqdm import tqdm
-    import os, starfile
-    import pandas as pd
-    import glob
-
-    # Create output directory if it doesn't exist
-    os.makedirs(output, exist_ok=True)
-
-    """Import particles from STAR files (e.g, PyTom)."""
-    utils = sta_tools.PipelineHelper(None, requireRelion=False)
-    utils.print_pipeline_parameters(
-        'Importing Particles', input = input, output = output, 
-        x = x, y = y, z = z, pixel_size = pixel_size, voltage = voltage, 
-        spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast,
-        header = f'particles', file_name=f'{output}/import.json')    
-    output = os.path.join(output, 'picks.star')                  
-
-    # Read and concatenate all input STAR files into a single DataFrame
-    all_particles = []
-    star_files = glob.glob(os.path.join(input, '*.star'))
-    
-    if not star_files:
-        raise ValueError(f"No STAR files found in {input}")
-        
-    for fname in tqdm(star_files):
-        print(f"Processing {fname}")
-        # Read the input STAR file into a DataFrame
-        df = starfile.read(fname)
-
-        # Replace 'rlnMicrograph' column with 'rlnTomoName'
-        df['rlnTomoName'] = df['rlnMicrographName']
-        df = df.drop(columns=['rlnMicrographName'])
-        df['rlnCoordinateX'] = df['rlnCoordinateX'] * binning_factor
-        df['rlnCoordinateY'] = df['rlnCoordinateY'] * binning_factor
-        df['rlnCoordinateZ'] = df['rlnCoordinateZ'] * binning_factor
-
-        # Process the coordinates
-        df = common.process_coordinates(df, x, y, z, pixel_size)
-        
-        # Add to our list of dataframes
-        all_particles.append(df)
-    
-    # Concatenate all dataframes into a single dataframe
-    if all_particles:
-        inputDF = pd.concat(all_particles, ignore_index=True)
-        print(f"Total particles: {len(inputDF)}")
-    else:
-        print("No particles found in any STAR file")
-        return
-
-    # Create optics group metadata as a dictionary
-    optics = common.create_optics_metadata(pixel_size, voltage, spherical_aberration, amplitude_contrast, optics_group, optics_group_name)
-
-    # Write the optics and particles data to a new STAR file
-    starfile.write({'optics': pd.DataFrame(optics), "particles": inputDF}, output)
-
-    # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file saved to: {output}\n")
-
-###########################################################################################
-
-@cli.command(context_settings=cli_context)
 @click.option("-c","--config", type=str, required=True, help="Path to Copick Config")
 @click.option("-s","--session", type=str, required=True, help="Experiment Session")
 @click.option("-o","--output", type=str, default="input", help="Path to write STAR file")
@@ -214,25 +111,13 @@ def run_import_pytom_particles(
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
 def gather_copick_particles(
-    config: str, 
-    session: str,
-    name: str, 
-    output: str,
-    pixel_size: float,
-    voxel_size: float, 
-    session_id: str, 
-    user_id: str,
-    run_ids: str,
-    x: float,
-    y: float, 
-    z: float,
-    voltage: float,
-    spherical_aberration: float,
-    amplitude_contrast: float,
-    optics_group: int,
-    optics_group_name: str,
-    relion5: bool
+    config: str, session: str, name: str, output: str, pixel_size: float,
+    voxel_size: float, session_id: str, user_id: str, run_ids: str, x: float,
+    y: float, z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
+    optics_group: int, optics_group_name: str, relion5: bool
     ):
+    """Import particles from Copick project.
+    """    
 
     run_gather_copick_particles(
         config, session, name, output, pixel_size, voxel_size, 
@@ -247,8 +132,29 @@ def run_gather_copick_particles(
     z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
     optics_group: int, optics_group_name: str, relion5: bool
     ):
-    """Import particles from Copick project"""
-
+    """
+    Import particles from Copick project.
+    
+    Args:
+        -c, --config: Path to Copick Config
+        -s, --session: Experiment Session
+        -n, --name: Protein Name
+        -o, --output: Path to write STAR file
+        -sid, --session-id: Session ID
+        -uid, --user-id: User ID
+        -rids, --run-ids: Run IDs to filter (comma-separated)
+        -vs, --voxel-size: Voxel Size of Picked Particles' Tomograms
+        -x, --x: X Dimension of Tomograms
+        -y, --y: Y Dimension of Tomograms
+        -z, --z: Z Dimension of Tomograms
+        -pixel-size: Pixel Size of Tilt Series
+        -voltage: Voltage of Tomograms
+        -spherical-aberration: Spherical Aberration
+        -amplitude-contrast: Amplitude Contrast
+        -optics-group: Optics Group Number
+        -optics-group-name: Optics Group Name
+        -relion5: Use Relion5 Centered Coordinate format for the output STAR file
+    """    
     from scipy.spatial.transform import Rotation as R
     from py2rely.utils import sta_tools
     from tqdm import tqdm
@@ -400,17 +306,17 @@ def run_gather_copick_particles(
     default="input/full_picks.star",
     help="Output Filename to Write Merged Starfile"
 )
-def combine_star_files_particles(
+def combine_particles(
     input: List[str],
     output: str
     ):
-    """Combine multiple starfiles into a single starfile"""
+    """Combine multiple starfiles for particles."""
 
-    run_combine_star_files_particles(
+    run_combine_particles(
         input, output
     )
 
-def run_combine_star_files_particles(
+def run_combine_particles(
     input: List[str],
     output: str
     ):
@@ -444,3 +350,107 @@ def run_combine_star_files_particles(
 
     # Inform the user that the file has been written successfully
     print(f"\nRelion5 Particles STAR file Merged to: {output}\n")
+
+
+###########################################################################################
+
+@cli.command(context_settings=cli_context)
+@click.option("-i","--input", type=str, required=True, help="Input STAR-file with coordinates")
+@click.option("-o","--output", type=str, default='input', help="Output folder to save STAR-file as 'picks.star'")
+@click.option("-b","--binning-factor", type=float, default=4, required=True, help='Binning factor for the tomogram')
+@common.add_common_options
+@common.add_optics_options
+def import_pytom_particles(
+    input: str,
+    output: str,
+    x: float,
+    y: float,
+    z: float,
+    pixel_size: float,
+    voltage: float, 
+    spherical_aberration: float, 
+    amplitude_contrast: float,
+    optics_group: int,
+    optics_group_name: str,
+    binning_factor: float
+    ):
+    run_import_pytom_particles(
+        input, output, x, y, z, pixel_size, 
+        voltage, spherical_aberration, amplitude_contrast, 
+        optics_group, optics_group_name, binning_factor
+    )
+
+def run_import_pytom_particles(
+    input: str,
+    output: str,
+    x: float,
+    y: float,
+    z: float,
+    pixel_size: float,
+    voltage: float, 
+    spherical_aberration: float, 
+    amplitude_contrast: float,
+    optics_group: int,
+    optics_group_name: str,
+    binning_factor: float
+    ):
+
+    from py2rely.utils import sta_tools
+    from tqdm import tqdm
+    import os, starfile
+    import pandas as pd
+    import glob
+
+    # Create output directory if it doesn't exist
+    os.makedirs(output, exist_ok=True)
+
+    """Import particles from STAR files (e.g, PyTom)."""
+    utils = sta_tools.PipelineHelper(None, requireRelion=False)
+    utils.print_pipeline_parameters(
+        'Importing Particles', input = input, output = output, 
+        x = x, y = y, z = z, pixel_size = pixel_size, voltage = voltage, 
+        spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast,
+        header = f'particles', file_name=f'{output}/import.json')    
+    output = os.path.join(output, 'picks.star')                  
+
+    # Read and concatenate all input STAR files into a single DataFrame
+    all_particles = []
+    star_files = glob.glob(os.path.join(input, '*.star'))
+    
+    if not star_files:
+        raise ValueError(f"No STAR files found in {input}")
+        
+    for fname in tqdm(star_files):
+        print(f"Processing {fname}")
+        # Read the input STAR file into a DataFrame
+        df = starfile.read(fname)
+
+        # Replace 'rlnMicrograph' column with 'rlnTomoName'
+        df['rlnTomoName'] = df['rlnMicrographName']
+        df = df.drop(columns=['rlnMicrographName'])
+        df['rlnCoordinateX'] = df['rlnCoordinateX'] * binning_factor
+        df['rlnCoordinateY'] = df['rlnCoordinateY'] * binning_factor
+        df['rlnCoordinateZ'] = df['rlnCoordinateZ'] * binning_factor
+
+        # Process the coordinates
+        df = common.process_coordinates(df, x, y, z, pixel_size)
+        
+        # Add to our list of dataframes
+        all_particles.append(df)
+    
+    # Concatenate all dataframes into a single dataframe
+    if all_particles:
+        inputDF = pd.concat(all_particles, ignore_index=True)
+        print(f"Total particles: {len(inputDF)}")
+    else:
+        print("No particles found in any STAR file")
+        return
+
+    # Create optics group metadata as a dictionary
+    optics = common.create_optics_metadata(pixel_size, voltage, spherical_aberration, amplitude_contrast, optics_group, optics_group_name)
+
+    # Write the optics and particles data to a new STAR file
+    starfile.write({'optics': pd.DataFrame(optics), "particles": inputDF}, output)
+
+    # Inform the user that the file has been written successfully
+    print(f"\nRelion5 Particles STAR file saved to: {output}\n")

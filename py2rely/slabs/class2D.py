@@ -76,20 +76,6 @@ def slab_average(
     ):
     """
     Run Class2D on an Extracted Minislab Particle Stack
-
-    Args:
-        particles (str): The path to the particles stack
-        tau_fudge (float): The tau fudge factor
-        nr_classes (int): The number of classes to use
-        class_algorithm (str): The classification algorithm to use
-        nr_iter (int): The number of iterations to run
-        do_ctf_correction (str): Whether to do CTF correction
-        ctf_intact_first_peak (str): Whether to keep the first peak of the CTF
-        particle_diameter (float): The particle diameter in Angstroms
-        highres_limit (float): The high resolution limit in Angstroms
-        dont_skip_align (str): Whether to skip alignment
-        use_gpu (str): Whether to use GPU
-        nr_threads (int): The number of threads to use
     """
     run_class2D(
         particles, tau_fudge, nr_classes, class_algorithm, 
@@ -112,6 +98,23 @@ def run_class2D(
     use_gpu: str,
     nr_threads: int
     ):
+    """
+    Run Class2D on an Extracted Minislab Particle Stack
+
+    Args:
+        particles (str): The path to the particles stack
+        tau_fudge (float): The tau fudge factor
+        nr_classes (int): The number of classes to use
+        class_algorithm (str): The classification algorithm to use
+        nr_iter (int): The number of iterations to run
+        do_ctf_correction (str): Whether to do CTF correction
+        ctf_intact_first_peak (str): Whether to keep the first peak of the CTF
+        particle_diameter (float): The particle diameter in Angstroms
+        highres_limit (float): The high resolution limit in Angstroms
+        dont_skip_align (str): Whether to skip alignment
+        use_gpu (str): Whether to use GPU
+        nr_threads (int): The number of threads to use
+    """
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.slabs.pipeline import SlabAveragePipeline
 
