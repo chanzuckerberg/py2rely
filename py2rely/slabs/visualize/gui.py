@@ -1,121 +1,128 @@
-from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
-# from py2rely.utils.sta_tools import PipelineHelper as pipeline
-from pipeliner.api.manage_project import PipelinerProject
-from PyQt5 import QtWidgets, QtCore
-from pyqtgraph import TextItem
-from PyQt5.QtGui import QFont
-import sys, os, re, starfile
-import click, glob, mrcfile
-import pyqtgraph as pg
-import numpy as np
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     pass
 
-class ImageSelector(QtWidgets.QWidget):
-    def __init__(self, images, grid_columns=5, image_size=150, counts=None, resolutions=None):
-        super().__init__()
-        self.images = images
-        self.selected_indices = []
-        self.grid_columns = grid_columns
-        self.image_size = image_size
-        self.counts = counts if counts else [""] * len(images)
-        self.resolutions = resolutions if resolutions else [""] * len(images)
 
-        self.initUI()
+def get_image_selector():
+    from PyQt5 import QtWidgets
+    import pyqtgraph as pg
 
-    def initUI(self):
-        main_layout = QtWidgets.QHBoxLayout(self)
-        
-        # Scroll area and container for images
-        scroll_area = QtWidgets.QScrollArea()
-        scroll_area.setWidgetResizable(True)
-        container = QtWidgets.QWidget()
-        self.layout = QtWidgets.QGridLayout(container)
-        
-        self.image_views = []
+    class ImageSelector(QtWidgets.QWidget):
+        def __init__(self, images, grid_columns=5, image_size=150, counts=None, resolutions=None):
+            super().__init__()
+            self.images = images
+            self.selected_indices = []
+            self.grid_columns = grid_columns
+            self.image_size = image_size
+            self.counts = counts if counts else [""] * len(images)
+            self.resolutions = resolutions if resolutions else [""] * len(images)
 
-        for i, img in enumerate(self.images):
-            # Create image view
-            view = pg.ImageView()
-            view.setImage(img)
-            view.ui.roiBtn.hide()
-            view.ui.menuBtn.hide()
-            view.ui.histogram.hide()
-            view.setFixedSize(self.image_size, self.image_size)
-            view.getImageItem().mouseClickEvent = self.create_click_handler(i, view)
-            self.image_views.append(view)
+            self.initUI()
 
-            if self.counts is not None:
-                # Add text overlay for counts
-                text_item1 = TextItem(self.counts[i], anchor=(0.5, 0.5), color='g')
-                text_item1.setPos(img.shape[1] // 2, img.shape[0] // 15)
-                font = QFont()
-                font.setPointSize(12)  # Set the desired font size here
-                text_item1.setFont(font)
-                view.addItem(text_item1)
+        def initUI(self):
+            from PyQt5 import QtWidgets, QtCore
+            from pyqtgraph import TextItem     
+            from PyQt5.QtGui import QFont           
 
-            if self.resolutions is not None:
-                # Add text overlay for resolutions
-                text_item2 = TextItem(self.resolutions[i], anchor=(0.5, 0.5), color='g')
-                text_item2.setPos(img.shape[1] // 2, img.shape[0] // 1)
-                font = QFont()
-                font.setPointSize(12)  # Set the desired font size here
-                text_item2.setFont(font)
-                view.addItem(text_item2)
+            main_layout = QtWidgets.QHBoxLayout(self)
+            
+            # Scroll area and container for images
+            scroll_area = QtWidgets.QScrollArea()
+            scroll_area.setWidgetResizable(True)
+            container = QtWidgets.QWidget()
+            self.layout = QtWidgets.QGridLayout(container)
+            
+            self.image_views = []
 
-            row = i // self.grid_columns
-            col = i % self.grid_columns
-            self.layout.addWidget(view, row, col)
+            for i, img in enumerate(self.images):
+                # Create image view
+                view = pg.ImageView()
+                view.setImage(img)
+                view.ui.roiBtn.hide()
+                view.ui.menuBtn.hide()
+                view.ui.histogram.hide()
+                view.setFixedSize(self.image_size, self.image_size)
+                view.getImageItem().mouseClickEvent = self.create_click_handler(i, view)
+                self.image_views.append(view)
 
-        scroll_area.setWidget(container)
-        main_layout.addWidget(scroll_area)
+                if self.counts is not None:
+                    # Add text overlay for counts
+                    text_item1 = TextItem(self.counts[i], anchor=(0.5, 0.5), color='g')
+                    text_item1.setPos(img.shape[1] // 2, img.shape[0] // 15)
+                    font = QFont()
+                    font.setPointSize(12)  # Set the desired font size here
+                    text_item1.setFont(font)
+                    view.addItem(text_item1)
 
-        # Add a vertical slider without a ball
-        self.slider = QtWidgets.QSlider(QtCore.Qt.Vertical)
-        self.slider.setMinimum(0)
-        self.slider.setMaximum(100)
-        self.slider.setValue(0)
-        self.slider.setStyleSheet("""
-            QSlider::groove:vertical {
-                background: transparent;
-                width: 8px;
-            }
-            QSlider::handle:vertical {
-                background: black;
-                border: 1px solid #5c5c5c;
-                height: 20px;
-                margin: 0 -4px;
-            }
-        """)
-        self.slider.valueChanged.connect(self.slider_changed)
-        main_layout.addWidget(self.slider)
+                if self.resolutions is not None:
+                    # Add text overlay for resolutions
+                    text_item2 = TextItem(self.resolutions[i], anchor=(0.5, 0.5), color='g')
+                    text_item2.setPos(img.shape[1] // 2, img.shape[0] // 1)
+                    font = QFont()
+                    font.setPointSize(12)  # Set the desired font size here
+                    text_item2.setFont(font)
+                    view.addItem(text_item2)
 
-        self.setWindowTitle('Image Selector')
-        self.resize(800, 600)  # Set initial size of the window
-        self.show()
+                row = i // self.grid_columns
+                col = i % self.grid_columns
+                self.layout.addWidget(view, row, col)
 
-    def create_click_handler(self, index, view):
-        def handler(event):
-            if index in self.selected_indices:
-                self.selected_indices.remove(index)
-                view.getImageItem().setBorder(None)
-            else:
-                self.selected_indices.append(index)
-                view.getImageItem().setBorder(pg.mkPen('r', width=3))
-            tmp = [x + 1 for x in self.selected_indices]
-            print(f"Selected Images: {tmp}")
-        return handler
+            scroll_area.setWidget(container)
+            main_layout.addWidget(scroll_area)
 
-    def slider_changed(self, value):
-        # Adjust the scroll area position based on the slider value
-        scroll_area = self.findChild(QtWidgets.QScrollArea)
-        max_scroll = scroll_area.verticalScrollBar().maximum()
-        scroll_area.verticalScrollBar().setValue(value * max_scroll // 100)
+            # Add a vertical slider without a ball
+            self.slider = QtWidgets.QSlider(QtCore.Qt.Vertical)
+            self.slider.setMinimum(0)
+            self.slider.setMaximum(100)
+            self.slider.setValue(0)
+            self.slider.setStyleSheet("""
+                QSlider::groove:vertical {
+                    background: transparent;
+                    width: 8px;
+                }
+                QSlider::handle:vertical {
+                    background: black;
+                    border: 1px solid #5c5c5c;
+                    height: 20px;
+                    margin: 0 -4px;
+                }
+            """)
+            self.slider.valueChanged.connect(self.slider_changed)
+            main_layout.addWidget(self.slider)
+
+            self.setWindowTitle('Image Selector')
+            self.resize(800, 600)  # Set initial size of the window
+            self.show()
+
+        def create_click_handler(self, index, view):
+            def handler(event):
+                if index in self.selected_indices:
+                    self.selected_indices.remove(index)
+                    view.getImageItem().setBorder(None)
+                else:
+                    self.selected_indices.append(index)
+                    view.getImageItem().setBorder(pg.mkPen('r', width=3))
+                tmp = [x + 1 for x in self.selected_indices]
+                print(f"Selected Images: {tmp}")
+            return handler
+
+        def slider_changed(self, value):
+            from PyQt5 import QtWidgets
+
+            # Adjust the scroll area position based on the slider value
+            scroll_area = self.findChild(QtWidgets.QScrollArea)
+            max_scroll = scroll_area.verticalScrollBar().maximum()
+            scroll_area.verticalScrollBar().setValue(value * max_scroll // 100)
+
+    return ImageSelector
 
 def find_final_iteration(classPath):
+    import glob, os, re
+
     # Find the Final Iteration
     # iterationStarFiles = glob.glob(os.path.join('Class2D', classPath, 'run_*_data.star'))
     # maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
@@ -135,7 +142,7 @@ def find_final_iteration(classPath):
 
     return maxIter
 
-@cli.command(context_settings={"show_default": True}, name='extract')
+@cli.command(context_settings=cli_context, name='extract')
 @click.option(
     '--job', 
     required=True, 
@@ -169,6 +176,18 @@ def classes(
     Launch Class Selector GUI from a 2DClass Job.
     """
 
+    run_class_selector(job, extract_classes, grid_columns, image_size)
+
+def run_class_selector(
+    job: str, extract_classes: bool, 
+    grid_columns: int, image_size: int
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    import sys, os, re, starfile
+    import click, glob, mrcfile
+    import pyqtgraph as pg
+    import numpy as np
+
     # Check to Make Sure a Valid Class Path is Provided
     if not os.path.isdir(os.path.join('Class2D', job)):
         print(f'\nInvalid Class Job: Class2D/{job}\n')
@@ -192,6 +211,7 @@ def classes(
     particle_count_list = [ f"{int(resultsStarFile['model_classes']['rlnClassDistribution'][i] * nParticles)} Particles" for i in range(num_images) ]  
 
     # Adjust grid_columns and image_size to fit your screen
+    ImageSelector = get_image_selector()
     ex = ImageSelector(dataset, grid_columns=grid_columns, image_size=image_size, 
                        counts = particle_count_list, resolutions = resolution_list)
     app.exec_()
@@ -224,7 +244,7 @@ def classes(
         print(f'✅ Particles Exported to: {utils.tomo_select_job.output_dir}particles.star')
 
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option(
     '--particles-path', 
     required=True, 
@@ -250,6 +270,8 @@ def particle_stacks(
     """
     Extract Particles from Selected 2D Classes.    
     """
+    from PyQt5 import QtWidgets
+    import sys, mrcfile
 
     app = QtWidgets.QApplication(sys.argv)
     dataset = mrcfile.read(particles_path)

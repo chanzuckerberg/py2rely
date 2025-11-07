@@ -24,7 +24,7 @@ def converters(ctx):
               help='Voxel size for the export.')
 @click.option('--export-tag', type=str, required=True, 
               help='Tag for the export. We need to remove the .tomostar extension and replace it with the suffix Warp provides for the tomograms.')
-def warp_tm_to_copick(
+def warp_tm2copick(
     input: str,
     config: str, 
     particle_name: str, 
@@ -33,6 +33,9 @@ def warp_tm_to_copick(
     voxel_size: float,
     export_tag: str,
     ):
+    """
+    Converts Coordinates from Warp Template Matching to Copick format.
+    """
 
     run_warp_tm_to_copick(
         input, config, particle_name, user_id, session_id, voxel_size, export_tag
@@ -94,7 +97,7 @@ def run_warp_tm_to_copick(
     help='Path to the original star file.')
 @click.option('-o','--output', type=str, required=True, 
     help='Path to the new star file.')
-def ts_to_position(
+def ts2position(
     input: str, 
     output: str):
     """
