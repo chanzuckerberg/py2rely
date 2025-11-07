@@ -22,7 +22,7 @@ def cli(ctx):
               help="Unbinned Tilt Tilt Series Pixel Size (Å)")
 @click.option("-td","--total-dose",type=float,required=False, default=60,
               help="Total Accumulated Dose (e-/Å^2)")
-@click.option("-s","--symlinks",type=str,required=False, default=None,
+@click.option("-sym","--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
 def import_tilt_series(
@@ -65,8 +65,8 @@ def run_import_tilt_series(
     optics_group_name: str    
     ):
 
+    import os, glob, starfile, mrcfile, io
     from py2rely.utils import sta_tools
-    import os, glob, starfile, mrcfile
     from tqdm import tqdm
     import pandas as pd
     import numpy as np
