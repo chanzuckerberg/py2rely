@@ -1,15 +1,13 @@
-from py2rely.slabs.preprocess import parameters
 from py2rely.routines import submit_slurm
-from typing import Any, Dict, List, Optional
-from pydantic import BaseModel
-import json, click
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     pass
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option("--in-coords", type=str, required=True,   
               help="Input Coordinates File Path" )
 @click.option( "--in-vols", type=str, required=False, default=None,
@@ -116,7 +114,7 @@ normalize_stack \\
 
 ###########################################################################################      
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option( "--particle-diameter", type=float, required=False, default=300,
               help="Particle Diameter" )
 @click.option( "--tau-fudge", type=float, required=False, default=2,
@@ -223,7 +221,7 @@ py2rely slab class2d \\
 
 ########################################################################################
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option( "--shell-path", type=str, required=False, default='pipeline_class_average.sh',
               help="The Saved Parameter Path" )
 @click.option( "--job-name", type=str, required=False, default="bootstrap_relion",

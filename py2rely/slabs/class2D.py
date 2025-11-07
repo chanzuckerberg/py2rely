@@ -1,7 +1,5 @@
-from pipeliner.api.manage_project import PipelinerProject
-from py2rely.slabs.pipeline import SlabAveragePipeline
-import click, starfile
-import numpy as np
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
@@ -22,7 +20,7 @@ def add_class2D_options(func):
     return func
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings={"show_default": True}, name='class2d')
+@cli.command(context_settings=cli_context, name='class2d')
 @add_class2D_options
 @click.option(
     "--do-ctf-correction",
@@ -93,6 +91,29 @@ def slab_average(
         use_gpu (str): Whether to use GPU
         nr_threads (int): The number of threads to use
     """
+    run_class2D(
+        particles, tau_fudge, nr_classes, class_algorithm, 
+        nr_iter, do_ctf_correction, ctf_intact_first_peak, 
+        particle_diameter, highres_limit, dont_skip_align, 
+        use_gpu, nr_threads
+    )
+
+def run_class2D(
+    particles: str,
+    tau_fudge: float,
+    nr_classes: int,
+    class_algorithm: str,
+    nr_iter: int,
+    do_ctf_correction: str,
+    ctf_intact_first_peak: str,
+    particle_diameter: float,
+    highres_limit: float,
+    dont_skip_align: str,
+    use_gpu: str,
+    nr_threads: int
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.slabs.pipeline import SlabAveragePipeline
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -126,7 +147,7 @@ def slab_average(
 ################################################################################
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option(
     "--parameter-path",
     type=str, required=True,
@@ -163,6 +184,18 @@ def auto_class_ranker(
         max_class_job (int): The maximum class job number
         rank_threshold (float): The threshold for determining 'real' classes
     """
+    run_auto_class_ranker(parameter_path, min_class_job, max_class_job, rank_threshold)
+
+def run_auto_class_ranker(
+    parameter_path: str, 
+    min_class_job: int,
+    max_class_job: int,
+    rank_threshold: float
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.slabs.pipeline import SlabAveragePipeline
+    import numpy as np
+    import starfile
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

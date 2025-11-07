@@ -1,12 +1,13 @@
-from matplotlib.backends.backend_pdf import PdfPages
-import mrcfile, os, starfile, math, click
-import matplotlib.pyplot as plt
-import numpy as np
+from py2rely import cli_context
+import click
 
 def class_average_gallery(stack_path: str, 
                           image_size: int = 2, 
                           images_per_row: int = 5, 
                           rows_per_page: int = 5):
+    from matplotlib.backends.backend_pdf import PdfPages
+    import mrcfile, os, starfile, math
+    import matplotlib.pyplot as plt
 
     # Load the stack
     stack = mrcfile.read(stack_path)
@@ -66,7 +67,7 @@ def class_average_gallery(stack_path: str,
 
     print(f"Gallery saved as {output_pdf_path}")
 
-@click.command(context_settings={"show_default": True})
+@click.command(context_settings=cli_context)
 @click.option('-i', '--input', 
               required=True, 
               type=str, 
