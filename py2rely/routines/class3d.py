@@ -1,8 +1,6 @@
-from pipeliner.api.manage_project import PipelinerProject
 import py2rely.routines.submit_slurm as my_slurm 
-import pipeliner.job_manager as job_manager
-import json, click, starfile, os, mrcfile
-from py2rely.utils import relion5_tools
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
@@ -16,28 +14,28 @@ def class3d_options(func):
                       help="Sub-Tomogram Refinement Parameter Path",),
         click.option("--particles",type=str,required=True,
                       help="Path to Particles"),
-        click.option("--reference",type=str,required=True,
+        click.option("-r", "--reference",type=str,required=True,
                       help="Path to Reference for Classification"),
-        click.option("--mask",type=str,required=False,default=None,
+        click.option("-m", "--mask",type=str,required=False,default=None,
                       help="(Optional) Path of Mask for Classification"),
         click.option("--ini-high",type=float,required=False,default=None,
                       help="Low-Pass Filter to Apply to Model"),
-        click.option("--tau-fudge",type=float,required=False,default=3,
+        click.option("-tau", "--tau-fudge",type=float,required=False,default=3,
                       help="Tau Regularization Parameter for Classification"),
-        click.option("--nr-iter",type=int,required=False,default=None,
+        click.option("-ni", "--nr-iter",type=int,required=False,default=None,
                       help="Number of Iterations"),
-        click.option("--ref-correct-greyscale",type=bool,required=False,default=True,
+        click.option("-rcg", "--ref-correct-greyscale",type=bool,required=False,default=True,
                       help="Reference Map is on Absolute Greyscale? As in, was the reference map created by Relion?"),
-        click.option("--tomogram-path",type=str,required=False,default=None,
+        click.option("-t", "--tomogram",type=str,required=False,default=None,
                       help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)"),
-        click.option("--align-particles", type=bool, required=False, default=False,
+        click.option("-align", "--align-particles", type=bool, required=False, default=False,
                       help="(Optional) Align Particles to Reference, recommended to set as False if alignments already provided.")
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
     return func  
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @class3d_options
 @click.option( "--nr-classes", type=int, required=False, default=5, help="Number of Classes" )
 def class3d(
@@ -50,9 +48,33 @@ def class3d(
     nr_classes: int,
     nr_iter: int,
     ref_correct_greyscale: bool,
-    tomogram_path: str,
+    tomogram: str,
     align_particles: bool
     ):   
+
+    run_class3d(
+        parameter, particles, reference, mask, ini_high, 
+        tau_fudge, nr_classes, nr_iter, ref_correct_greyscale, 
+        tomogram, align_particles
+    )
+
+def run_class3d(
+    parameter: str,
+    particles: str, 
+    reference: str,
+    mask: str,     
+    ini_high: float,
+    tau_fudge: float,
+    nr_classes: int,
+    nr_iter: int,
+    ref_correct_greyscale: bool,
+    tomogram: str,
+    align_particles: bool
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+    import starfile
+
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -61,8 +83,8 @@ def class3d(
     utils.read_json_directories_file('output_directories.json')
 
     # If a Path for Refined Tomograms is Provided, Assign it 
-    if tomogram_path is not None:
-        utils.set_new_tomograms_star_file(tomogram_path)    
+    if tomogram is not None:
+        utils.set_new_tomograms_star_file(tomogram)    
 
     # Get Binning
     particlesdata = starfile.read( particles )
@@ -117,7 +139,7 @@ def class3d(
     # Run
     utils.run_tomo_class3D(rerunClassify=True)
 
-@cli.command(context_settings={"show_default": True}, name='class3d')
+@cli.command(context_settings=cli_context, name='class3d')
 @class3d_options
 @click.option( "--nr-classes", type=str, required=False, default='5',
                help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
@@ -131,7 +153,7 @@ def class3d_slurm(
     nr_classes: int, 
     nr_iter: int, 
     ref_correct_greyscale: bool, 
-    tomogram_path: str,
+    tomogram: str,
     align_particles: bool):
 
     # Determine Number of Classes Command
@@ -150,8 +172,8 @@ py2rely routines class3d \\
     --tau-fudge {tau_fudge} \\
     """
 
-    if tomogram_path is not None:
-        command += f" --tomogram-path {tomogram_path}"
+    if tomogram is not None:
+        command += f" --tomogram {tomogram}"
 
     if mask is not None:
         command += f" --mask {mask}"

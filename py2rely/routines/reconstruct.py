@@ -1,8 +1,5 @@
-from pipeliner.api.manage_project import PipelinerProject
-import py2rely.routines.submit_slurm as my_slurm 
-import pipeliner.job_manager as job_manager
-import json, click, starfile, os, mrcfile
-from py2rely.utils import relion5_tools
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
@@ -11,27 +8,27 @@ def cli(ctx):
 
 def add_masking_options(func):
     options = [
-        click.option("--mask", type=str, required=False, default=None, 
+        click.option("-m", "--mask", type=str, required=False, default=None, 
                     help="(Optional) Path for Mask to Measure the Map Resolution. If none provide, a new mask will be created."),
-        click.option("--low-pass", type=str, required=False, default=15, 
+        click.option("-lp", "--low-pass", type=str, required=False, default=15, 
                      help="User Input Low Pass Filter"),
-        click.option("--extend", type=int, required=False, default=0, 
+        click.option("-e", "--extend", type=int, required=False, default=0, 
                      help="The initial binary mask is extended this number of pixels in all directions."),
-        click.option("--soft-edge", type=int, required=False, default=10, 
+        click.option("-se", "--soft-edge", type=int, required=False, default=10, 
                      help="Add a soft-edge of this many pixels."),
-        click.option("--tomogram", type=str, required=False, default=None, 
+        click.option("-t", "--tomogram", type=str, required=False, default=None, 
                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)") 
     ]
     for option in reversed(options):
         func = option(func)
     return func
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
               help="Sub-Tomogram Refinement Parameter Path")
-@click.option("--particles", type=str, required=True, 
+@click.option("-particles", type=str, required=True, 
               help="Path to Particles File to Reconstruct Data (e.g., Refine3D/job001/run_data.star)")
-@click.option("--bin-factor", type=int, required=False, default=1, 
+@click.option("-bf", "--bin-factor", type=int, required=False, default=1, 
               help="Bin Factor to Determine At Which Resolution to Reconstruct Averaged Map")
 @add_masking_options
 def reconstruct_particle(
@@ -44,6 +41,8 @@ def reconstruct_particle(
     soft_edge: int = None,
     tomogram: str = None
     ): 
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -98,6 +97,7 @@ def reconstruct_particle_slurm(
     soft_edge: int = None,
     tomogram: str = None
     ):
+    import py2rely.routines.submit_slurm as my_slurm 
 
     # Create Reconstruct Particle Command
     command = f"""
@@ -130,10 +130,10 @@ def reconstruct_particle_slurm(
 
 
 # Mask Create + Post-Process
-@cli.command(context_settings={"show_default": True})
-@click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
+@cli.command(context_settings=cli_context)
+@click.option("-p", "--parameter", type=str, required=True, default="sta_parameters.json", 
               help="Sub-Tomogram Refinement Parameter Path")
-@click.option("--reconstruction", type=str, required=True, 
+@click.option("-r", "--reconstruction", type=str, required=True, 
               help="Path to Reconstruction Job")
 @add_masking_options
 def mask_post_process(
@@ -158,6 +158,9 @@ def create_mask_and_post_process(
     soft_edge: int = 5,
     tomogram: str = None
     ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+    import starfile, os
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

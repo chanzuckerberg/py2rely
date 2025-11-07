@@ -1,7 +1,6 @@
-from pipeliner.api.manage_project import PipelinerProject
 import py2rely.routines.submit_slurm as my_slurm 
-from py2rely.utils import relion5_tools
-import click, starfile, os
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
@@ -11,24 +10,24 @@ def cli(ctx):
 def select_options(func):
     """Decorator to add shared options for select commands."""
     options = [
-        click.option("--parameter",type=str,required=True,default='sta_parameters.json',
+        click.option("-p", "--parameter",type=str,required=True,default='sta_parameters.json',
                     help="The Saved Parameter Path"),
-        click.option("--best-class",type=int,required=True,default="1",
+        click.option("-bc", "--best-class",type=int,required=True,default="1",
                     help="Best 3D Class for Sub-Sequent Refinement"),
-        click.option("--keep-classes",type=str,required=True,
+        click.option("-kc", "--keep-classes",type=str,required=True,
                     help="List of Classes to Keep for Further Refinement"),
-        click.option("--class-job",type=str,required=True,default="job001",
+        click.option("-cj", "--class-job",type=str,required=True,default="job001",
                     help="Job that Classes will Be Extracted"),
-        click.option("--run-refinement",type=click.BOOL,required=False,default=False,
+        click.option("-rr", "--run-refinement",type=click.BOOL,required=False,default=False,
                     help="Run 3D-Refinement After Selecting Best Classes"),
-        click.option("--mask-path", type=str,required=False,default=None,
+        click.option("-mp", "--mask-path", type=str,required=False,default=None,
                     help="(Optional) Path to Mask for 3D-Refinement")
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
     return func
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @select_options
 def select(
     parameter: str,
@@ -38,6 +37,21 @@ def select(
     run_refinement: bool,
     mask_path: str
     ):
+
+    run_class_select(parameter, best_class, keep_classes, class_job, run_refinement, mask_path)
+
+
+def run_class_select(
+    parameter: str,
+    best_class: int, 
+    keep_classes: str,
+    class_job: str, 
+    run_refinement: bool,
+    mask_path: str
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+    import starfile, os
     
     # Split the comma-separated string into a list of integers
     keep_classes = [int(x) for x in keep_classes.split(',')]
@@ -93,7 +107,7 @@ def select(
         utils.run_auto_refine(rerunRefine=True)
 
 
-@cli.command(context_settings={"show_default": True}, name='select')
+@cli.command(context_settings=cli_context, name='select')
 @select_options
 @my_slurm.add_compute_options
 def select_slurm(
