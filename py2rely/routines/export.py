@@ -1,10 +1,5 @@
-from pipeliner.api.manage_project import PipelinerProject
-from scipy.spatial.transform import Rotation as R
-import pipeliner.job_manager as job_manager
-from py2rely.utils import relion5_tools
-import json, click, starfile, os, copick
-from tqdm import tqdm
-import numpy as np 
+from py2rely import cli_context
+import click
 
 @click.group()
 @click.pass_context
@@ -14,14 +9,14 @@ def export(ctx):
     """
     pass
 
-@export.command(context_settings={"show_default": True})
+@export.command(context_settings=cli_context)
 @click.option(
-    "--parameter-path", type=str, required=True,
+    "-p","--parameter", type=str, required=True,
     default="sta_parameters.json",
     help="Sub-Tomogram Refinement Parameter Path",
 )
 @click.option(
-    "--class-job", type=str, required=True, default="job001",
+    "-cj","--class-job", type=str, required=True, default="job001",
     help="Job that Classes will Be Extracted",
 )
 @click.option(
@@ -33,7 +28,7 @@ def export(ctx):
     help="Path to Export New Classes",
 )
 def class2star(
-    parameter_path: str, 
+    parameter: str, 
     class_job: str,     
     export_classes: str,
     export_path: str,
@@ -42,16 +37,30 @@ def class2star(
     Export DesiredClasses from Class3D Job to New Starfile
     """
 
+    run_class2star(
+        parameter, class_job, export_classes, export_path
+    )
+
+
+def run_class2star(
+    parameter: str, 
+    class_job: str,     
+    export_classes: str,
+    export_path: str,
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+
     # Split the comma-separated string into a list of integers
     keep_classes = [int(x) for x in keep_classes.split(',')]
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter_path)
+    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')    
 
-    print(f'\n[Export Class] Exporting Classes {export_class} from Class3D/{class_job} to {export_path}\n')
+    print(f'\n[Export Class] Exporting Classes {export_classes} from Class3D/{class_job} to {export_path}\n')
 
     classParticles = utils.find_final_iteration(class_job)
 
@@ -63,41 +72,41 @@ def class2star(
 
     # Create Symlink for tomograms and any other necessary data
 
-@export.command(context_settings={"show_default": True})
+@export.command(context_settings=cli_context)
 @click.option(
-    "--particles", type=str, required=True, default="particles.star",
+    "-p","--particles", type=str, required=True, default="particles.star",
     help="Particles Starfile",
 )
 @click.option(
-    "--configs", type=str, required=True, default="config1.json,config2.json",
+    "-c","--configs", type=str, required=True, default="config1.json,config2.json",
     help="Comma Separated List of Config Files to Export Particles Too",
 )
 @click.option(
-    "--sessions", type=str, required=True, default="24aug07a,24jul29c",
+    "-s","--sessions", type=str, required=True, default="24aug07a,24jul29c",
     help="Comma Separated List of Sessions Associated with Particles",
 )
 @click.option(
-    "--particle-name", type=str, required=True, default='ribosome',
+    "-n","--name", type=str, required=True, default='ribosome',
     help='Particle Name to Save Copick Query'
 )
 @click.option(
-    "--export-user-id", type=str,required=False, default="relion",
+    "-uid","--user-id", type=str,required=False, default="relion",
     help="UserID to Export Picks"
 )
 @click.option(
-    "--export-session-id", type=str,required=False, default="99",
+    "-sid","--session-id", type=str,required=False, default="99",
     help="SessionID to Export Picks"
 )
 @click.option(
-    "--dim-x", type=int, required=False, default=4096,
+    "-x","--dim-x", type=int, required=False, default=4096,
     help="Box size along the x-axis in the tomogram."
 )
 @click.option(
-    "--dim-y", type=int, required=False, default=4096,
+    "-y","--dim-y", type=int, required=False, default=4096,
     help="Box size along the y-axis in the tomogram."
 )
 @click.option(
-    "--dim-z", type=int, required=False, default=1200,
+    "-z","--dim-z", type=int, required=False, default=1200,
     help="Box size along the z-axis in the tomogram."
 )
 def star2copick(
@@ -105,8 +114,8 @@ def star2copick(
     configs: str,
     sessions: str,
     particle_name: str,
-    export_user_id: str, 
-    export_session_id: int,
+    user_id: str, 
+    session_id: int,
     dim_x: int,
     dim_y: int, 
     dim_z: int    
@@ -114,6 +123,27 @@ def star2copick(
     """
     Export Particles Starfile into Corresponding Copick Projects
     """
+
+    run_star2copick(
+        particles, configs, sessions, particle_name, 
+        user_id, session_id, dim_x, dim_y, dim_z
+    )
+
+def run_star2copick(
+    particles: str, 
+    configs: str,
+    sessions: str,
+    particle_name: str,
+    user_id: str, 
+    session_id: int,
+    dim_x: int,
+    dim_y: int, 
+    dim_z: int    
+    ):
+    from scipy.spatial.transform import Rotation as R
+    import starfile, copick
+    from tqdm import tqdm
+    import numpy as np 
 
     # Parse User Inputs
     configs = configs.split(',')
@@ -196,13 +226,13 @@ def star2copick(
         # Save Picks - Overwrite if exists
         picks = run.get_picks(
             object_name = particle_name, 
-            user_id=export_user_id, 
-            session_id = export_session_id)
+            user_id=user_id, 
+            session_id = session_id)
         if len(picks) == 0:
             picks = run.new_picks(
                 object_name = particle_name, 
-                user_id=export_user_id, 
-                session_id = export_session_id)
+                user_id=user_id, 
+                session_id = session_id)
         else: 
             # Assume only one picks object per run with this name
             picks = picks[0]  

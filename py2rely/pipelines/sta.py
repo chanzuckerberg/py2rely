@@ -1,28 +1,23 @@
-from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
-from pipeliner.api.manage_project import PipelinerProject
-from py2rely.pipelines.classify import TheClassifier
-from py2rely.pipelines.polishing import ThePolisher
-from py2rely.utils import relion5_tools
-import subprocess
-import json, click
+from py2rely import cli_context
+import click
 
-@click.command(context_settings={"show_default": True}, name='sta')
+@click.command(context_settings=cli_context, name='sta')
 @click.option(
-    "--parameter",
+    "-p","--parameter",
     type=str,
     required=True,
     default='sta_parameters.json',
     help="The Saved Parameter Path",
 )
 @click.option(
-    "--reference-template",
+    "-rt","--reference-template",
     type=str,
     required=False,
     default=None,
     help="Provided Template for Preliminary Refinment (Optional)",
 )
 @click.option(
-    "--run-denovo-generation",
+    "-dg","--run-denovo-generation",
     type=bool,
     required=False, 
     default=False,
@@ -44,6 +39,18 @@ def average(
     """
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
     """
+
+def run_average(
+    parameter: str,
+    reference_template: str,
+    run_denovo_generation: bool, 
+    run_class3d: bool, 
+    ):
+    from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.pipelines.classify import TheClassifier
+    from py2rely.pipelines.polishing import ThePolisher
+    from py2rely.utils import relion5_tools
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -175,6 +182,7 @@ def average(
         bin1.run_resolution_estimate(particles)
 
 def remove_duplicates(utils, starfile, distance_scale):
+    import subprocess
 
     distance_angstroms = float(utils.tomo_refine3D_job.joboptions['particle_diameter'].value) * distance_scale
     cmd = f"relion_star_handler --i {starfile} --remove_duplicates {distance_angstroms} --o {starfile}"
