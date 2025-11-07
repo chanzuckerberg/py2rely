@@ -27,6 +27,3 @@ def slurm_routines():
 
 slurm_routines.add_command(subroutines_slurm)
 slurm_routines.add_command(slab_slurm)
-
-if __name__ == "__main__":
-    cli()

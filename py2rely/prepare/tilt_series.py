@@ -1,33 +1,28 @@
 from py2rely.prepare.common import add_optics_options
-import os, glob, argparse, starfile, click, copick, io
-from scipy.spatial.transform import Rotation as R
-from py2rely.utils import sta_tools
+from py2rely import cli_context
 from typing import List
-from tqdm import tqdm
-import pandas as pd
-import numpy as np
-import mrcfile
+import click
 
 @click.group()
 @click.pass_context
 def cli(ctx):
     pass
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option("--base-project",type=str,required=False,
               default = "/hpc/projects/group.czii/krios1.processing/aretomo3",
               help="Main Aretomo Project Folder Path" )
-@click.option("--session",type=str,required=True, default='23dec21',
+@click.option("-s","--session",type=str,required=True, default='23dec21',
               help="Session for Generating Relion Experiment")
-@click.option("--run",type=str,required=False, default='run001',
+@click.option("-r","--run",type=str,required=False, default='run001',
               help="Run for Generating Relion Experiment")
-@click.option("--output",type=str,required=False, default='input',
+@click.option("-o","--output",type=str,required=False, default='input',
               help="Output directory path to write STAR files")
-@click.option("--pixel-size",type=float,required=False, default=1.54,
+@click.option("-ps","--pixel-size",type=float,required=False, default=1.54,
               help="Unbinned Tilt Tilt Series Pixel Size (Å)")
-@click.option("--total-dose",type=float,required=False, default=60,
+@click.option("-td","--total-dose",type=float,required=False, default=60,
               help="Total Accumulated Dose (e-/Å^2)")
-@click.option("--symlinks",type=str,required=False, default=None,
+@click.option("-s","--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
 def import_tilt_series(
@@ -48,6 +43,33 @@ def import_tilt_series(
     Import tilt series data, process alignment and CTF parameters, and generate
     Relion-compatible STAR files for tomograms.
     """
+
+    run_import_tilt_series(
+        base_project, session, run, output, pixel_size, total_dose, symlinks, 
+        voltage, spherical_aberration, amplitude_contrast, optics_group, optics_group_name
+    )
+
+
+def run_import_tilt_series(
+    base_project: str, 
+    session: str,
+    run: str,
+    output: str,
+    pixel_size: float,
+    total_dose: float,
+    symlinks: str,
+    voltage: float,
+    spherical_aberration: float,
+    amplitude_contrast: float,
+    optics_group: int,
+    optics_group_name: str    
+    ):
+
+    from py2rely.utils import sta_tools
+    import os, glob, starfile, mrcfile
+    from tqdm import tqdm
+    import pandas as pd
+    import numpy as np
 
     # Set up output paths and directories
     # Entry to Save in `import.json`
@@ -251,10 +273,10 @@ def import_tilt_series(
 
 ###########################################################################################
 
-@cli.command(context_settings={"show_default": True})
-@click.option( "--input", type=str, required=True, multiple=True,    
+@cli.command(context_settings=cli_context)
+@click.option( "-i","--input", type=str, required=True, multiple=True,    
                help="StarFiles to Merge for STA Pipeline" )
-@click.option( "--output", type=str, required=False,
+@click.option( "-o","--output", type=str, required=False,
                default="input/aligned_tilt_series.star",
                help="Output Filename to Write Merged Starfile" )
 def combine_star_files_tomograms(
@@ -264,6 +286,18 @@ def combine_star_files_tomograms(
     """
     Combine multiple starfiles into a single starfile.
     """
+
+    run_combine_star_files_tomograms(
+        input, output
+    )
+
+def run_combine_star_files_tomograms(
+    input: List[str],
+    output: str
+    ):
+
+    import os, starfile
+    import pandas as pd
 
     # Iterate Through all Input StarFiles
     for ii in range(len(input)):
@@ -290,16 +324,26 @@ def combine_star_files_tomograms(
     # Inform the user that the file has been written successfully
     print(f"\nRelion5 Particles STAR file Merged to: {output}\n")  
 
-@cli.command(context_settings={"show_default": True})
-@click.option("--particles",type=str,required=True,
+@cli.command(context_settings=cli_context)
+@click.option("-p","--particles",type=str,required=True,
               help="Path to Particles Starfile")
-@click.option("--tomograms",type=str,required=True,
+@click.option("-t","--tomograms",type=str,required=True,
               help="Path to Tomograms Starfile")
 def remove_unused_tomograms(particles:str, tomograms:str):
     """
     Remove tomograms that dont contain any particles.
     """
-    
+
+    run_remove_unused_tomograms(
+        particles, tomograms
+    )
+
+def run_remove_unused_tomograms(
+    particles: str,
+    tomograms: str
+    ):
+    import os, starfile
+
     # Check to make sure file exists
     if not os.path.exists(particles):
         raise FileNotFoundError(f"Particles file {particles} does not exist.")
