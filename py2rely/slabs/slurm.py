@@ -303,7 +303,7 @@ def create_shellsubmit(
 {load_relion_command}
 
 ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/py2rely
+conda activate /hpc/projects/group.czii/conda_environments/pyrely
 {command}
 """
 
