@@ -41,6 +41,27 @@ def reconstruct_particle(
     soft_edge: int = None,
     tomogram: str = None
     ): 
+    """Reconstruct map from sub-tomograms with sub-sequent post-processing.
+
+    This command performs 3D reconstruction from aligned particles. 
+    It supports automatic or manual mask creation, and post-processing for
+    resolution estimation via Fourier Shell Correlation (FSC).
+    """
+    run_reconstruct_particle(
+        parameter, particles, bin_factor, 
+        mask, low_pass, extend, soft_edge, tomogram
+    )
+
+def run_reconstruct_particle(
+    parameter: str,
+    particles: str, 
+    bin_factor: int, 
+    mask: str = None,
+    low_pass: float = None,
+    extend: int = None, 
+    soft_edge: int = None,
+    tomogram: str = None
+    ):
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
 
@@ -145,6 +166,13 @@ def mask_post_process(
     soft_edge: int,
     tomogram: str = None
     ):
+    """Create mask and perform post-processing on an existing reconstruction.
+    
+    This command creates a soft-edged mask from a reconstruction and performs
+    post-processing to estimate resolution via Fourier Shell Correlation (FSC).
+    Use this when you already have a reconstruction and want to regenerate masks
+    with different parameters or recalculate resolution estimates.
+    """
 
     create_mask_and_post_process(parameter, reconstruction, mask, 
                                  low_pass, extend, soft_edge, tomogram)

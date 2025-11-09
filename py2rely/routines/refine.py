@@ -45,6 +45,7 @@ def refine3d(
     continue_iter: str = None,
     tomogram: str = None
     ): 
+    """3D Refinement from sub-tomograms."""
 
     run_refine3d(
         parameter, particles, reference, mask, 

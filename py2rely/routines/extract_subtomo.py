@@ -27,7 +27,37 @@ def extract_subtomo(
     parameter: str,
     tomogram: str,
     binfactor: int = None,
-    ):   
+    ): 
+    """Extract pseudo sub-tomograms from tilt series"""
+
+    run_extract_subtomo(
+        parameter, tomogram, binfactor,
+    )  
+
+
+def run_extract_subtomo(
+    parameter: str,
+    tomogram: str,
+    binfactor: int = None,
+    ):
+    """Extract pseudo sub-tomograms from cryo-ET tomograms using RELION.
+    
+    This command extracts 3D sub-volumes (sub-tomograms) from full tomogram
+    reconstructions at particle coordinates. It creates pseudo sub-tomograms
+    that can be used for subsequent sub-tomogram averaging and classification
+    workflows in RELION.
+    
+    Args:
+        parameter: Path to the JSON file containing pipeline parameters. This file
+                  specifies the tomogram locations, particle coordinates, and
+                  extraction settings.
+        tomogram: Optional path to a STAR file containing tomogram information.
+                 If provided, overrides the tomogram paths in the parameter file.
+                 Useful for using refined tomograms from CtfRefine or Polish jobs.
+        binfactor: Optional binning factor for extraction. If not provided, uses
+                  the starting binning factor specified in the parameter pipeline file.
+                  Higher values result in smaller, faster-to-process sub-tomograms.
+    """    
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
 

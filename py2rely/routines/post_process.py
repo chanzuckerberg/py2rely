@@ -36,6 +36,12 @@ def fresh_run(
     ):
     """
     Post Process a Half Map from a fresh new run .
+
+    Args:
+        parameter: Path to the JSON file containing pipeline parameters.
+        mask: Path to the mask file to use for post-processing.
+        half_map: Path to the half map file to post-process.
+        low_pass: Low-pass filter value to apply during post-processing.
     """
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools

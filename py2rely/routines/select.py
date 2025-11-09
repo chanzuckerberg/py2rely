@@ -14,7 +14,7 @@ def select_options(func):
                     help="The Saved Parameter Path"),
         click.option("-bc", "--best-class",type=int,required=True,default="1",
                     help="Best 3D Class for Sub-Sequent Refinement"),
-        click.option("-kc", "--keep-classes",type=str,required=True,
+        click.option("-kc", "--keep-classes",type=str,required=True, default="1,2,3",
                     help="List of Classes to Keep for Further Refinement"),
         click.option("-cj", "--class-job",type=str,required=True,default="job001",
                     help="Job that Classes will Be Extracted"),
@@ -37,6 +37,13 @@ def select(
     run_refinement: bool,
     mask_path: str
     ):
+    """Select particles from a Class3D job.
+    
+    This command extracts particles belonging to selected classes from a
+    RELION 3D classification job. It identifies the best class for subsequent
+    refinement and can filter particles from multiple classes,
+    then can automatically trigger 3D refinement on the selected particle subset.
+    """
 
     run_class_select(parameter, best_class, keep_classes, class_job, run_refinement, mask_path)
 
@@ -49,6 +56,42 @@ def run_class_select(
     run_refinement: bool,
     mask_path: str
     ):
+    """Execute the class selection and optional refinement workflow.
+    
+    This is the core implementation function that processes classification results,
+    selects particles from specified classes, and optionally runs 3D refinement.
+    It reads classification outputs, extracts particles based on class assignments,
+    and sets up refinement jobs with appropriate parameters.
+    
+    Args:
+        parameter: Path to the JSON file containing pipeline parameters.
+        best_class: The class number with the best structure for refinement reference.
+        keep_classes: Comma-separated string of class numbers to keep (will be converted
+                     to list of integers).
+        class_job: The job directory name containing classification results.
+        run_refinement: Whether to automatically run 3D refinement after selection.
+        mask_path: Optional path to a mask file for refinement.
+    
+    Workflow:
+        1. Parse keep_classes string into list of integers
+        2. Initialize RELION pipeline and read parameters
+        3. Detect binning level from classification results
+        4. Configure selection job to extract particles from specified classes
+        5. If run_refinement is True:
+           - Use best_class volume as reference
+           - Estimate appropriate low-pass filter from classification resolution
+           - Apply mask if provided
+           - Execute 3D refinement
+    
+    Output:
+        Selected particles are saved to: Select/job###/particles.star
+        If refinement runs, refined maps are saved to: Refine3D/job###/
+    
+    Note:
+        The function automatically estimates the initial low-pass filter for refinement
+        by taking 1.5 times the minimum estimated resolution from the classification.
+        This conservative approach helps ensure stable refinement convergence.
+    """    
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
     import starfile, os

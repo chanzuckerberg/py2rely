@@ -20,8 +20,8 @@ def export(ctx):
     help="Job that Classes will Be Extracted",
 )
 @click.option(
-    "--export-classes", type=str, required=True,
-    help="Best 3D Classes for Sub-Sequent Refinement"
+    "--export-classes", type=str, required=True, default="1,2",
+    help="Best 3D Classes for Sub-Sequent Refinement (Provided as Comma Separated List)"
 )
 @click.option(
     "--export-path", type=str, required=True,
@@ -52,7 +52,7 @@ def run_class2star(
     from py2rely.utils import relion5_tools
 
     # Split the comma-separated string into a list of integers
-    keep_classes = [int(x) for x in keep_classes.split(',')]
+    keep_classes = [int(x) for x in export_classes.split(',')]
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

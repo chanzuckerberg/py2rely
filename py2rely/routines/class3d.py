@@ -50,7 +50,8 @@ def class3d(
     ref_correct_greyscale: bool,
     tomogram: str,
     align_particles: bool
-    ):   
+    ):
+    """Run 3D classification on sub-tomograms using RELION."""
 
     run_class3d(
         parameter, particles, reference, mask, ini_high, 
@@ -71,6 +72,31 @@ def run_class3d(
     tomogram: str,
     align_particles: bool
     ):
+    """Execute the 3D classification workflow.
+    
+    This is the core implementation function that sets up the RELION pipeline,
+    configures classification parameters, and executes the 3D classification job.
+    It handles project initialization, parameter reading, binning detection, and
+    job configuration.
+    
+    Args:
+        parameter: Path to the JSON file containing sub-tomogram refinement parameters.
+        particles: Path to the STAR file containing particle data.
+        reference: Path to the MRC reference volume for classification.
+        mask: Optional path to a mask MRC file to focus classification.
+        ini_high: Optional low-pass filter resolution (in Angstroms).
+        tau_fudge: Tau regularization parameter.
+        nr_classes: Number of classes for separation.
+        nr_iter: Number of EM iterations.
+        ref_correct_greyscale: Whether reference is on absolute greyscale.
+        tomogram: Optional path to refined tomograms STAR file.
+        align_particles: Whether to perform alignment during classification.
+        
+    Note:
+        This function creates a new PipelinerProject, reads parameters from JSON files,
+        detects the current binning level from the particles STAR file, and configures
+        the RELION class3D job with all specified parameters before execution.
+    """
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
     import starfile
@@ -155,6 +181,7 @@ def class3d_slurm(
     ref_correct_greyscale: bool, 
     tomogram: str,
     align_particles: bool):
+    """Submit 3D classification job(s) to SLURM cluster."""
 
     # Determine Number of Classes Command
     num_classes_command, job_array_flag = determine_nr_classes_command(nr_classes)
