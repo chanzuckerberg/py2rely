@@ -26,7 +26,7 @@ def add_masking_options(func):
 @cli.command(context_settings=cli_context)
 @click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
               help="Sub-Tomogram Refinement Parameter Path")
-@click.option("-particles", type=str, required=True, 
+@click.option("--particles", type=str, required=True, 
               help="Path to Particles File to Reconstruct Data (e.g., Refine3D/job001/run_data.star)")
 @click.option("-bf", "--bin-factor", type=int, required=False, default=1, 
               help="Bin Factor to Determine At Which Resolution to Reconstruct Averaged Map")
