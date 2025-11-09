@@ -110,7 +110,7 @@ def run_import_particles(
 @common.add_common_options
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
-def gather_copick_particles(
+def particles(
     config: str, session: str, name: str, output: str, pixel_size: float,
     voxel_size: float, session_id: str, user_id: str, run_ids: str, x: float,
     y: float, z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
@@ -119,13 +119,13 @@ def gather_copick_particles(
     """Import particles from Copick project.
     """    
 
-    run_gather_copick_particles(
+    run_import_particles(
         config, session, name, output, pixel_size, voxel_size, 
         session_id, user_id, run_ids, x, y, z, voltage, 
         spherical_aberration, amplitude_contrast, optics_group, optics_group_name, relion5
     )
 
-def run_gather_copick_particles(
+def run_import_particles(
     config: str,  session: str,
     name: str, output: str, pixel_size: float, voxel_size: float, 
     session_id: str, user_id: str, run_ids: str, x: float, y: float, 
@@ -289,7 +289,7 @@ def run_gather_copick_particles(
     starfile.write({'optics': pd.DataFrame(optics), "particles": myStarFile}, writePath)
 
     # # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file saved to: {writePath}\n")      
+    print(f"\n✅ Relion5 Particles STAR file saved to: {writePath}\n")      
 
 @cli.command(context_settings={"show_default": True})
 @click.option(
@@ -348,8 +348,20 @@ def run_combine_particles(
 
     starfile.write({'optics': merged_optics, 'particles': merged_particles}, output)
 
-    # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file Merged to: {output}\n")
+    # Inform the user that the merge is complete
+    n_files = len(input)
+    n_particles = len(merged_particles)
+    n_optics = len(merged_optics)
+    input_list = ", ".join([os.path.basename(f) for f in input])
+
+    if n_files == 1:
+        print(f"\nℹ️ Only one input file provided. '{input_list}' copied to '{output}'.\n")
+    else:
+        print(
+            f"\n✅ Successfully merged {n_files} particle starfile(s):\n"
+            f"   {input_list}\n"
+            f"→ Combined {n_particles:,} total particles across {n_optics:,} optics groups into '{output}'.\n"
+        )
 
 
 ###########################################################################################

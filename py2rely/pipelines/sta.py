@@ -40,6 +40,11 @@ def average(
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
     """
 
+    run_average(
+        parameter, reference_template,
+        run_denovo_generation, run_class3d, 
+    )
+
 def run_average(
     parameter: str,
     reference_template: str,

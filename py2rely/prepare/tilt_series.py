@@ -25,7 +25,7 @@ def cli(ctx):
 @click.option("-sym","--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
-def import_tilt_series(
+def tilt_series(
     base_project: str, 
     session: str,
     run: str,
@@ -269,7 +269,7 @@ def run_import_tilt_series(
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Tomograms STAR file saved to: {fn}\n")    
+    print(f"\n✅ Relion5 Tilt-Series STAR file saved to: {fn}\n")    
 
 ###########################################################################################
 
@@ -322,23 +322,31 @@ def run_combine_tilt_series(
     starfile.write({'global': merged_alignments}, output)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file Merged to: {output}\n")  
+    n_files = len(input)
+    n_rows = len(merged_alignments)
+
+    input_list = ", ".join([os.path.basename(f) for f in input])
+    print(
+        f"\n✅ Successfully merged {n_files} tilt-series starfile(s):\n"
+        f"   {input_list}\n"
+        f"→ Combined {n_rows:,} total entries into '{output}'.\n"
+    ) 
 
 @cli.command(context_settings=cli_context)
 @click.option("-p","--particles",type=str,required=True,
               help="Path to Particles Starfile")
 @click.option("-t","--tomograms",type=str,required=True,
               help="Path to Tomograms Starfile")
-def remove_unused_tomograms(particles:str, tomograms:str):
+def filter_unused_tilts(particles:str, tomograms:str):
     """
     Remove tomograms that dont contain any particles.
     """
 
-    run_remove_unused_tomograms(
+    run_filter_unused_tilts(
         particles, tomograms
     )
 
-def run_remove_unused_tomograms(
+def run_filter_unused_tilts(
     particles: str,
     tomograms: str
     ):
@@ -361,10 +369,15 @@ def run_remove_unused_tomograms(
     used_tomogram_names = particles['particles']['rlnTomoName']
 
     # Remove the Unused Tomograms
+    initial_count = len(tomogramsDF)
     tomogramsDF = tomogramsDF[tomogramsDF['rlnTomoName'].isin(used_tomogram_names)]
+    removed_count = initial_count - len(tomogramsDF)
 
     # Write the New Tomograms Starfile
     starfile.write({'global': tomogramsDF}, tomograms)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file Merged to: {tomograms}\n")  
+    print(
+        f"\n✅ Removed {removed_count} unused tilt series from '{tomograms}' -- "
+        f"{len(tomogramsDF)} tilt series remain.\n"
+    ) 
