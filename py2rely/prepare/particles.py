@@ -291,7 +291,7 @@ def run_import_particles(
     # # Inform the user that the file has been written successfully
     print(f"\n✅ Relion5 Particles STAR file saved to: {writePath}\n")      
 
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @click.option(
     "-i","--input",
     type=str,
