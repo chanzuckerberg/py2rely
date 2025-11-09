@@ -30,7 +30,7 @@ def cli(ctx):
 @click.option("--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
-def import_tilt_series(
+def tilt_series(
     base_project: str, 
     session: str,
     run: str,
@@ -48,6 +48,33 @@ def import_tilt_series(
     Import tilt series data, process alignment and CTF parameters, and generate
     Relion-compatible STAR files for tomograms.
     """
+
+    import_tilt_series(
+        base_project, session, run, output, pixel_size, total_dose, symlinks, 
+        voltage, spherical_aberration, amplitude_contrast, optics_group, optics_group_name
+    )
+
+
+def import_tilt_series(
+    base_project: str, 
+    session: str,
+    run: str,
+    output: str,
+    pixel_size: float,
+    total_dose: float,
+    symlinks: str,
+    voltage: float,
+    spherical_aberration: float,
+    amplitude_contrast: float,
+    optics_group: int,
+    optics_group_name: str    
+    ):
+
+    import os, glob, starfile, mrcfile, io
+    from py2rely.utils import sta_tools
+    from tqdm import tqdm
+    import pandas as pd
+    import numpy as np
 
     # Set up output paths and directories
     # Entry to Save in `import.json`
@@ -247,7 +274,7 @@ def import_tilt_series(
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Tomograms STAR file saved to: {fn}\n")    
+    print(f"\n✅ Relion5 Tilt Series STAR file saved to: {fn}\n")
 
 ###########################################################################################
 
@@ -288,18 +315,28 @@ def combine_star_files_tomograms(
     starfile.write({'global': merged_alignments}, output)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file Merged to: {output}\n")  
+    print(f"\n✅ Aligned Tilt Series Merged to: {output}\n")
 
 @cli.command(context_settings={"show_default": True})
 @click.option("--particles",type=str,required=True,
               help="Path to Particles Starfile")
 @click.option("--tomograms",type=str,required=True,
               help="Path to Tomograms Starfile")
-def remove_unused_tomograms(particles:str, tomograms:str):
+def filter_unused_tilts(particles:str, tomograms:str):
     """
-    Remove tomograms that dont contain any particles.
+    Remove any tilt series / tomograms that didn't contain any particles.
     """
-    
+
+    run_filter_unused_tilts(
+        particles, tomograms
+    )
+
+def run_filter_unused_tilts(
+    particles: str,
+    tomograms: str
+    ):
+    import os, starfile
+
     # Check to make sure file exists
     if not os.path.exists(particles):
         raise FileNotFoundError(f"Particles file {particles} does not exist.")
@@ -317,10 +354,15 @@ def remove_unused_tomograms(particles:str, tomograms:str):
     used_tomogram_names = particles['particles']['rlnTomoName']
 
     # Remove the Unused Tomograms
+    initial_count = len(tomogramsDF)
     tomogramsDF = tomogramsDF[tomogramsDF['rlnTomoName'].isin(used_tomogram_names)]
+    removed_count = initial_count - len(tomogramsDF)
 
     # Write the New Tomograms Starfile
     starfile.write({'global': tomogramsDF}, tomograms)
 
     # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file Merged to: {tomograms}\n")  
+    print(
+        f"\n✅ Removed {removed_count} unused tilt series from '{tomograms}' -- "
+        f"{len(tomogramsDF)} tilt series remain.\n"
+    ) 

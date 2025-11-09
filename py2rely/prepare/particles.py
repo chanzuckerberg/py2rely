@@ -151,25 +151,11 @@ def import_pytom_particles(
 @common.add_common_options
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
-def gather_copick_particles(
-    config: str, 
-    session: str,
-    copick_name: str, 
-    output: str,
-    pixel_size: float,
-    voxel_size: float, 
-    copick_session_id: str, 
-    copick_user_id: str,
-    run_ids: str,
-    x: float,
-    y: float, 
-    z: float,
-    voltage: float,
-    spherical_aberration: float,
-    amplitude_contrast: float,
-    optics_group: int,
-    optics_group_name: str,
-    relion5: bool
+def particles(
+    config: str, session: str, name: str, output: str, pixel_size: float,
+    voxel_size: float, session_id: str, user_id: str, run_ids: str, x: float,
+    y: float, z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
+    optics_group: int, optics_group_name: str, relion5: bool
     ):
     """Import particles from Copick project"""
 
@@ -299,7 +285,7 @@ def gather_copick_particles(
     starfile.write({'optics': pd.DataFrame(optics), "particles": myStarFile}, writePath)
 
     # # Inform the user that the file has been written successfully
-    print(f"\nRelion5 Particles STAR file saved to: {writePath}\n")      
+    print(f"\n✅ Relion5 Particles STAR file saved to: {writePath}\n")      
 
 @cli.command(context_settings={"show_default": True})
 @click.option(

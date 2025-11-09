@@ -45,6 +45,23 @@ def average(
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
     """
 
+    run_average(
+        parameter, reference_template, 
+        run_denovo_generation, run_class3d, 
+    )
+
+def run_average(
+    parameter: str,
+    reference_template: str,
+    run_denovo_generation: bool, 
+    run_class3d: bool, 
+    ):
+    from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.pipelines.classify import TheClassifier
+    from py2rely.pipelines.polishing import ThePolisher
+    from py2rely.utils import relion5_tools
+
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)

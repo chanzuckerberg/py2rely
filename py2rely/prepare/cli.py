@@ -1,6 +1,7 @@
 from py2rely.prepare.particles import (
     import_particles,
     import_pytom_particles,
+<<<<<<< Updated upstream
     gather_copick_particles,
     combine_star_files_particles,
 )
@@ -8,6 +9,15 @@ from py2rely.prepare.tilt_series import (
     import_tilt_series,
     combine_star_files_tomograms,
     remove_unused_tomograms,
+=======
+    particles,
+    combine_particles,
+)
+from py2rely.prepare.tilt_series import (
+    tilt_series,
+    combine_tilt_series,
+    filter_unused_tilts,
+>>>>>>> Stashed changes
 )
 from py2rely.prepare.generate_parameters import (
     relion5_parameters,
@@ -23,14 +33,14 @@ def prepare():
 
 # Add subcommands to the group
 prepare.add_command(import_particles)
-prepare.add_command(import_pytom_particles)
-prepare.add_command(gather_copick_particles)
-prepare.add_command(combine_star_files_particles)
-prepare.add_command(import_tilt_series)
-prepare.add_command(combine_star_files_tomograms)
+# prepare.add_command(import_pytom_particles)
+prepare.add_command(particles)
+prepare.add_command(combine_particles)
+prepare.add_command(tilt_series)
+prepare.add_command(combine_tilt_series)
 prepare.add_command(relion5_parameters)
 prepare.add_command(relion5_pipeline)
-prepare.add_command(remove_unused_tomograms)
+prepare.add_command(filter_unused_tilts)
 prepare.add_command(create_template)
 
 if __name__ == "__main__":

@@ -393,7 +393,7 @@ def run_create_template(
         template = np.flip(template, axis=0)
 
     write_mrc(output, template, output_voxel_size)
-    logging.info("Wrote %s (voxel size %.3f Å) shape=%s", output, output_voxel_size, template.shape)
+    logging.info(✅ "Wrote %s (voxel size %.3f Å) shape=%s", output, output_voxel_size, template.shape)
 
 
 # Allow `python cpu_template_tools.py ...` execution
