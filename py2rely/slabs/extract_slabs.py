@@ -1,9 +1,7 @@
-from pipeliner.api.manage_project import PipelinerProject
-import json, click, starfile, mrcfile, glob, os, re
-from py2rely.utils import relion5_tools
-from tqdm import tqdm
+from py2rely import cli_context
+import rich_click as click
 
-@click.command(context_settings={'show_default': True}, name='extract')
+@click.command(context_settings=cli_context, name='extract')
 @click.option(
     '--parameter', type=str,
     help='Path to Parameters starfile'
@@ -26,6 +24,19 @@ def extracter(
     particles,
     aretomopath,
     ):
+
+    run_extracter(parameter, tiltseries, particles, aretomopath)
+
+
+def run_extracter(
+    parameter,
+    tiltseries,
+    particles,
+    aretomopath,
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+    import starfile, glob, os
 
     # Generate tomograms.starfile
     volumes = [
@@ -65,6 +76,8 @@ def extracter(
     utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
 
 def get_tomo_stats(tomo_path, sfile, index):
+    import mrcfile
+
     with mrcfile.mmap(tomo_path, mode='r') as mrc:
         voxel_size = float(mrc.voxel_size['x'])  # Assuming isotropic
         nx = mrc.header.nx 
@@ -79,6 +92,7 @@ def get_tomo_stats(tomo_path, sfile, index):
     return binning
 
 def get_mrc_path(name, volumes):
+    import os
 
     # Split name like "25jul16a_Position_1" into parts
     parts = name.split('_', 1)  # Split on first underscore

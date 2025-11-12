@@ -7,7 +7,7 @@ name = "py2rely"
 requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = [
-    "click",
+    "rich-click",
     "mrcfile",
     "starfile",
     "pydantic",

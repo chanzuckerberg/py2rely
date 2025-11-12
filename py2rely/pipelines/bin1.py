@@ -1,15 +1,15 @@
-from py2rely.routines.mask_create import auto_mask_create
-from pipeliner.api.manage_project import PipelinerProject
 import py2rely.routines.submit_slurm as my_slurm 
-from py2rely.utils import relion5_tools
-import click, mrcfile
-import numpy as np
+from py2rely import cli_context
+import rich_click as click
 
 class HighResolutionRefinement:
     """Class for high-resolution refinement with two entry points."""
 
     def __init__(self, parameter_file: str, tomograms: str = None, rerun: bool = False):
         """Initialize the refinement pipeline with configuration file."""
+
+        from pipeliner.api.manage_project import PipelinerProject
+        from py2rely.utils import relion5_tools
 
         self.project = PipelinerProject(make_new_project=True)
         self.utils = relion5_tools.Relion5Pipeline(self.project)
@@ -86,6 +86,7 @@ class HighResolutionRefinement:
 
     def run_hr_refinement(self, particles: str, low_pass: float, mask: str = None):
         """Execute the main refinement pipeline."""
+        from py2rely.routines.mask_create import auto_mask_create
 
         # Generate Pseudo Sub-Tomograms at Bin = 1
         self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
@@ -143,7 +144,7 @@ def high_resolution_options(func):
     return func  
 
 
-@click.command(context_settings={"show_default": True}, name='bin1')
+@click.command(context_settings=cli_context, name='bin1')
 @high_resolution_options
 def high_resolution_cli(
     parameter: str,
@@ -162,7 +163,7 @@ def high_resolution_cli(
     bin1.run_hr_refinement(particles, low_pass, mask)
 
 
-@click.command(context_settings={"show_default": True}, name='bin1-pipeline')
+@click.command(context_settings=cli_context, name='bin1-pipeline')
 @high_resolution_options
 @my_slurm.add_compute_options
 def high_resolution_slurm(

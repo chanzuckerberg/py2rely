@@ -1,8 +1,6 @@
-from pipeliner.api.manage_project import PipelinerProject
 import py2rely.routines.submit_slurm as my_slurm 
-import pipeliner.job_manager as job_manager
-from py2rely.utils import relion5_tools
-import json, click, starfile
+from py2rely import cli_context
+import rich_click as click
 
 @click.group()
 @click.pass_context
@@ -16,13 +14,13 @@ def refine3d_options(func):
                       help="Sub-Tomogram Refinement Parameter Path",),
         click.option("--particles",type=str,required=True,default="Refine3D/job001/run_data.star",
                       help="Path to Particles File to Reconstruct Data"),
-        click.option("--reference",type=str,required=True,default="Refine3D/job001/class001.mrc",
+        click.option("-r", "--reference",type=str,required=True,default="Refine3D/job001/class001.mrc",
                       help="Path to Reference MRC for Refinement"),
-        click.option("--mask",type=str,required=False,default=None,
+        click.option("-m", "--mask",type=str,required=False,default=None,
                       help="(Optional) Path for Mask."),
-        click.option("--low-pass",type=float,required=False,default=15,
+        click.option("-lp", "--low-pass",type=float,required=False,default=15,
                       help="User Input Low Pass Filter"),
-        click.option("--ref-correct-greyscale",type=bool,required=False, default=True,
+        click.option("-rcg", "--ref-correct-greyscale",type=bool,required=False, default=True,
                       help="Reference Map is on Absolute Greyscale?"),
         click.option("--continue-iter",type=str,required=False,default=None,
                       help="(Optional) Continue from this iteration? (e.g., Refine3D/job009/run_it008_optimiser.star)"),
@@ -34,7 +32,7 @@ def refine3d_options(func):
     return func  
 
 # Refine3D
-@cli.command(context_settings={"show_default": True})
+@cli.command(context_settings=cli_context)
 @refine3d_options
 def refine3d(
     parameter: str,
@@ -47,6 +45,29 @@ def refine3d(
     continue_iter: str = None,
     tomogram: str = None
     ): 
+    """3D Refinement from sub-tomograms."""
+
+    run_refine3d(
+        parameter, particles, reference, mask, 
+        symmetry, low_pass, ref_correct_greyscale, 
+        continue_iter, tomogram
+    )
+
+
+def run_refine3d(
+    parameter: str,
+    particles: str, 
+    reference: str,
+    mask: str = None,
+    symmetry: str = None,
+    low_pass: float = None,
+    ref_correct_greyscale: bool = True,    
+    continue_iter: str = None,
+    tomogram: str = None
+    ):
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
+    import starfile
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
@@ -96,7 +117,7 @@ def refine3d(
     # Run 3D-Refinement
     utils.run_auto_refine(rerunRefine=True)
 
-@cli.command(context_settings={"show_default": True}, name='refine3d')
+@cli.command(context_settings=cli_context, name='refine3d')
 @refine3d_options
 @my_slurm.add_compute_options
 def refine3d_slurm(

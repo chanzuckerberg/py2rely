@@ -1,8 +1,5 @@
-from pipeliner.api.manage_project import PipelinerProject
-import py2rely.routines.submit_slurm as my_slurm 
-import pipeliner.job_manager as job_manager
-import json, click, starfile, os, mrcfile
-from py2rely.utils import relion5_tools
+from py2rely import cli_context
+import rich_click as click
 
 @click.group()
 @click.pass_context
@@ -10,14 +7,14 @@ def cli(ctx):
     pass
 
 # Post Process Command
-@cli.command(context_settings={"show_default": True})
-@click.option("--parameter", type=str, required=True, default="sta_parameters.json", 
+@cli.command(context_settings=cli_context)
+@click.option("-p", "--parameter", type=str, required=True, default="sta_parameters.json", 
               help="Sub-Tomogram Refinement Parameter Path")
-@click.option('--mask', type=str, required=True, 
+@click.option("-m", "--mask", type=str, required=True, 
               help="Path to Mask to Measure the Map Resolution")
-@click.option('--half-map', type=str, required=True, 
+@click.option("-hm", "--half-map", type=str, required=True, 
               help="Path to Half Map to Post Process")
-@click.option('--low-pass', type=float, required=False, default=None, 
+@click.option("-lp", "--low-pass", type=float, required=False, default=None, 
               help='Low Pass Filter to Use for Post Processing')
 def post_process(
     parameter: str,
@@ -39,7 +36,15 @@ def fresh_run(
     ):
     """
     Post Process a Half Map from a fresh new run .
+
+    Args:
+        parameter: Path to the JSON file containing pipeline parameters.
+        mask: Path to the mask file to use for post-processing.
+        half_map: Path to the half map file to post-process.
+        low_pass: Low-pass filter value to apply during post-processing.
     """
+    from pipeliner.api.manage_project import PipelinerProject
+    from py2rely.utils import relion5_tools
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

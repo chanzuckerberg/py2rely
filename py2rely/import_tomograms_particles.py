@@ -1,7 +1,7 @@
 from pipeliner.api.manage_project import PipelinerProject
 import pipeliner.job_manager as job_manager
 import my_pipeline_helper
-import click
+import rich_click as click
 
 @click.group()
 @click.pass_context

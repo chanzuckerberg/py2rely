@@ -1,5 +1,4 @@
-from py2rely.utils import relion5_tools
-import click
+import rich_click as click
 
 @click.group()
 @click.pass_context

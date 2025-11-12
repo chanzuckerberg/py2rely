@@ -1,9 +1,7 @@
-from scipy.spatial.transform import Rotation as R
-import starfile, copick, click, os
-from tqdm import tqdm
-import numpy as np
+from py2rely import cli_context
+import rich_click as click
 
-@click.group(name='utils')
+@click.group(context_settings=cli_context, name='utils')
 @click.pass_context
 def converters(ctx):
     """
@@ -11,12 +9,12 @@ def converters(ctx):
     """
     pass
 
-@converters.command()
-@click.option('--input', type=str, required=True, 
+@converters.command(context_settings=cli_context)
+@click.option('-i','--input', type=str, required=True, 
               help='Path to the original star file.')
-@click.option('--config', type=str, required=True, 
+@click.option('-c','--config', type=str, required=True, 
               help='Path to the copick config file.')
-@click.option('--particle-name', type=str, required=True, 
+@click.option('-n','--particle-name', type=str, required=True, 
               help='Name of the particle to export.')
 @click.option('--user-id', type=str, required=True, 
               help='UserID for the export.')
@@ -26,7 +24,7 @@ def converters(ctx):
               help='Voxel size for the export.')
 @click.option('--export-tag', type=str, required=True, 
               help='Tag for the export. We need to remove the .tomostar extension and replace it with the suffix Warp provides for the tomograms.')
-def warp_tm_to_copick(
+def warp_tm2copick(
     input: str,
     config: str, 
     particle_name: str, 
@@ -35,7 +33,27 @@ def warp_tm_to_copick(
     voxel_size: float,
     export_tag: str,
     ):
-    
+    """
+    Converts Coordinates from Warp Template Matching to Copick format.
+    """
+
+    run_warp_tm_to_copick(
+        input, config, particle_name, user_id, session_id, voxel_size, export_tag
+    )
+
+def run_warp_tm_to_copick(
+    input: str,
+    config: str,
+    particle_name: str,
+    user_id: str,
+    session_id: int,
+    voxel_size: float,
+    export_tag: str):
+    from scipy.spatial.transform import Rotation as R
+    import starfile, copick
+    from tqdm import tqdm
+    import numpy as np
+
     # Read the input file
     particles = starfile.read(input)
 
@@ -74,12 +92,12 @@ def warp_tm_to_copick(
         picks = run.new_picks(object_name = particle_name, user_id = user_id, session_id = session_id)
         picks.from_numpy(points, orientations)
 
-@converters.command()
-@click.option('--input', type=str, required=True, 
+@converters.command(context_settings=cli_context)
+@click.option('-i','--input', type=str, required=True, 
     help='Path to the original star file.')
-@click.option('--output', type=str, required=True, 
+@click.option('-o','--output', type=str, required=True, 
     help='Path to the new star file.')
-def ts_to_position(
+def ts2position(
     input: str, 
     output: str):
     """
@@ -91,7 +109,16 @@ def ts_to_position(
         input (str): Path to the original STAR file.
         output (str): Path to the new STAR file to save the updated data.
     """    
-    
+
+    run_ts_to_position(
+        input, output
+    )
+
+def run_ts_to_position(
+    input: str,
+    output: str):
+    import starfile, os
+
     # Check if File Exists, if so Read the original STAR file
     if not os.path.exists(input):
         raise FileNotFoundError(f"Input file {input} does not exist.")

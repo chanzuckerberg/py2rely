@@ -13,7 +13,7 @@ https://github.com/SBC-Utrecht/pytom-match-pick/blob/main/src/pytom_tm/template.
 from __future__ import annotations
 
 from typing import Optional, Tuple, TYPE_CHECKING
-import click
+import rich_click as click
 
 # Optional: satisfy type checkers without runtime imports
 if TYPE_CHECKING:
@@ -274,11 +274,11 @@ POSINT = LargerThanZeroInt()
     ),
 )
 @click.option(
-    "--center", is_flag=True, default=False,
+    "-c", "--center", is_flag=True, default=False,
     help="Center density by center of mass before filtering.",
 )
 @click.option(
-    "--low-pass",
+    "-lp", "--low-pass",
     type=POSFLOAT, required=False,
     help=(
         "Apply Gaussian low-pass to this resolution (Å). Default is 2 * output voxel size."
@@ -393,7 +393,7 @@ def run_create_template(
         template = np.flip(template, axis=0)
 
     write_mrc(output, template, output_voxel_size)
-    logging.info("Wrote %s (voxel size %.3f Å) shape=%s", output, output_voxel_size, template.shape)
+    logging.info("✅ Wrote %s (voxel size %.3f Å) shape=%s", output, output_voxel_size, template.shape)
 
 
 # Allow `python cpu_template_tools.py ...` execution

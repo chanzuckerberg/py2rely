@@ -1,9 +1,7 @@
 import py2rely.routines.submit_slurm as my_slurm
-import py2rely.prepare.parameters as parameters
-from py2rely.utils import sta_tools
+from py2rely import cli_context
 from typing import List
-import json, click, os
-import starfile
+import rich_click as click
 
 @click.group()
 @click.pass_context
@@ -11,32 +9,32 @@ def cli(ctx):
     pass
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings={"show_default": True})
-@click.option("--output",type=str,required=False,default='sta_parameters.json',
+@cli.command(context_settings=cli_context)
+@click.option("-o","--output",type=str,required=False,default='sta_parameters.json',
               help="The Saved Parameter Path",)
-@click.option("--input-tilt-series",type=str,required=False,default="input/tiltSeries/aligned_tilt_series.star",
+@click.option("-ts","--tilt-series",type=str,required=False,default="input/tiltSeries/aligned_tilt_series.star",
               help="Path to Starfile with Tilt Series Alignments")
-@click.option("--input-particles",type=str,required=False,default="input/full_picks.star",
+@click.option("-p","--particles",type=str,required=False,default="input/full_picks.star",
               help="Path to Starfile with Particle Coordinates")
-@click.option("--tilt-series-pixel-size",type=float,required=False,default=1.54,
+@click.option("-ps","--tilt-series-pixel-size",type=float,required=False,default=1.54,
               help="Pixel Size for the Tilt Series (in Angstroms)")
-@click.option("--symmetry",type=str,required=False,default="C1",
+@click.option("-s","--symmetry",type=str,required=False,default="C1",
               help="Protein Symmetry")
-@click.option("--low-pass", type=float, required=False,default=50,
+@click.option("-lp","--low-pass", type=float, required=False,default=50,
               help="Low-Pass Filter for the Reference Template (in Angstroms)")
-@click.option("--protein-diameter",type=float,required=False,default=290,
+@click.option("-pd","--protein-diameter",type=float,required=False,default=290,
               help="Protein Diameter")
-@click.option("--denovo-generation",type=bool,required=False,default=False,
+@click.option("-dg","--denovo-generation",type=bool,required=False,default=False,
               help="Create Template Parameters for Denovo Model Generation")
-@click.option("--box-scaling",type=float,required=False,default=2.0,
+@click.option("-bs","--box-scaling",type=float,required=False,default=2.0,
               help="Default Padding for Sub-Tomogram Averaging")
-@click.option("--binning-list", type=str, required=False, default="4,2,1",
+@click.option("-bl","--binning-list", type=str, required=False, default="4,2,1",
               callback=my_slurm.parse_int_list,
               help="List of Binning Factors to Process the Refinement Steps (provided as a comma-separated list)")
 def relion5_parameters(
     output: str,
-    input_tilt_series: str,
-    input_particles: str, 
+    tilt_series: str,
+    particles: str, 
     tilt_series_pixel_size: float,
     symmetry: str,
     low_pass: float,
@@ -48,11 +46,35 @@ def relion5_parameters(
     """
     Generate a JSON file with the default parameters for the py2rely.
     """
-    if not os.path.exists(input_particles):
-        raise FileNotFoundError(f"Input particles file not found: {input_particles}")
 
-    if not os.path.exists(input_tilt_series):
-        raise FileNotFoundError(f"Input tiltseries file not found: {input_tilt_series}")
+    create_relion5_parameters(
+        output, tilt_series, particles, 
+        tilt_series_pixel_size, symmetry, low_pass, 
+        protein_diameter, denovo_generation, box_scaling, 
+        binning_list
+    )
+
+def create_relion5_parameters(
+    output: str,
+    tilt_series: str,
+    particles: str, 
+    tilt_series_pixel_size: float,
+    symmetry: str,
+    low_pass: float,
+    protein_diameter: float,
+    denovo_generation: bool,
+    box_scaling: float,
+    binning_list: List[int],
+    ):
+    import py2rely.prepare.parameters as parameters
+    from py2rely.utils import sta_tools
+    import json, os
+
+    if not os.path.exists(particles):
+        raise FileNotFoundError(f"Input particles file not found: {particles}")
+
+    if not os.path.exists(tilt_series):
+        raise FileNotFoundError(f"Input tiltseries file not found: {tilt_series}")
 
     # TODO: validate:
     # - each job that can use mpi has parameters set to use mpi
@@ -65,7 +87,7 @@ def relion5_parameters(
             binning_list=str(binning_list)
         ),
         initial_model=parameters.InitialModel(
-            in_tomograms=input_tilt_series,            
+            in_tomograms=tilt_series,            
             use_direct_entries="yes",
             nr_iter=70,
             nr_classes=1,
@@ -79,8 +101,8 @@ def relion5_parameters(
             nr_threads=8
         ) if denovo_generation else None,
         reconstruct=parameters.Reconstruct(
-            in_tomograms=input_tilt_series,
-            in_particles= input_particles,
+            in_tomograms=tilt_series,
+            in_particles= particles,
             do_use_direct_entries="yes",
             do_from2d="yes",
             crop_size=-1,
@@ -89,8 +111,8 @@ def relion5_parameters(
             mpi_command="mpirun"
         ),
         pseudo_subtomo=parameters.PseudoSubtomo(
-            in_tomograms=input_tilt_series,
-            in_particles=input_particles,
+            in_tomograms=tilt_series,
+            in_particles=particles,
             do_use_direct_entries="yes",
             crop_size=-1,
             do_float16="yes",
@@ -99,7 +121,7 @@ def relion5_parameters(
             nr_mpi=3,
         ),
         refine3D=parameters.Refine3D(
-            in_tomograms=input_tilt_series,   
+            in_tomograms=tilt_series,   
             use_direct_entries="yes",
             ref_correct_greyscale="yes",
             ini_high=low_pass,
@@ -123,7 +145,7 @@ def relion5_parameters(
             other_args="" # --maxsig 3000
         ),
         class3D=parameters.Class3D(
-            in_tomograms=input_tilt_series,   
+            in_tomograms=tilt_series,   
             use_direct_entries="yes",
             ref_correct_greyscale="yes",
             ini_high=int(low_pass/2),
@@ -161,7 +183,7 @@ def relion5_parameters(
             width_mask_edge=5
         ),
         ctf_refine=parameters.CtfRefine(
-            in_tomograms=input_tilt_series,
+            in_tomograms=tilt_series,
             use_direct_entries="yes",
             do_defocus="yes",
             focus_range=3000,
@@ -172,7 +194,7 @@ def relion5_parameters(
             nr_threads=8
         ) if 1 in binning_list else None,
         bayesian_polish=parameters.BayesianPolish(
-            in_tomograms=input_tilt_series,
+            in_tomograms=tilt_series,
             use_direct_entries="yes",
             max_error=5,
             do_motion="yes",
@@ -193,12 +215,12 @@ def relion5_parameters(
     utils.read_json_params_file(output)
 
 
-@cli.command(context_settings={"show_default": True})
-@click.option("--parameter",type=str,required=True,default='sta_parameters.json',
+@cli.command(context_settings=cli_context)
+@click.option("-p","--parameter",type=str,required=True,default='sta_parameters.json',
               help="The Saved Parameter Path")
-@click.option("--reference-template",type=str,required=False,default=None,
+@click.option("-rt","--reference-template",type=str,required=False,default=None,
               help="Provided Template for Preliminary Refinment (Optional)")
-@click.option("--run-denovo-generation",type=bool,required=False, default=False,
+@click.option("-dg","--run-denovo-generation",type=bool,required=False, default=False,
               help="Generate Initial Reconstruction with Denovo")
 @click.option("--run-class3D",type=bool,required=False,default=False, 
               help="Run 3D-Classification Job After Refinement")
@@ -216,7 +238,22 @@ def relion5_pipeline(
     ):
     """
     Prepare py2rely pipeline for submission.
-    """
+    """    
+
+    run_relion5_pipeline(
+        parameter, reference_template, run_denovo_generation, run_class3d, num_gpus, gpu_constraint, new_pipeline
+    )
+
+def run_relion5_pipeline(
+    parameter: str,
+    reference_template: str,
+    run_denovo_generation: bool,
+    run_class3d: bool,
+    num_gpus: int, 
+    gpu_constraint: str, 
+    new_pipeline: bool
+    ):
+    import os
 
     # Delete Existing Output Directories for a fresh new pipeline run
     if new_pipeline and os.path.exists('output_directories.json'):

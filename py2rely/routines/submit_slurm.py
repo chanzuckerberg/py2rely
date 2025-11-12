@@ -1,4 +1,4 @@
-import click
+import rich_click as click
 
 def get_load_relion_command():
     load_relion_command = """
