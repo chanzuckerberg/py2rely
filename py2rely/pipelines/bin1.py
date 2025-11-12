@@ -86,6 +86,7 @@ class HighResolutionRefinement:
 
     def run_hr_refinement(self, particles: str, low_pass: float, mask: str = None):
         """Execute the main refinement pipeline."""
+        from py2rely.routines.mask_create import auto_mask_create
 
         # Generate Pseudo Sub-Tomograms at Bin = 1
         self.utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
