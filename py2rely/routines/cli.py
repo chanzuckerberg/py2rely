@@ -8,7 +8,7 @@ from py2rely.routines.class3d import class3d, class3d_slurm
 from py2rely.routines.select import select, select_slurm
 from py2rely.routines.post_process import post_process
 from py2rely.routines.report import box_sizes
-import click
+import rich_click as click
 
 @click.group()
 def routines():

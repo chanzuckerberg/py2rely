@@ -1,5 +1,5 @@
 from py2rely import cli_context
-import click
+import rich_click as click
 
 @click.group()
 @click.pass_context
@@ -184,7 +184,7 @@ def run_class_selector(
     ):
     from pipeliner.api.manage_project import PipelinerProject
     import sys, os, re, starfile
-    import click, glob, mrcfile
+    import rich_click as click, glob, mrcfile
     import pyqtgraph as pg
     import numpy as np
 

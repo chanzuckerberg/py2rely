@@ -1,6 +1,6 @@
 from py2rely.pipelines.bin1 import high_resolution_cli
 from py2rely.pipelines.sta import average
-import click
+import rich_click as click
 
 @click.group()
 def pipelines():

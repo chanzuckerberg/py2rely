@@ -7,7 +7,7 @@ from py2rely.prepare.cli import prepare
 from py2rely.slabs.cli import slab, slab_slurm
 
 from py2rely import cli_context
-import click
+import rich_click as click
 
 @click.group(context_settings=cli_context)
 def routines():

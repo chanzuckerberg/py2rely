@@ -1,7 +1,7 @@
 from pipeliner.api.manage_project import PipelinerProject
 import py2rely.routines.submit_slurm as my_slurm 
 from py2rely.utils import relion5_tools
-import click, starfile, os
+import rich_click as click, starfile, os
 
 @click.group()
 @click.pass_context

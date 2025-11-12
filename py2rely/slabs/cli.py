@@ -2,7 +2,7 @@ from py2rely.slabs.class2D import slab_average, auto_class_ranker
 from py2rely.slabs.slurm import submit_class2d, submit_slabpick
 from py2rely.slabs.visualize.gui import classes as extract
 from py2rely.slabs.visualize.gallery import summary
-import click
+import rich_click as click
 
 @click.group()
 def slab():

@@ -1,5 +1,5 @@
 from py2rely import cli_context
-import click
+import rich_click as click
 
 def class_average_gallery(stack_path: str, 
                           image_size: int = 2, 

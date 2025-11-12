@@ -13,7 +13,7 @@ https://github.com/SBC-Utrecht/pytom-match-pick/blob/main/src/pytom_tm/template.
 from __future__ import annotations
 
 from typing import Optional, Tuple, TYPE_CHECKING
-import click
+import rich_click as click
 
 # Optional: satisfy type checkers without runtime imports
 if TYPE_CHECKING:

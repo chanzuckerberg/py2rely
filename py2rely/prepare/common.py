@@ -1,4 +1,4 @@
-import click
+import rich_click as click
 
 def add_optics_options(func):
     """Decorator to add common options to a Click command."""

@@ -1,6 +1,6 @@
 import py2rely.routines.submit_slurm as my_slurm 
 from py2rely import cli_context
-import click
+import rich_click as click
 
 class HighResolutionRefinement:
     """Class for high-resolution refinement with two entry points."""

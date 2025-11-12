@@ -1,5 +1,5 @@
 from py2rely import cli_context
-import click
+import rich_click as click
 
 @click.group()
 @click.pass_context

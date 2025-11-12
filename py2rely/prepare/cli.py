@@ -14,7 +14,7 @@ from py2rely.prepare.generate_parameters import (
     relion5_pipeline,
 )
 from py2rely.prepare.template import create_template
-import click
+import rich_click as click
 
 @click.group()
 def prepare():
