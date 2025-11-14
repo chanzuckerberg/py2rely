@@ -50,8 +50,8 @@ def run_warp_tm_to_copick(
     voxel_size: float,
     export_tag: str):
     from scipy.spatial.transform import Rotation as R
+    from py2rely.utils.progress import _progress
     import starfile, copick
-    from tqdm import tqdm
     import numpy as np
 
     # Read the input file
@@ -61,7 +61,7 @@ def run_warp_tm_to_copick(
     root = copick.from_file(config)
     
     uniqueRuns = np.unique(particles['rlnMicrographName']) 
-    for uniqueRun in tqdm(uniqueRuns):
+    for uniqueRun in _progress(uniqueRuns, description="Converting Warp Template Matching to Copick"):
     
         rlnPoints = particles[particles['rlnMicrographName'] == uniqueRun]
         numPoints = rlnPoints.shape[0]

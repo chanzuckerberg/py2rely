@@ -65,11 +65,15 @@ def run_import_tilt_series(
     optics_group_name: str    
     ):
 
+    from py2rely.utils.progress import _progress, get_console
     import os, glob, starfile, mrcfile, io
     from py2rely.utils import sta_tools
-    from tqdm import tqdm
+    from rich.panel import Panel
     import pandas as pd
     import numpy as np
+
+    # Get the rich-click console
+    console = get_console()
 
     # Set up output paths and directories
     # Entry to Save in `import.json`
@@ -79,6 +83,8 @@ def run_import_tilt_series(
     # Create TiltSeries Sub-Folder
     output = os.path.join(output,'tiltSeries')
     os.makedirs(output, exist_ok=True)
+
+    console.rule("[bold cyan]Importing Tilt-Series")
 
     # Log pipeline parameters
     utils = sta_tools.PipelineHelper(None, requireRelion=False)
@@ -90,7 +96,7 @@ def run_import_tilt_series(
 
     # Locate all CTF parameter files in the project directory
     inputPath = os.path.join( base_project, session, run, '*_CTF.txt')
-    print(f'Searching for Data from the Following Search Path: {inputPath}')
+    console.print(Panel.fit(f"[b white]Search path[/b white]\n{inputPath}", border_style="blue"))
     all_tiltSeries = np.array(glob.glob(inputPath), dtype=str)
 
     # Filter out tiltseries with different pixel size
@@ -104,11 +110,11 @@ def run_import_tilt_series(
             else:
                 removed_tiltSeries.append(ts_ctf_path)
 
-    if len(removed_tiltSeries) > 0:
-        print(f"Removed {len(removed_tiltSeries)} tilt series with pixel size different from {pixel_size} Å.")
-
-    if len(tiltSeries) == 0:
-        raise ValueError(f"No tilt series found with pixel size {pixel_size} Å.")
+    if removed_tiltSeries:
+        console.print(f"[yellow]⚠ Removed {len(removed_tiltSeries)} tilt series != {pixel_size} Å.[/yellow]")
+    if not tiltSeries:
+        console.print(f"[red]❌ No tilt series found with pixel size {pixel_size} Å.[/red]")
+        return
 
     # Ensure the symlink directory exists if specified
     try: 
@@ -125,7 +131,7 @@ def run_import_tilt_series(
     tiltSeriesStarNames = [] # Paths to individual STAR files for tilt series
 
     # Process Each Tilt Series
-    for tomos in tqdm(tiltSeries):
+    for tomos in _progress(tiltSeries, description="Importing Tilt Series"):
         
         # Read the Tomogram ID and baseTomoPath
         tomoPath = '/'.join(tomos.split('/')[:-1])
@@ -269,7 +275,8 @@ def run_import_tilt_series(
     starfile.write({"global": pd.DataFrame(aligned_ts)}, fn, overwrite=True)
 
     # Inform the user that the file has been written successfully
-    print(f"\n✅ Relion5 Tilt-Series STAR file saved to: {fn}\n")    
+    console.rule("[bold green]Done")
+    console.print(f"[b]Relion5 Tilt-Series STAR file saved to:[/b] {fn}\n")  
 
 ###########################################################################################
 
@@ -296,14 +303,20 @@ def run_combine_tilt_series(
     output: str
     ):
 
+    from py2rely.utils.progress import get_console
+    from py2rely.utils.progress import _progress
     import os, starfile
     import pandas as pd
 
+    console = get_console()
+    console.rule("[bold cyan]Combine Tilt-Series")
+    console.print(f"[b]Output:[/b] {output}")
+
     # Iterate Through all Input StarFiles
-    for ii in range(len(input)):
+    for ii in _progress(input, description="Combining Tilt-Series"):
 
         filename = input[ii]
-        print(f'Adding {filename} to the Merged StarFile')
+        console.print(f"[b]Adding[/b] {filename} to the Merged StarFile")
         file = starfile.read(filename)
 
         if ii == 0:
@@ -326,12 +339,13 @@ def run_combine_tilt_series(
     n_rows = len(merged_alignments)
 
     input_list = ", ".join([os.path.basename(f) for f in input])
-    print(
-        f"\n✅ Successfully merged {n_files} tilt-series starfile(s):\n"
+    console.rule("[bold green]Merged")
+    console.print(
+        f"[green]Successfully merged {n_files} tilt-series starfile(s):[/green]\n"
         f"   {input_list}\n"
-        f"→ Combined {n_rows:,} total entries into '{output}'.\n"
-    ) 
-
+        f"→ Combined [b]{n_rows:,.0f}[/b] total entries into '[b]{output}[/b]'.\n"
+    )
+    
 @cli.command(context_settings=cli_context)
 @click.option("-p","--particles",type=str,required=True,
               help="Path to Particles Starfile")
@@ -350,7 +364,12 @@ def run_filter_unused_tilts(
     particles: str,
     tomograms: str
     ):
+    from py2rely.utils.progress import get_console
+    from rich.panel import Panel
     import os, starfile
+
+    console = get_console()
+    console.rule("[bold cyan]Filter Unused Tilts")
 
     # Check to make sure file exists
     if not os.path.exists(particles):
@@ -377,7 +396,8 @@ def run_filter_unused_tilts(
     starfile.write({'global': tomogramsDF}, tomograms)
 
     # Inform the user that the file has been written successfully
-    print(
-        f"\n✅ Removed {removed_count} unused tilt series from '{tomograms}' -- "
-        f"{len(tomogramsDF)} tilt series remain.\n"
-    ) 
+    console.print(Panel.fit(
+        f"[b]Removed:[/b] {removed_count}\n[b]Remaining:[/b] {len(tomogramsDF)}\n[b]File:[/b] {tomograms}",
+        title="[bold green]Completed",
+        border_style="green"
+    ))

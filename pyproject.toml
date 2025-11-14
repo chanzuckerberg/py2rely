@@ -1,76 +1,50 @@
 [build-system]
-requires = ["hatchling", "hatch-vcs"]
+requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "py2rely"
 requires-python = ">=3.9"
-version = "0.1.0"
+version = "0.1.0"  
 dependencies = [
-    "rich-click",
+    "copick",
     "mrcfile",
     "starfile",
     "pydantic",
-    "tqdm",
-    "copick",
-    "PyQt5",
-    "pyqtgraph",
-    "scipy>=1.9.3,<1.10.0",   # aligns with pipeliner
+    "rich-click",
+    "scipy>=1.9.3,<1.10.0",
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
 ]
-
-[project.optional-dependencies]
-dataportal=["zarr-particle-tools @ git+ssh://git@github.com/czimaginginstitute/zarr-particle-tools.git@main"]
-slabs = ["PyQt5", "pyqtgraph"]
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
 authors = [
-  {name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org"},
-]
+  { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" }
+  ]
 description = "Command line tools to Run Automated Sub-Tomogram Averaging with Relion and CCPEM Pipeline."
 readme = "README.md"
-license = {file = "LICENSE"}
+license = { file = "LICENSE" }
+
+[project.optional-dependencies]
+dataportal = ["zarr-particle-tools @ git+https://github.com/czimaginginstitute/zarr-particle-tools.git@main"]
+slabs = ["PyQt5", "pyqtgraph"]
 
 [project.scripts]
 py2rely = "py2rely.main:routines"
 py2rely-slurm = "py2rely.main:slurm_routines"
 
-[tool.hatch.version]
-source = "vcs"
-
-[tool.semantic_release]
-version_variables = ["__init__.py:__version__"]
-build_command = "pip install build && python -m build"
+[tool.hatch.metadata]
+allow-direct-references = true
 
 [tool.black]
 line-length = 120
-target_version = ['py39']
+target-version = ["py39"]
 
 [tool.ruff]
-select = [
-    "E", "W",  # pycodestyle
-    "F",  # pyflakes
-    "B",  # bugbear
-    "I",  # isort
-    "N",  # pep8-naming
-    "ASYNC",  # async
-    "COM",  # commas
-    "C4",  # comprehensions
-    "DTZ",  # datetimez
-    "ISC",  # implicit-str-concat
-    "G",  # logging-format
-    "T20",  # print
-    "SIM",  # simplify
-]
-
+select = ["E","W","F","B","I","N","ASYNC","COM","C4","DTZ","ISC","G","T20","SIM"]
 line-length = 120
-target-version = "py310"
+target-version = "py39"
 
 [tool.ruff.isort]
-known-first-party =["common"]
+known-first-party = ["py2rely"]
 
 [tool.ruff.flake8-quotes]
 docstring-quotes = "double"

@@ -141,8 +141,8 @@ def run_star2copick(
     dim_z: int    
     ):
     from scipy.spatial.transform import Rotation as R
+    from py2rely.utils.progress import _progress
     import starfile, copick
-    from tqdm import tqdm
     import numpy as np 
 
     # Parse User Inputs
@@ -186,7 +186,7 @@ def run_star2copick(
 
     # Process Only runs from Valid Sessions 
     uniqueRuns = np.unique(particles['rlnTomoName'])   
-    for uniqueRun in tqdm(uniqueRuns):
+    for uniqueRun in _progress(uniqueRuns, description="Exporting Particles"):
         
         # Extract the Associated Session and Run to Export too
         mysession = uniqueRun.split('_')[0]
