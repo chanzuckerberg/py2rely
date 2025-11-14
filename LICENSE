@@ -33,8 +33,6 @@ SOFTWARE.
 ```
 This repository is licensed under the MIT License; however, it relies on certain third-party dependencies that are licensed under the GNU General Public License (GPL). Specifically:
 
-- pipeliner is licensed under the Mozilla Public License Version 2.0.
-
-All dependencies use permissive open-source licenses that are compatible with this project's MIT License. No GPL or other copyleft licensed dependencies are included.
-For specific licensing information about any dependency, please refer to the respective package documentation or repository.
+- PyQt5 is licensed under the GNU General Public License v3 or later (GPLv3+).
+This library is not included in this repository but must be installed separately by users. Please be aware that the GPL license terms apply to these dependencies, and certain uses of GPL-licensed code may have licensing implications for your own software.
 ```
