@@ -342,7 +342,7 @@ def run_combine_tilt_series(
     console.rule("[bold green]Merged")
     console.print(
         f"[green]Successfully merged {n_files} tilt-series starfile(s):[/green]\n"
-        f"   {', '.join(input_list)}\n"
+        f"   {input_list}\n"
         f"→ Combined [b]{n_rows:,.0f}[/b] total entries into '[b]{output}[/b]'.\n"
     )
     
