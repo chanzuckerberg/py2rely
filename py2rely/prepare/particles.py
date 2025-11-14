@@ -157,7 +157,7 @@ def run_import_particles(
     """    
     from scipy.spatial.transform import Rotation as R
     from py2rely.utils import sta_tools
-    from tqdm import tqdm
+    from py2rely.utils.progress import _progress
     import os, starfile
     import pandas as pd
     import numpy as np
@@ -219,7 +219,7 @@ def run_import_particles(
         if skipped_run_ids: 
                 print(f"Warning: skipping runs with no voxel spacing {voxel_size}: {skipped_run_ids}")
 
-    for runID in tqdm(run_ids):
+    for runID in _progress(run_ids, description="Gathering Particles"):
 
         # Query CopickRun and Picks
         run = root.get_run(runID)
@@ -407,8 +407,8 @@ def run_import_pytom_particles(
     binning_factor: float
     ):
 
+    from py2rely.utils.progress import _progress
     from py2rely.utils import sta_tools
-    from tqdm import tqdm
     import os, starfile
     import pandas as pd
     import glob
@@ -432,7 +432,7 @@ def run_import_pytom_particles(
     if not star_files:
         raise ValueError(f"No STAR files found in {input}")
         
-    for fname in tqdm(star_files):
+    for fname in _progress(star_files, description="Processing STAR files"):
         print(f"Processing {fname}")
         # Read the input STAR file into a DataFrame
         df = starfile.read(fname)

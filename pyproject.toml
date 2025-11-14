@@ -7,14 +7,11 @@ name = "py2rely"
 requires-python = ">=3.9"
 version = "0.1.0"
 dependencies = [
+    "copick",
     "rich-click",
     "mrcfile",
     "starfile",
     "pydantic",
-    "tqdm",
-    "copick",
-    "PyQt5",
-    "pyqtgraph",
     "scipy>=1.9.3,<1.10.0",   # aligns with pipeliner
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
