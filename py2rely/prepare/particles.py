@@ -155,18 +155,23 @@ def run_import_particles(
         -optics-group-name: Optics Group Name
         -relion5: Use Relion5 Centered Coordinate format for the output STAR file
     """    
+    from py2rely.utils.progress import _progress, get_console
     from scipy.spatial.transform import Rotation as R
     from py2rely.utils import sta_tools
-    from py2rely.utils.progress import _progress
     import os, starfile
     import pandas as pd
     import numpy as np
     import copick
+    
+    console = get_console()
+    console.rule("[bold cyan]Import Copick Particles")
 
     # Provide warning if userID and sessionID are not provided
     if session_id is None and user_id is None:
-        print(f"\n[WARNING]: No sessionID or userID provided, using a random entry for {copick_name}!")
-        print('Please consider providing a sessionID or userID to ensure proper importing of the coordinates.\n')
+        console.print(
+            f"[yellow]Warning:[/yellow] No session_id or user_id provided; selecting a random entry for [b]{name}[/b].\n"
+            "Consider providing session/user IDs for deterministic imports.\n"
+        )
 
     # Determine Which Write Path Based On Copick Query
     if session_id is not None and user_id is not None:
@@ -226,7 +231,7 @@ def run_import_particles(
         picks = run.get_picks(object_name = name, session_id = session_id, user_id = user_id)
 
         if picks is None or len(picks) == 0:
-            print(f"Warning: no picks found for {runID}")
+            console.print(f"[yellow]Note:[/yellow] no picks found for run [b]{runID}[/b]")
             continue
 
         # Iterate Through All Available Picks Based On Query
@@ -289,7 +294,8 @@ def run_import_particles(
     starfile.write({'optics': pd.DataFrame(optics), "particles": myStarFile}, writePath)
 
     # # Inform the user that the file has been written successfully
-    print(f"\n✅ Relion5 Particles STAR file saved to: {writePath}\n")      
+    console.rule("[bold green]Completed")
+    console.print(f"[b]Particles STAR written to:[/b] {writePath}\n")
 
 @cli.command(context_settings=cli_context)
 @click.option(
@@ -320,11 +326,16 @@ def run_combine_particles(
     input: List[str],
     output: str
     ):
+    from py2rely.utils.progress import get_console, _progress
     import pandas as pd
     import os, starfile
 
+    console = get_console()
+    console.rule("[bold cyan]Combine Particles")
+    console.print(f"[b]Output:[/b] {output}")
+
     # Iterate Through all Input StarFiles
-    for ii in range(len(input)):
+    for ii in _progress(input, description="Combining Particles"):
 
         filename = input[ii]
         print(f'Adding {filename} to the Merged StarFile')
@@ -354,13 +365,14 @@ def run_combine_particles(
     n_optics = len(merged_optics)
     input_list = ", ".join([os.path.basename(f) for f in input])
 
+    console.rule("[bold green]Merged")
     if n_files == 1:
-        print(f"\nℹ️ Only one input file provided. '{input_list}' copied to '{output}'.\n")
+        console.print(f"[b]Single input:[/b] '{input_list}' copied to '{output}'.\n")
     else:
-        print(
-            f"\n✅ Successfully merged {n_files} particle starfile(s):\n"
+        console.print(
+            f"[green]Successfully merged {n_files} particle starfile(s):[/green]\n"
             f"   {input_list}\n"
-            f"→ Combined {n_particles:,} total particles across {n_optics:,} optics groups into '{output}'.\n"
+            f"→ Combined [b]{n_particles:,}[/b] particles across [b]{n_optics:,}[/b] optics rows into '[b]{output}[/b]'.\n"
         )
 
 
