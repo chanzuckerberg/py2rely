@@ -19,6 +19,10 @@ from rich.progress import (
 )
 from rich.console import Console
 
+# Minimal helper to get a shared Console without top-level Rich dependency.
+def get_console():
+    return Console()
+
 def _progress(iterable, description="Processing"):
     """
     Wrap an iterable with a Rich progress bar.

@@ -63,43 +63,71 @@ class PipelineHelper:
         self.post_process_job = None
         self.tomo_select_job = None
 
-    def print_pipeline_parameters(self, process, header=None, **kwargs):
+    def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
-        Print pipeline parameters to the console and optionally save them to a JSON file
-        under a specific header.
+        Pretty-print pipeline parameters using Rich and optionally save them to JSON.
 
         Args:
-            process: The name of the process or step in the pipeline.
-            header: An optional header name under which the parameters will be saved in the JSON file.
-            **kwargs: Arbitrary keyword arguments representing parameters to print or save.
-                    If 'file_name' is provided in kwargs, parameters will be saved to a JSON file.
+            process: The name of the pipeline process or step.
+            header: Optional header name under which parameters will be saved in JSON.
+            **kwargs: Arbitrary parameters. If 'file_name' is given, parameters are also saved.
         """
-        # Check if 'file_name' is provided in kwargs. If so, extract it and save the parameters to a JSON file.
-        file_name = kwargs.pop('file_name', None)
+        import json, os
+        from py2rely.utils.progress import get_console
+        from rich.syntax import Syntax
+        from rich.table import Table
+        from rich.panel import Panel
 
-        # Prepare the dictionary for saving or printing.
+        console = get_console()
+        file_name = kwargs.pop("file_name", None)
+
+        # Prepare data
         json_data = {header: kwargs} if header else kwargs
 
+        # ---- Rich summary ----
+        console.rule(f"[bold cyan]{process} Parameters Summary")
+
+        # Nicely formatted parameter table
+        table = Table(show_header=True, header_style="bold magenta", expand=False)
+        table.add_column("Parameter", style="cyan", no_wrap=True)
+        table.add_column("Value", style="white")
+
+        for key, value in kwargs.items():
+            if isinstance(value, (dict, list)):
+                value = json.dumps(value, indent=2)
+            table.add_row(str(key), str(value))
+
+        console.print(table)
+
+        # Optional JSON view panel
+        json_view = json.dumps(json_data, indent=4)
+        syntax = Syntax(json_view, "json", theme="ansi_dark", line_numbers=False)
+        console.print(
+            Panel(
+                syntax,
+                title=f"[bold blue]{process} Parameters (JSON view)",
+                border_style="blue",
+                expand=False,
+            )
+        )
+
+        # ---- Save to JSON (quietly) ----
         if file_name:
-
-            # Read JSON File If Available
             if os.path.exists(file_name):
-                with open(file_name, 'r') as json_file:
+                with open(file_name, "r") as json_file:
                     existing_data = json.load(json_file)
-            else: 
+            else:
                 existing_data = {}
-            existing_data.update(json_data)
 
-            # Save the parameters to the specified JSON file with the same indentation.
-            with open(file_name, 'w') as json_file:
+            existing_data.update(json_data)
+            with open(file_name, "w") as json_file:
                 json.dump(existing_data, json_file, indent=4)
 
-            # Print the file name and a confirmation message.
-            print(f"\nParameters saved to {file_name} under the header '{header}'" if header else f"\nParameters saved to {file_name}")
-        
-        # Print the parameters in a JSON-formatted string with the same indentation.
-        print(f"\n[{process}] Parameters (JSON format):\n")
-        print(json.dumps(json_data, indent=4))
+            # Print confirmation *after* summary is fully shown
+            console.print(
+                f"\n[green]Parameters saved to[/green] [b]{file_name}[/b]"
+                + (f" under header [cyan]{header}[/cyan]" if header else "")
+            )
 
     def check_if_relion_is_available(self):
         """
