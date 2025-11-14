@@ -99,18 +99,6 @@ class PipelineHelper:
 
         console.print(table)
 
-        # Optional JSON view panel
-        json_view = json.dumps(json_data, indent=4)
-        syntax = Syntax(json_view, "json", theme="ansi_dark", line_numbers=False)
-        console.print(
-            Panel(
-                syntax,
-                title=f"[bold blue]{process} Parameters (JSON view)",
-                border_style="blue",
-                expand=False,
-            )
-        )
-
         # ---- Save to JSON (quietly) ----
         if file_name:
             if os.path.exists(file_name):

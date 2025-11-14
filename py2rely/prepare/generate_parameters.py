@@ -68,13 +68,33 @@ def create_relion5_parameters(
     ):
     import py2rely.prepare.parameters as parameters
     from py2rely.utils import sta_tools
+    from rich.console import Console
+    from rich.table import Table
     import json, os
+
+    console = Console()
+    console.rule("[bold cyan]Generate Relion5 Pipeline Parameters")
 
     if not os.path.exists(particles):
         raise FileNotFoundError(f"Input particles file not found: {particles}")
 
     if not os.path.exists(tilt_series):
         raise FileNotFoundError(f"Input tiltseries file not found: {tilt_series}")
+
+    # --- parameter summary table ---
+    table = Table(title="[bold blue]Configuration Summary", header_style="bold magenta")
+    table.add_column("Parameter", style="cyan", no_wrap=True)
+    table.add_column("Value", style="white")
+    table.add_row("Tilt Series File", tilt_series)
+    table.add_row("Particles File", particles)
+    table.add_row("Pixel Size (Å)", str(tilt_series_pixel_size))
+    table.add_row("Symmetry", symmetry)
+    table.add_row("Low-Pass Filter (Å)", str(low_pass))
+    table.add_row("Protein Diameter (Å)", str(protein_diameter))
+    table.add_row("Box Scaling", str(box_scaling))
+    table.add_row("Binning List", str(binning_list))
+    table.add_row("Denovo Generation", str(denovo_generation))
+    console.print(table)
 
     # TODO: validate:
     # - each job that can use mpi has parameters set to use mpi
@@ -208,7 +228,7 @@ def create_relion5_parameters(
     with open(output, "w") as f:
         json.dump(default_config.model_dump(by_alias=True), f, indent=4)
         # json.dump(default_config.dict(), f, indent=4)
-    print(f'\nWrote Pipeline Parameters JSON File To: {output}\n')         
+    console.print(f"[green]Parameters JSON saved to[/green] [b]{output}[/b]")    
 
     # Print the Box Sizes after the parameters are saved
     utils = sta_tools.PipelineHelper(None, requireRelion=False)
@@ -253,7 +273,11 @@ def run_relion5_pipeline(
     gpu_constraint: str, 
     new_pipeline: bool
     ):
+    from rich.console import Console
     import os
+
+    console = Console()
+    console.rule("[bold cyan]Generate Relion5 Slurm Submission")
 
     # Delete Existing Output Directories for a fresh new pipeline run
     if new_pipeline and os.path.exists('output_directories.json'):
@@ -281,6 +305,9 @@ py2rely pipelines sta \\
         gpu_constraint=gpu_constraint,
         total_time='72:00:00'
     )
+
+    console.rule("[bold green]Submission Ready")
+    console.print(f"[green]SLURM shell script written as[/green] [b]pipeline.sh[/b]\n")
 
 if __name__ == "__main__":
     cli()
