@@ -72,7 +72,7 @@ class PipelineHelper:
             header: Optional header name under which parameters will be saved in JSON.
             **kwargs: Arbitrary parameters. If 'file_name' is given, parameters are also saved.
         """
-        import json, os
+        import os
         from py2rely.utils.progress import get_console
         from rich.syntax import Syntax
         from rich.table import Table
