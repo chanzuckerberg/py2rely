@@ -2,7 +2,7 @@
 Progress bar utility using Rich.
 
 Example:
-    from saber.utils.progress import _progress
+    from py2rely.utils.progress import _progress
 
     for key in _progress(train_keys, description="My Process Description.."):
         ...
