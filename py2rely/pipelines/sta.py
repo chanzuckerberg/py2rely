@@ -137,7 +137,7 @@ def run_average(
             # Reconstruct Particle at New Binning and Create mask From That Resolution 
             utils.reconstruct_particle_job.joboptions['in_particles'].value = particles
             utils.run_reconstruct_particle()    
-            refine_reference = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
+            refine_reference = utils.reconstruct_particle_job.output_dir + 'half1.mrc'
 
             # Create Mask for Reconstruction and Next Stages of Refinement
             utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'

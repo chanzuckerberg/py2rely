@@ -12,6 +12,7 @@ dependencies = [
     "starfile",
     "pydantic",
     "rich-click",
+    "zarr-particle-tools",
     "scipy>=1.9.3,<1.10.0",
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
@@ -24,8 +25,8 @@ readme = "README.md"
 license = { file = "LICENSE" }
 
 [project.optional-dependencies]
-dataportal = ["zarr-particle-tools @ git+https://github.com/czimaginginstitute/zarr-particle-tools.git@main"]
-slabs = ["PyQt5", "pyqtgraph"]
+gui = ["PyQt5", "pyqtgraph"]
+web = ["dash", "plotly", "dash-bootstrap-components"]
 
 [project.scripts]
 py2rely = "py2rely.main:routines"

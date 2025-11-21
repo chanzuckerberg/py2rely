@@ -70,7 +70,8 @@ class ThePolisher:
         for ii in range(num_iterations):
 
             # Half Map from Refinement
-            half_map = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+            # half_map = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+            half_map = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
 
             # CTF Refinement
             self.utils.ctf_refine_job.joboptions['in_post'].value = self.utils.post_process_job.output_dir + 'postprocess.star'
@@ -112,11 +113,15 @@ class ThePolisher:
             self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_auto_refine(rerunRefine=True)
 
+            # Reconstruction 
+            self.utils.reconstruct_particle_job.joboptions['in_particles'].value = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
+            self.utils.run_reconstruct_particle(rerunReconstruct=True)
+
             # Update Particles for Next Iteration
             particles = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
 
             # Post-Process to Estimate Resolution     
-            self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+            self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
             if self._check_stopping_criteria(): break
 

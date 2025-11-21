@@ -292,11 +292,6 @@ class PipelineHelper:
             self.outputDirectories[bin_key][jobName] = job.output_dir
 
             # Log All the Repititions for Each Process
-            # if jobIter is not None:
-            #     self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir
-            # else:
-            #     self.historyDirectories[bin_key][jobName] = {}
-            #     self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir
             if bin_key not in self.historyDirectories:
                 self.historyDirectories[bin_key] = {}
             if jobName not in self.historyDirectories[bin_key]:
@@ -304,20 +299,14 @@ class PipelineHelper:
                 # Assume this is the first iteration for this job at this resolution
                 jobIter = 'iter1'
             self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
-                # self.outputDirectories[bin_key][jobName+'_history'][jobIter] = job.output_dir
 
             # Save the new output directory
             self.save_new_output_directory()     
-
-            # Automatically Exit if Classification (User Needs to Export Best Class)
-            # if classifyStep:
-            #         exit()
 
             if keepClasses is not None: 
                 self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
         else: 
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-         
 
     def get_resolution(self, job, 
                       job_name: str = None):
