@@ -83,7 +83,11 @@ def run_class2star(
 )
 @click.option(
     "-s","--sessions", type=str, required=True, default="24aug07a,24jul29c",
-    help="Comma-separated list of session identifiers matching those in rlnTomoName field,
+    help="Comma-separated list of session identifiers matching those in rlnTomoName field",
+)
+@click.option(
+    '--suffix', type=str, required=False, default='_Vol',
+    help='Suffix to append to run names. Use --suffix="" for no suffix.',
 )
 @click.option(
     "-n","--name", type=str, required=True, default='ribosome',
@@ -116,6 +120,7 @@ def star2copick(
     name: str,
     user_id: str, 
     session_id: int,
+    suffix: str,
     dim_x: int,
     dim_y: int, 
     dim_z: int    
@@ -126,7 +131,7 @@ def star2copick(
 
     run_star2copick(
         particles, configs, sessions, name, 
-        user_id, session_id, dim_x, dim_y, dim_z
+        user_id, session_id, suffix, dim_x, dim_y, dim_z
     )
 
 def run_star2copick(
@@ -136,6 +141,7 @@ def run_star2copick(
     particle_name: str,
     user_id: str, 
     session_id: int,
+    suffix: str,
     dim_x: int,
     dim_y: int, 
     dim_z: int    
@@ -221,7 +227,12 @@ def run_star2copick(
 
         # Write Points to Associated Run
         root = copick_roots[mysession]     
-        run = root.get_run(myrun + '_Vol')
+        run = root.get_run(myrun + suffix)
+        
+        # Check to see if run exists
+        if run is None:
+            print(f'[Warning]: Run {myrun + suffix} not found in Copick root for session {mysession}. Skipping.')
+            continue
 
         # Save Picks - Overwrite if exists
         picks = run.get_picks(
