@@ -114,7 +114,7 @@ class HighResolutionRefinement:
         # Run the Auto Refine at Bin = 1
         self.utils.run_auto_refine(rerunRefine=self.rerun)
 
-        # Reconstruct Particles with New Alignmnets
+        # Reconstruct Particles with New Alignments
         self.utils.reconstruct_particle_job.joboptions['in_particles'].value = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
         self.utils.run_reconstruct_particle(rerunReconstruct=True)
 
