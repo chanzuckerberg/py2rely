@@ -242,6 +242,8 @@ def create_relion5_parameters(
               help="Provided Template for Preliminary Refinment (Optional)")
 @click.option("-dg","--run-denovo-generation",type=bool,required=False, default=False,
               help="Generate Initial Reconstruction with Denovo")
+@click.option('-ndays', '--num-days', type=int, required=False, default=3,
+              help='Number of days to request for the SLURM job')
 @click.option("--run-class3D",type=bool,required=False,default=False, 
               help="Run 3D-Classification Job After Refinement")
 @click.option("--new-pipeline", type=bool, required=False, default=True,
@@ -253,6 +255,7 @@ def relion5_pipeline(
     run_denovo_generation: bool,
     run_class3d: bool,
     num_gpus: int, 
+    num_days: int,
     gpu_constraint: str, 
     new_pipeline: bool
     ):
@@ -261,7 +264,8 @@ def relion5_pipeline(
     """    
 
     run_relion5_pipeline(
-        parameter, reference_template, run_denovo_generation, run_class3d, num_gpus, gpu_constraint, new_pipeline
+        parameter, reference_template, run_denovo_generation, 
+        run_class3d, num_gpus, num_days, gpu_constraint, new_pipeline
     )
 
 def run_relion5_pipeline(
@@ -270,6 +274,7 @@ def run_relion5_pipeline(
     run_denovo_generation: bool,
     run_class3d: bool,
     num_gpus: int, 
+    num_days: int,
     gpu_constraint: str, 
     new_pipeline: bool
     ):
@@ -303,7 +308,7 @@ py2rely pipelines sta \\
         command=command,
         num_gpus=num_gpus,
         gpu_constraint=gpu_constraint,
-        total_time='72:00:00'
+        total_time=f'{num_days}:00:00:00' # request ndays
     )
 
     console.rule("[bold green]Submission Ready")

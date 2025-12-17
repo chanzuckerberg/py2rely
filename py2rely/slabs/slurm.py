@@ -14,8 +14,8 @@ def cli(ctx):
               help="Input Volumes File Path")
 @click.option( "--out-dir", type=str, required=True, 
               help="Output Directory" )
-@click.option( "--extract-shape", type=str, required=True, default="500 500 400",
-              help="Extraction Shape for Particles Extraction (x y z) in Angstroms" )
+@click.option( "--extract-shape", type=str, required=True, default="500,500,400",
+              help="Extraction Shape for Particles Extraction (x y z) in Angstroms provided as comma-separated values" )
 @click.option( "--coords-scale", type=float, required=True,
               help="The scale factor that converts the input coordinates to Angstrom\n(Select 1 if Reading From Copick Format) or the voxel spacing of the tomogram that 3D template matching was run on" )
 @click.option( "--voxel-spacing", type=float, required=False, default=5,
@@ -52,6 +52,12 @@ def submit_slabpick(
         out_dir (str): The output directory
         extract_shape (str): The extraction shape for particles extraction (x y z) in Angstroms
     """
+
+    # Convert extract_shape from comma-separated string to space-separated string
+    extract_shape = extract_shape.replace(",", " ")
+    # Check to make sure three elements are provided
+    if len(extract_shape.split()) != 3:
+        raise click.BadParameter("Extract Shape (--extract-shape) must have three comma-separated values (x,y,z)")
 
     # Check to Make sure a Tomogram Algorithm is Specified if Extracting from Copick Project
     if tomo_type is None and in_coords.endswith(".json"):

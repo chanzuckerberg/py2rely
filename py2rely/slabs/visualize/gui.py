@@ -182,9 +182,11 @@ def run_class_selector(
     job: str, extract_classes: bool, 
     grid_columns: int, image_size: int
     ):
+    from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
     from pipeliner.api.manage_project import PipelinerProject
-    import sys, os, re, starfile
     import rich_click as click, glob, mrcfile
+    import sys, os, re, starfile
+    from PyQt5 import QtWidgets        
     import pyqtgraph as pg
     import numpy as np
 

@@ -114,11 +114,14 @@ class HighResolutionRefinement:
         # Run the Auto Refine at Bin = 1
         self.utils.run_auto_refine(rerunRefine=self.rerun)
 
+        # Reconstruct Particles with New Alignments
+        self.utils.reconstruct_particle_job.joboptions['in_particles'].value = self.utils.tomo_refine3D_job.output_dir + 'run_data.star'
+        self.utils.run_reconstruct_particle(rerunReconstruct=True)
+
         # Run Post Process
-        self.utils.post_process_job.joboptions['fn_in'].value = self.utils.tomo_refine3D_job.output_dir + 'run_half1_class001_unfil.mrc'
+        self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        # self.utils.post_process_job.joboptions['low_pass'].value = float(self.utils.params['resolutions']['angpix'] * 2)
-        self.utils.post_process_job.joboptions['autob_lowres'].value =  self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D')
+        # self.utils.post_process_job.joboptions['autob_lowres'].value =  self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D')
 
         self.utils.run_post_process(rerunPostProcess=True)
 

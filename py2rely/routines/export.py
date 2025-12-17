@@ -75,47 +75,52 @@ def run_class2star(
 @export.command(context_settings=cli_context)
 @click.option(
     "-p","--particles", type=str, required=True, default="particles.star",
-    help="Particles Starfile",
+    help="Path to RELION particles star file containing particle coordinates and orientations",
 )
 @click.option(
     "-c","--configs", type=str, required=True, default="config1.json,config2.json",
-    help="Comma Separated List of Config Files to Export Particles Too",
+    help="Comma-separated list of Copick config files (one per session, in order)",
 )
 @click.option(
     "-s","--sessions", type=str, required=True, default="24aug07a,24jul29c",
-    help="Comma Separated List of Sessions Associated with Particles",
+    help="Comma-separated list of session identifiers matching those in rlnTomoName field",
+)
+@click.option(
+    '--suffix', type=str, required=False, default='_Vol',
+    help='Suffix to append to run names. Use --suffix="" for no suffix.',
 )
 @click.option(
     "-n","--name", type=str, required=True, default='ribosome',
-    help='Particle Name to Save Copick Query'
+    help='Particle object name for Copick picks (e.g., "ribosome", "membrane")'
 )
 @click.option(
     "-uid","--user-id", type=str,required=False, default="relion",
-    help="UserID to Export Picks"
+    help="UserID for Exported Picks"
 )
 @click.option(
     "-sid","--session-id", type=str,required=False, default="99",
-    help="SessionID to Export Picks"
+    help="SessionID for Exported Picks"
 )
 @click.option(
     "-x","--dim-x", type=int, required=False, default=4096,
-    help="Box size along the x-axis in the tomogram."
+    help="Tomogram dimension along x-axis in pixels (for coordinate conversion)."
 )
 @click.option(
     "-y","--dim-y", type=int, required=False, default=4096,
-    help="Box size along the y-axis in the tomogram."
+    help="Tomogram dimension along y-axis in pixels (for coordinate conversion)."
 )
 @click.option(
     "-z","--dim-z", type=int, required=False, default=1200,
-    help="Box size along the z-axis in the tomogram."
+    help="Tomogram dimension along z-axis in pixels (for coordinate conversion)."
 )
 def star2copick(
     particles: str, 
     configs: str,
     sessions: str,
-    particle_name: str,
+    name: str,
     user_id: str, 
     session_id: int,
+    suffix: str,
     dim_x: int,
     dim_y: int, 
     dim_z: int    
@@ -125,8 +130,8 @@ def star2copick(
     """
 
     run_star2copick(
-        particles, configs, sessions, particle_name, 
-        user_id, session_id, dim_x, dim_y, dim_z
+        particles, configs, sessions, name, 
+        user_id, session_id, suffix, dim_x, dim_y, dim_z
     )
 
 def run_star2copick(
@@ -136,6 +141,7 @@ def run_star2copick(
     particle_name: str,
     user_id: str, 
     session_id: int,
+    suffix: str,
     dim_x: int,
     dim_y: int, 
     dim_z: int    
@@ -221,7 +227,12 @@ def run_star2copick(
 
         # Write Points to Associated Run
         root = copick_roots[mysession]     
-        run = root.get_run(myrun + '_Vol')
+        run = root.get_run(myrun + suffix)
+        
+        # Check to see if run exists
+        if run is None:
+            print(f'[Warning]: Run {myrun + suffix} not found in Copick root for session {mysession}. Skipping.')
+            continue
 
         # Save Picks - Overwrite if exists
         picks = run.get_picks(
