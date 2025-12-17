@@ -308,7 +308,7 @@ py2rely pipelines sta \\
         command=command,
         num_gpus=num_gpus,
         gpu_constraint=gpu_constraint,
-        total_time=f'{num_days}:00:00:00' # request ndays
+        total_time=f'{num_days}-00:00:00' # request ndays
     )
 
     console.rule("[bold green]Submission Ready")
