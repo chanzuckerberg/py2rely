@@ -6,7 +6,6 @@ import rich_click as click
 def cli(ctx):
     pass
 
-
 def get_image_selector():
     from PyQt5 import QtWidgets
     import pyqtgraph as pg
@@ -123,12 +122,6 @@ def get_image_selector():
 def find_final_iteration(classPath):
     import glob, os, re
 
-    # Find the Final Iteration
-    # iterationStarFiles = glob.glob(os.path.join('Class2D', classPath, 'run_*_data.star'))
-    # maxIterationStarFile = max(iterationStarFiles, key=lambda x: int(re.search(r'_it(\d+)_', x).group(1)))
-    # maxIter = int(re.search(r'it(\d+)', maxIterationStarFile).group(1))
-    # Filter out unwanted filenames (exclude 'run_annon_itXXX_*' cases)
-    
     # Find the Final Iteration, Ignore User Submission Runs
     iterationStarFiles = glob.glob(os.path.join('Class2D', classPath, 'run_it*_data.star'))
     iterationStarFiles = [f for f in iterationStarFiles if re.search(r'run_it\d+_data\.star$', f)]
@@ -142,7 +135,7 @@ def find_final_iteration(classPath):
 
     return maxIter
 
-@cli.command(context_settings=cli_context, name='extract')
+@cli.command(context_settings=cli_context, name='extract-desktop')
 @click.option(
     '--job', 
     required=True, 
@@ -173,7 +166,15 @@ def classes(
     grid_columns: int,
     image_size: int):
     """
-    Launch Class Selector GUI from a 2DClass Job.
+    Launch a desktop (on-screen) GUI for browsing and exporting RELION Class2D jobs.
+
+    This command opens a local window on the host machine to display the final
+    iteration Class2D averages for the specified job. Users can interactively
+    select classes and optionally export the corresponding particles into a
+    STAR file.
+
+    A graphical display is required (e.g. local login or X11 forwarding when
+    running over SSH).
     """
 
     run_class_selector(job, extract_classes, grid_columns, image_size)
@@ -182,11 +183,14 @@ def run_class_selector(
     job: str, extract_classes: bool, 
     grid_columns: int, image_size: int
     ):
+    try:
+        from PyQt5 import QtWidgets        
+    except:
+        raise ImportError("PyQt5 is required for the desktop GUI. Please install it via 'pip install py2rely[gui]'.")
     from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
     from pipeliner.api.manage_project import PipelinerProject
     import rich_click as click, glob, mrcfile
     import sys, os, re, starfile
-    from PyQt5 import QtWidgets        
     import pyqtgraph as pg
     import numpy as np
 
@@ -244,48 +248,6 @@ def run_class_selector(
         utils.run_subset_select(keepClasses = selected_classes, classPath = particlesStarPath)
 
         print(f'✅ Particles Exported to: {utils.tomo_select_job.output_dir}particles.star')
-
-
-@cli.command(context_settings=cli_context)
-@click.option(
-    '--particles-path', 
-    required=True, 
-    type=str, 
-    help='Path to the particles stack file.')
-@click.option(
-    '--grid-columns', 
-    required=False, 
-    type=int, 
-    default=3, 
-    help='Number of grid columns')
-@click.option(
-    '--image-size', 
-    required=False, 
-    type=int, 
-    default=128,
-    help='Size of the images')
-def particle_stacks(
-    particles_path: str,
-    grid_columns: int,
-    image_size: int
-    ):
-    """
-    Extract Particles from Selected 2D Classes.    
-    """
-    from PyQt5 import QtWidgets
-    import sys, mrcfile
-
-    app = QtWidgets.QApplication(sys.argv)
-    dataset = mrcfile.read(particles_path)
-
-    if dataset.shape[0] > 300:
-        print('Particles Stack is Too Large, Defaulting to Showing the First 300 Images...')
-        dataset = dataset[:300,]
-
-    # Adjust grid_columns and image_size to fit your screen
-    ex = ImageSelector(dataset, grid_columns=grid_columns, image_size=image_size)
-    app.exec_()
-
 
 if __name__ == "__main__":
     cli()
