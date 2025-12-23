@@ -153,6 +153,7 @@ def load_class2d_data(job):
         # Raised by commonpath on different drives or invalid paths
         return [], None, None, f"Invalid Class Job directory on disk: {job}"
 
+    # Check that the job directory exists
     if not os.path.isdir(job_dir):
         return [], None, None, f"Invalid Class Job directory on disk: {job_dir}"
 
