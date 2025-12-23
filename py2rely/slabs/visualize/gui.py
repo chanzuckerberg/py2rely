@@ -185,7 +185,7 @@ def run_class_selector(
     ):
     try:
         from PyQt5 import QtWidgets        
-    except:
+    except ImportError:
         raise ImportError("PyQt5 is required for the desktop GUI. Please install it via 'pip install py2rely[gui]'.")
     from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
     from pipeliner.api.manage_project import PipelinerProject
