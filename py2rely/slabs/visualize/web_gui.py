@@ -142,7 +142,16 @@ def load_class2d_data(job):
         return [], None, None, f"Invalid Class Job: Class2D/{job}\nAvailable: {available_jobs}"
 
     # Construct a normalized, validated path under the Class2D directory
-    job_dir = os.path.normpath(os.path.join("Class2D", job))
+    class2d_root = os.path.abspath("Class2D")
+    job_dir = os.path.normpath(os.path.join(class2d_root, job))
+
+    # Ensure the resolved job directory is still within the Class2D root (prevent traversal/absolute paths)
+    try:
+        if os.path.commonpath([class2d_root, job_dir]) != class2d_root:
+            return [], None, None, f"Invalid Class Job directory outside Class2D root: {job}"
+    except ValueError:
+        # Raised by commonpath on different drives or invalid paths
+        return [], None, None, f"Invalid Class Job directory on disk: {job}"
 
     if not os.path.isdir(job_dir):
         return [], None, None, f"Invalid Class Job directory on disk: {job_dir}"
@@ -150,8 +159,8 @@ def load_class2d_data(job):
     maxIter = find_final_iteration(job)
     dataset = mrcfile.read(os.path.join(job_dir, f"run_it{maxIter:03d}_classes.mrcs"))
 
-    resultsStarFile = starfile.read(os.path.join("Class2D", job, f"run_it{maxIter:03d}_model.star"))
-    particlesStarPath = os.path.join("Class2D", job, f"run_it{maxIter:03d}_data.star")
+    resultsStarFile = starfile.read(os.path.join(job_dir, f"run_it{maxIter:03d}_model.star"))
+    particlesStarPath = os.path.join(job_dir, f"run_it{maxIter:03d}_data.star")
     particlesStarFile = starfile.read(particlesStarPath)
     nParticles = particlesStarFile["particles"].shape[0]
 
