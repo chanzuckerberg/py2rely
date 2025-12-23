@@ -136,12 +136,19 @@ def load_class2d_data(job):
     import os, starfile, mrcfile
     import numpy as np
 
-    if not os.path.isdir(os.path.join("Class2D", job)):
-        available_jobs = os.listdir("Class2D") if os.path.exists("Class2D") else []
+    # Validate the requested job name against existing Class2D job directories
+    available_jobs = list_class2d_jobs()
+    if job not in available_jobs:
         return [], None, None, f"Invalid Class Job: Class2D/{job}\nAvailable: {available_jobs}"
 
+    # Construct a normalized, validated path under the Class2D directory
+    job_dir = os.path.normpath(os.path.join("Class2D", job))
+
+    if not os.path.isdir(job_dir):
+        return [], None, None, f"Invalid Class Job directory on disk: {job_dir}"
+
     maxIter = find_final_iteration(job)
-    dataset = mrcfile.read(os.path.join("Class2D", job, f"run_it{maxIter:03d}_classes.mrcs"))
+    dataset = mrcfile.read(os.path.join(job_dir, f"run_it{maxIter:03d}_classes.mrcs"))
 
     resultsStarFile = starfile.read(os.path.join("Class2D", job, f"run_it{maxIter:03d}_model.star"))
     particlesStarPath = os.path.join("Class2D", job, f"run_it{maxIter:03d}_data.star")
