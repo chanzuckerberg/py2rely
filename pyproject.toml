@@ -7,6 +7,7 @@ name = "py2rely"
 requires-python = ">=3.9"
 version = "0.1.0"  
 dependencies = [
+    "gradio",
     "copick",
     "mrcfile",
     "starfile",
@@ -14,8 +15,8 @@ dependencies = [
     "rich-click",
     "zarr-particle-tools",
     "scipy>=1.9.3,<1.10.0",
-    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
+    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
 ]
 authors = [
   { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" }
@@ -25,8 +26,8 @@ readme = "README.md"
 license = { file = "LICENSE" }
 
 [project.optional-dependencies]
+web = ["gradio"]
 gui = ["PyQt5", "pyqtgraph"]
-web = ["dash", "plotly", "dash-bootstrap-components"]
 
 [project.scripts]
 py2rely = "py2rely.main:routines"

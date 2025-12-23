@@ -116,12 +116,12 @@ class SlabAveragePipeline(PipelineHelper):
             self.class2D_job = class2D_job.RelionClass2DVDAM()
             if nr_iter is not None:
                 self.class2D_job.joboptions['nr_iter_grad'].value = nr_iter
-            print(f'\nRunning Class2D with VDAM Algorithm\n')
+            self.class_method = 'VDAM'
         else:
             self.class2D_job = class2D_job.RelionClass2DEM()
             if nr_iter is not None:
                 self.class2D_job.joboptions['nr_iter_em'].value = nr_iter
-            print(f'\nRunning Class2D with EM Algorithm\n')
+            self.class_method = 'EM'
         
         # Parse Parameters
         self.class2D_job = self.parse_params(self.class2D_job, 'class2D')
@@ -143,6 +143,8 @@ class SlabAveragePipeline(PipelineHelper):
             classifyStep: Optional classification step identifier
             rerunClass2D: If True, force rerun even if job exists
         """
+        print(f'\nRunning Class2D with {self.class_method} Algorithm\n')
+
         # Generate job name
         jobName = self.check_custom_job_name('class2D', classifyStep)
         
