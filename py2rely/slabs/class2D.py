@@ -9,11 +9,11 @@ def cli(ctx):
 def add_class2D_options(func):
     """Decorator to add common options to a Click command."""
     options = [
-        click.option("--particles", type=str, required=True, default='stack/particles_relion.star', help="Path to Extracted Particles StarFile"),
-        click.option("--tau-fudge", type=float, required=False, default=2, help="Tau Regularization Parameter for Classification"),
-        click.option("--nr-classes", type=int, required=False, default=3, help="Number of Classes for Classificaiton"),
-        click.option("--class-algorithm", required=False, default="2DEM", type=click.Choice(["2DEM", "VDAM"], case_sensitive=False), help="Specify Which Classification Algorithm to Use (2DEM or VDAM)"),
-        click.option("--nr-iter", type=int, required=False, default=None, help="Number of Iterations for Class2D"),
+        click.option("-p", "--particles", type=str, required=True, default='stack/particles_relion.star', help="Path to Extracted Particles StarFile"),
+        click.option("-tau", "--tau-fudge", type=float, required=False, default=2, help="Tau Regularization Parameter for Classification"),
+        click.option("-nc", "--nr-classes", type=int, required=False, default=3, help="Number of Classes for Classificaiton"),
+        click.option("-alg", "--class-algorithm", required=False, default="2DEM", type=click.Choice(["2DEM", "VDAM"], case_sensitive=False), help="Specify Which Classification Algorithm to Use (2DEM or VDAM)"),
+        click.option("-ni", "--nr-iter", type=int, required=False, default=None, help="Number of Iterations for Class2D"),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve correct order
         func = option(func)
@@ -34,7 +34,7 @@ def add_class2D_options(func):
     type=click.Choice(["yes", "no"], case_sensitive=False),
 )
 @click.option(
-    "--particle-diameter",
+    "-pd", "--particle-diameter",
     type=float, required=False, default=300,
     help="Diameter of the Particles",
 )

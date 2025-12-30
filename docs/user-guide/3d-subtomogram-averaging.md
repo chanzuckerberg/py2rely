@@ -31,22 +31,30 @@ py2rely prepare relion5-parameters \
     -o sta_parameters.json
 ```
 
-??? note "📋 `prepare relion5-parameters`"
+!!! info "What this command does:"
 
-    | Parameter | Short | Description | Default |
-    |-----------|-------|-------------|---------|
-    | `--output` | `-o` | Output path for parameter JSON file | `sta_parameters.json` |
-    | `--tilt-series` | `-ts` | Path to tilt series STAR file | `input/tiltSeries/aligned_tilt_series.star` |
-    | `--particles` | `-p` | Path to particles STAR file | `input/full_picks.star` |
-    | `--tilt-series-pixel-size` | `-ps` | Tilt series pixel size (Å) | `1.54` |
-    | `--symmetry` | `-s` | Particle symmetry (C1, C2, D2, etc.) | `C1` |
-    | `--low-pass` | `-lp` | Low-pass filter for reference template (Å) | `50` |
-    | `--protein-diameter` | `-pd` | Particle diameter (Å) | `290` |
-    | `--denovo-generation` | `-dg` | Enable de novo model generation | `False` |
-    | `--box-scaling` | `-bs` | Box size padding factor | `2.0` |
-    | `--binning-list` | `-bl` | Binning factors (comma-separated) | `4,2,1` |
+    This generates a comprehensive JSON file containing all RELION job parameters for the entire pipeline. Think of it as a "recipe" that defines:
 
-The generated `sta_parameters.json` contains all Relion job parameters and can be manually edited if needed.
+    - Box sizes at each binning level
+    - Refinement parameters (angular sampling, offset search)
+    - CTF refinement settings
+    - Post-processing options
+    - Job dependencies and execution order
+
+    ??? note "📋 `prepare relion5-parameters`"
+
+        | Parameter | Short | Description | Default |
+        |-----------|-------|-------------|---------|
+        | `--output` | `-o` | Output path for parameter JSON file | `sta_parameters.json` |
+        | `--tilt-series` | `-ts` | Path to tilt series STAR file | `input/tiltSeries/aligned_tilt_series.star` |
+        | `--particles` | `-p` | Path to particles STAR file | `input/full_picks.star` |
+        | `--tilt-series-pixel-size` | `-ps` | Tilt series pixel size (Å) | `1.54` |
+        | `--symmetry` | `-s` | Particle symmetry (C1, C2, D2, etc.) | `C1` |
+        | `--low-pass` | `-lp` | Low-pass filter for reference template (Å) | `50` |
+        | `--protein-diameter` | `-pd` | Particle diameter (Å) | `290` |
+        | `--denovo-generation` | `-dg` | Enable de novo model generation | `False` |
+        | `--box-scaling` | `-bs` | Box size padding factor | `2.0` |
+        | `--binning-list` | `-bl` | Binning factors (comma-separated) | `4,2,1` |
 
 !!! tip "Symmetry"
 
@@ -58,28 +66,46 @@ The overall STA pipeline is composed of a series of steps that are ran sequentia
 
 ![pipeline](../assets/workflow.png)
 
-When running the pipeline we have multiple options for generating the inital model, and the ability to enable the auto 3D classification feature. 
+!!! info "py2rely sta pipeline"
 
-??? note "📋 `sta` Parameters"
+    At each resolution level, the pipeline:
 
-    | Parameter | Short | Description | Default |
-    |-----------|-------|-------------|---------|
-    | `--parameter` | `-p` | Path to parameter JSON file | `sta_parameters.json` *(required)* |
-    | `--reference-template` | `-rt` | Reference template for initial refinement (optional) | - |
-    | `--run-denovo-generation` | `-dg` | Generate initial model without template | `False` |
-    | `--run-class3D` | | Run 3D classification after refinement | `False` |
+    - Extracts particles at the appropriate binning
+    - Refines orientations and shifts
+    - Reconstructs the average
+    - Creates a mask around the particle
+    - Post-processes to estimate resolution
+
+
+    ??? note "📋 `sta` Parameters"
+
+        | Parameter | Short | Description | Default |
+        |-----------|-------|-------------|---------|
+        | `--parameter` | `-p` | Path to parameter JSON file | `sta_parameters.json` *(required)* |
+        | `--reference-template` | `-rt` | Reference template for initial refinement (optional) | - |
+        | `--run-denovo-generation` | `-dg` | Generate initial model without template | `False` |
+        | `--run-class3D` | | Run 3D classification after refinement | `False` |
 
 #### Initial Model Options
 
-After we extract our sub-tomograms from our tilt series, we have a few options we can choose from to generate our initial model.
+After extracting sub-tomograms, we need an initial 3D reference to start refinement. py2rely offers three strategies:
 
 ![initmodel](../assets/initial_model_options.png)
 
+??? question "Which option should I choose?"
+
+    | Scenario | Recommended Method | Why |
+    |----------|-------------------|-----|
+    | Known structure available | **Reference Refinement** | Fastest convergence, most reliable |
+    | Similar structure in PDB/EMDB | **Reference Refinement** (low-pass filtered) | Good starting point |
+    | Previous STA with orientations | **Reconstruct Particles** | Skip initial model generation |
+    | Completely unknown structure | **De Novo Generation** | No bias, but requires good picks |
+    | Mixed orientations, good picks | **De Novo Generation** | Can work if sufficient angular coverage |
+
+
 === "Reference Refinement"
 
-    This assumes we have a template that we can use to estimate our initial orientations.
-
-    First, let's generate a template with py2rely. We can use any template that's available on [EMDB](https://www.ebi.ac.uk/emdb/) and downsample it to the resolution at the first binning factor.  
+    First, let's generate a template with py2rely. We can use any template that's available (e.g. [EMDB](https://www.ebi.ac.uk/emdb/)) and downsample it to the resolution at the first binning factor.  
 
     ```bash
     py2rely prepare template \
@@ -123,7 +149,7 @@ After we extract our sub-tomograms from our tilt series, we have a few options w
         --reference-template reference.mrc
     ```
 
-    !!! warning "Common Pitfall"
+    !!! warning "Common Pitfalls"
         When generating the template with `py2rely prepare template`, be sure that the box-size and voxel size are the equivalent resolution as the sub-tomograms at the first binning factor. If not, Relion will spit out an error at the first Refine3D step.
 
 === "De-Novo Generation"
@@ -148,6 +174,19 @@ After we extract our sub-tomograms from our tilt series, we have a few options w
 
 In cases where users would like to rely on classification to improve the particle quality, users can use Class3D with a given number of classes and the best class will be automatically selected for the downstream processing.
 
+After initial refinement at a coarse resolution, you can optionally run 3D classification to separate good particles from bad picks or identify different conformational states.
+
+!!! question "Why use classification?"
+
+    3D classification helps with:
+
+    - 🧹 **Removing junk particles** - False positives from automated picking
+    - 🔀 **Separating conformations** - Multiple structural states in your sample
+    - ✨ **Improving resolution** - Focus refinement on homogeneous particles
+    - 🎯 **Identifying your target** - Distinguish protein of interest from contaminants
+
+
+
 ## Example: Complete Workflow
 
 Here's a complete example from start to finish:
@@ -156,38 +195,39 @@ Here's a complete example from start to finish:
 # 1. Import data
 py2rely prepare tilt-series \
     --base-project /data/aretomo \
-    --session 24jan01 \
-    --output input \
-    --pixel-size 1.54
+    --s 24mar08a -ps 1.54
 
 py2rely prepare particles \
-    --config copick.json \
-    --session 24jan01 \
-    --name ribosome \
-    --output input \
-    --pixel-size 1.54 \
-    --x 4096 --y 4096 --z 1200
+    -c copick.json -s 24mar08a \
+    --name virus-like-particle \
+    -ps 1.54 -x 4096 -y 4096 -z 1200
 
 # 2. Generate parameters
 py2rely prepare relion5-parameters \
     --tilt-series input/tiltSeries/aligned_tilt_series.star \
     --particles input/full_picks.star \
     --tilt-series-pixel-size 1.54 \
-    --symmetry C1 \
+    --symm I2 \
     --protein-diameter 290 \
     --binning-list 4,2,1 \
-    --output sta_parameters.json
+
+# 3. Create Template and Align
+
 
 # 3. Run pipeline
 py2rely pipelines sta \
     --parameter sta_parameters.json \
-    --reference-template initial.mrc \
-    --run-class3D True
+    --reference-template initial.mrc
 
-# 4. Check results
-ls PostProcess/job015/
-# postprocess_masked.mrc - Final sharpened map
-# postprocess_fsc.eps - Resolution plot
+# 4. Export the processed particles back to copick
+py2rely export star2copick \
+    --particles Refine3D/job024/run_data.star \
+    --configs config.json \
+    --sessions 24mar08a \
+    --particle-name virus-like-particle \
+    --export-user-id relion \
+    --export-session-id 1
+
 ```
 
 ## Next Steps

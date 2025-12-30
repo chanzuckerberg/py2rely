@@ -125,7 +125,7 @@ normalize_stack \\
               help="Particle Diameter" )
 @click.option("-tau", "--tau-fudge", type=float, required=False, default=2,
               help="Tau Fudge Factor" )
-@click.option("-nclasses", "--num-classes", type=str, required=False, default='5',
+@click.option("-nclass", "--num-classes", type=str, required=False, default='5',
               help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
 @click.option("-hl", "--highres-limit", type=float, required=False, default=-1,
               help="High Resolution Limit for Classification in Angstroms (-1 Means Use Nyquist Limit)" )

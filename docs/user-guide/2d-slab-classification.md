@@ -43,7 +43,6 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
     ```bash
     make_minislabs \
         --in_coords=/path/to/copick/config.json \
-        --out_dir=/path/to/output \
         --extract_shape 500 500 400 \
         --coords_scale 1.0 --col_name rlnMicrographName \
         --voxel_spacing 5.0 --tomo_type denoised \
@@ -61,24 +60,27 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
 
     
     ```bash
+    # Create the Slurm Submission script for minislab generation
     py2rely-slurm slab submit-slabpick \
         --in-coords /path/to/copick/config.json \
-        --out-dir /path/to/output \
         --pixel-size 1.54 \
-        --extract-shape "500,500,400" \
+        --extract-shape 500,500,400 \
         --tomo-type denoised --voxel-spacing 10.0 \
         --particle-name ribosome --user-id octopi
+
+    # Run Minislab Extraction
+    sbatch slabpick.sh  
     ```
         
     <details markdown="1">
-    <summary><b>📋`slabpick` Parameters</b></summary>
+    <summary><b>📋`submit-slabpick` Parameters</b></summary>
 
     | **Parameter**       | **Description**                                            | **Example**                |
     |---------------------|------------------------------------------------------------|----------------------------|
     | `--in-coords` *     | Input coordinates file (particles picks, e.g. STAR format). *(Required)* | `input/full_picks.star`    |
     | `--in-vols`         | Input volumes file (list of tomograms, e.g. STAR file).    | `input/tomograms.star`     |
     | `--out-dir` *       | Directory to save extracted slabs. *(Required)*            | `slabs/`                   |
-    | `--extract-shape` * | Slab dimensions (X,Y,Z) in **pixels** (comma-separated). *(Required, default: 500,500,400)* | `"128,128,32"`             |
+    | `--extract-shape` * | Slab dimensions (X,Y,Z) in **pixels** (comma-separated). *(Required, default: 500,500,400)* | `"500,500,400"`             |
     | `--coords-scale` *  | Scale factor to convert input coordinates to Angstroms. *(Required)* <br>*(Use 1.0 if coordinates are already in Å or from CoPick output.)* | `1.0`                      |
     | `--voxel-spacing`   | Voxel size of the tomograms in Angstroms (Å). *(Default: 5)* | `10.0`                   |
     | `--pixel-size`      | Pixel size of the original tilt series in Å. *(Default: 1.54)* | `1.54`                  |
@@ -93,7 +95,7 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
     
 !!! tip "Slab Size Guidelines"
     - **X, Y**: Should be 2-3× the particle diameter
-    - **Z**: Typically 16-64 pixels (thinner = better alignment, but less context)
+    - **Z**: Typically 300-400 pixels (thinner = better alignment, but less context)
     
     !!! warning "Too Large vs Too Small"
         - **Too large**: Slower processing, more noise
@@ -105,49 +107,31 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
 
 Classify the extracted slabs using Relion Class2D.
 
-=== "Basic Classification (Local)"
+=== "Direct Call"
 
     ```bash
     py2rely slab class2d \
         --particles slabs/particles.star \
-        --tau-fudge 4.0 \
-        --nr-classes 50 \
-        --class-algorithm 2DEM \
-        --nr-iter 25 \
-        --do-ctf-correction yes \
-        --particle-diameter 300 \
-        --highres-limit -1 \
-        --dont-skip-align yes \
-        --use-gpu yes \
-        --nr-threads 8
+        --nr-classes 50 --nr-iter 25 \
+        --particle-diameter 300
     ```
 
-=== "SLURM Submission (Recommended)"
+=== "SLURM Submission"
 
     For large datasets or GPU clusters:
     
     ```bash
+    # Generate the Shell Submission Script for 2D Classificaiton
     py2rely-slurm slab submit-class2d \
-        --particles slabs/particles.star \
         --particle-diameter 300 \
-        --tau-fudge 4.0 \
         --num-classes 50 \
-        --class-algorithm 2DEM \
-        --highres-limit -1 \
-        --num-gpus 2 \
-        --gpu-constraint "a100" \
-        --num-threads 8 \
-        --bootstrap-ntrials 5
+
+    # Run Class2D
+    sbatch class2d.sh
     ```
     
     !!! success "Bootstrap Trials"
         The `--bootstrap-ntrials` option runs multiple independent classifications for robust class ranking (see Step 3).
-    
-    !!! info "GPU Constraints"
-        Specify GPU type with `--gpu-constraint`:
-        - `"a100"` - NVIDIA A100
-        - `"v100"` - NVIDIA V100
-        - `"h100"` - NVIDIA H100
 
 ??? note "📋 `class2d` Parameters"
 
@@ -275,33 +259,23 @@ py2rely-slurm slab submit-slabpick \
     --voxel-spacing 10.0 \
     --pixel-size 1.54
 
-# Wait for job completion, then:
+# Run Minislab Extraction
+sbatch slabpick.sh  
 
 # 2. Run classification
-py2rely slab class2d \
-    --particles slabs/particles.star \
-    --tau-fudge 4.0 \
-    --nr-classes 50 \
-    --class-algorithm 2DEM \
-    --nr-iter 25 \
-    --do-ctf-correction yes \
+# Generate the Shell Submission Script for 2D Classificaiton
+py2rely-slurm slab submit-class2d \
     --particle-diameter 300 \
-    --use-gpu yes
+    --num-classes 50 \
+
+# Run Class2D
+sbatch class2d.sh
 
 # 3. Visualize and extract
-py2rely slab extractor \
-    --particles slabs/particles.star \
-    --class-job job001
+py2rely slab extract
 
 # 4. Export selected particles
-# (Done via GUI - saves to selected_particles.star)
-
-# 5. Optional: Refined classification
-py2rely slab class2d \
-    --particles slabs/selected_particles.star \
-    --nr-classes 20 \
-    --nr-iter 30 \
-    --highres-limit 8.0
+# TODO...
 ```
 
 ## Next Steps

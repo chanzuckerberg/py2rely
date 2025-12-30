@@ -11,6 +11,74 @@ py2rely requires two input files for sub-tomogram averaging:
 | **Tilt Series STAR** | Alignment parameters, CTF info | AreTomo output |
 | **Particles STAR** | Particle coordinates, orientations | Copick, STAR files, PyTom |
 
+## 🎯 Import Particle Coordinates
+
+=== "From Copick"
+
+    Import from coordinates from a [Copick](https://github.com/copick/copick) project:
+
+    ```bash
+    py2rely prepare particles \
+        --config copick_config.json \
+        --session 24jan01 \
+        --name virus-like-particle \
+        -ps 1.54 -x 4096 -y 4096 -z 1200 \
+        -v 300 -sa 2.7  -ac 0.1
+    ```
+
+    ✅ This will write a STAR file to `input/24jan01_virus_like_particle.star`
+    
+    !!! info "Coordinate System"
+        Copick stores coordinates in **physical units (Ångstroms)**, not pixels.
+        
+        py2rely automatically converts to Relion format using:
+
+        - Tomogram **unbinned** dimensions (`-x`, `-y`, `-z`)
+        - Tilt-series Pixel size (`-ps`)
+
+
+    <details markdown="1">
+    <summary><b>📋 `prepare particles` Parameters</b></summary>
+
+    | Parameter | Short | Description | Default |
+    |-----------|-------|-------------|---------|
+    | `--config` | `-c` | Path to Copick config file | *required* |
+    | `--session` | `-s` | Experiment session identifier | *required* |
+    | `--name` | `-n` | Protein/particle name | *required* |
+    | `--output` | `-o` | Output directory for STAR file | `input` |
+    | `--session-id` | `-sid` | Copick session ID filter | - |
+    | `--user-id` | `-uid` | Copick user ID filter | - |
+    | `--run-ids` | `-rids` | Run IDs to filter (comma-separated) | - |
+    | `--voxel-size` | `-vs` | Voxel size of picked tomograms (Å) | - |
+    | `--x` | `-x` | Tomogram x-dimension (pixels) | `4096` |
+    | `--y` | `-y` | Tomogram y-dimension (pixels) | `4096` |
+    | `--z` | `-z` | Tomogram z-dimension (pixels) | `1200` |
+    | `--pixel-size` | `-ps` | Tilt series pixel size (Å) | `1.54` |
+    | `--voltage` | `-v` | Acceleration voltage (kV) | `300` |
+    | `--spherical-aberration` | `-sa` | Cs value (mm) | `2.7` |
+    | `--amplitude-contrast` | `-ac` | Amplitude contrast | `0.07` |
+    | `--optics-group` | `-og` | Optics group number | `1` |
+    | `--optics-group-name` | `-ogn` | Optics group name | `opticsGroup1` |
+    | `--relion5` | | Use Relion5 centered coordinates | `True` |
+
+    </details>
+
+=== "Combine Multiple Sources"
+
+    Merge particles from different picking methods, sessions, or manual annotations. 
+
+    ```bash
+    py2rely prepare combine-particles \
+        --input input/session1_particles.star \
+        --input input/session2_particles.star \
+        --input input/manual_picks.star \
+        --output input/all_particles.star
+    ```
+
+    !!! info "Common Scenarios"
+        - Merge automated + manual picks (derived from different copick sessionIDs, userIDs)
+        - Multiple experimental sessions
+
 ---
 
 ## 📐 Import Tilt Series
@@ -32,8 +100,7 @@ py2rely requires two input files for sub-tomogram averaging:
     ```bash
     py2rely prepare tilt-series \
         --base-project /path/to/aretomo \
-        --session 24jan01 \
-        --run run001 \
+        -s 24jan01 -r run001 \
         -v 300 -sa 2.7 -ac 0.1 \
         --pixel-size 1.54 --total-dose 60
     ```
@@ -113,91 +180,6 @@ py2rely requires two input files for sub-tomogram averaging:
         - Reads which tomograms appear in your particles file
         - Removes tilt series entries for tomograms with zero particles
         - **Overwrites** the original tilt series STAR file (makes backup first)
----
-
-## 🎯 Import Particle Coordinates
-
-=== "From Copick"
-
-    Import from coordinates from a [Copick](https://github.com/copick/copick) project:
-
-    ```bash
-    py2rely prepare particles \
-        --config copick_config.json \
-        --session 24jan01 \
-        --name virus-like-particle \
-        -ps 1.54 -x 4096 -y 4096 -z 1200 \
-        -v 300 -sa 2.7  -ac 0.1
-    ```
-    
-    !!! info "Coordinate System"
-        Copick stores coordinates in **physical units (Ångstroms)**, not pixels.
-        
-        py2rely automatically converts to Relion format using:
-
-        - Tomogram **unbinned** dimensions (`-x`, `-y`, `-z`)
-        - Tilt-series Pixel size (`-ps`)
-
-    !!! example "Particle Import"
-
-        **Filter by specific runs:**
-        ```bash
-        py2rely prepare particles \
-            --run-ids "run001,run002,run003" \
-            ...
-        ```
-        
-        **Filter by user/session ID:**
-        ```bash
-        py2rely prepare particles \
-            --user-id "octopi" \
-            --session-id "1" \
-            ...
-        ```
-
-
-    <details markdown="1">
-    <summary><b>📋 `prepare particles` Parameters</b></summary>
-
-    | Parameter | Short | Description | Default |
-    |-----------|-------|-------------|---------|
-    | `--config` | `-c` | Path to Copick config file | *required* |
-    | `--session` | `-s` | Experiment session identifier | *required* |
-    | `--name` | `-n` | Protein/particle name | *required* |
-    | `--output` | `-o` | Output directory for STAR file | `input` |
-    | `--session-id` | `-sid` | Copick session ID filter | - |
-    | `--user-id` | `-uid` | Copick user ID filter | - |
-    | `--run-ids` | `-rids` | Run IDs to filter (comma-separated) | - |
-    | `--voxel-size` | `-vs` | Voxel size of picked tomograms (Å) | - |
-    | `--x` | `-x` | Tomogram x-dimension (pixels) | `4096` |
-    | `--y` | `-y` | Tomogram y-dimension (pixels) | `4096` |
-    | `--z` | `-z` | Tomogram z-dimension (pixels) | `1200` |
-    | `--pixel-size` | `-ps` | Tilt series pixel size (Å) | `1.54` |
-    | `--voltage` | `-v` | Acceleration voltage (kV) | `300` |
-    | `--spherical-aberration` | `-sa` | Cs value (mm) | `2.7` |
-    | `--amplitude-contrast` | `-ac` | Amplitude contrast | `0.07` |
-    | `--optics-group` | `-og` | Optics group number | `1` |
-    | `--optics-group-name` | `-ogn` | Optics group name | `opticsGroup1` |
-    | `--relion5` | | Use Relion5 centered coordinates | `True` |
-
-    </details>
-
-=== "Combine Multiple Sources"
-
-    Merge particles from different picking methods, sessions, or manual annotations. 
-
-    ```bash
-    py2rely prepare combine-particles \
-        --input input/session1_particles.star \
-        --input input/session2_particles.star \
-        --input input/manual_picks.star \
-        --output input/all_particles.star
-    ```
-
-    !!! info "Common Scenarios"
-        - Merge automated + manual picks (derived from different copick sessionIDs, userIDs)
-        - Multiple experimental sessions
-
 ---
 
 ## 🔄 Coordinate Systems
