@@ -36,9 +36,10 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
 
 === "Direct Call"
 
-    The equivalent commands that `submit-slabpick` calls from `slabpick` is shown below, we will be calling both:
+    The `slabpick` commands to generate slabs from tomograms is shown below, we will be calling both:
     1. `make_minislabs` 
     2. `normalize_stack`
+    For generating the slabs and normalizng the contrast for Relion.
     
     ```bash
     make_minislabs \
@@ -61,7 +62,7 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
     
     ```bash
     # Create the Slurm Submission script for minislab generation
-    py2rely-slurm slab submit-slabpick \
+    py2rely-slurm slab slabpick \
         --in-coords /path/to/copick/config.json \
         --pixel-size 1.54 \
         --extract-shape 500,500,400 \
@@ -73,7 +74,7 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
     ```
         
     <details markdown="1">
-    <summary><b>📋`submit-slabpick` Parameters</b></summary>
+    <summary><b>📋`py2rely-slurm slab slabpick` Parameters</b></summary>
 
     | **Parameter**       | **Description**                                            | **Example**                |
     |---------------------|------------------------------------------------------------|----------------------------|
@@ -122,7 +123,7 @@ Classify the extracted slabs using Relion Class2D.
     
     ```bash
     # Generate the Shell Submission Script for 2D Classificaiton
-    py2rely-slurm slab submit-class2d \
+    py2rely-slurm slab class2d \
         --particle-diameter 300 \
         --num-classes 50 \
 
@@ -251,7 +252,7 @@ py2rely slab class2d \
 
 ```bash
 # 1. Extract slabs (SLURM)
-py2rely-slurm slab submit-slabpick \
+py2rely-slurm slab slabpick \
     --in-coords input/full_picks.star \
     --in-vols input/tomograms.star \
     --out-dir slabs/ \
@@ -264,7 +265,7 @@ sbatch slabpick.sh
 
 # 2. Run classification
 # Generate the Shell Submission Script for 2D Classificaiton
-py2rely-slurm slab submit-class2d \
+py2rely-slurm slab class2d \
     --particle-diameter 300 \
     --num-classes 50 \
 

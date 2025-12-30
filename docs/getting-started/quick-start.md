@@ -78,7 +78,7 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
         ```
         
         !!! success "Access the Interface"
-            Opens a web browser at `http://localhost:7860` or 
+            Open the web page through the local or public URL.
 
             - Browse class averages
             - Select classes by clicking
