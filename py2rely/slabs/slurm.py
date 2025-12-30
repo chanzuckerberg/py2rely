@@ -8,29 +8,29 @@ def cli(ctx):
     pass
 
 @cli.command(context_settings=cli_context)
-@click.option("--in-coords", type=str, required=True,   
+@click.option("-ic","--in-coords", type=str, required=True,   
               help="Input Coordinates File Path" )
-@click.option( "--in-vols", type=str, required=False, default=None,
+@click.option("-iv","--in-vols", type=str, required=False, default=None,
               help="Input Volumes File Path")
-@click.option( "--out-dir", type=str, required=True, 
+@click.option("-o","--out-dir", type=str, required=True, 
               help="Output Directory" )
-@click.option( "--extract-shape", type=str, required=True, default="500,500,400",
+@click.option("-es","--extract-shape", type=str, required=True, default="500,500,400",
               help="Extraction Shape for Particles Extraction (x y z) in Angstroms provided as comma-separated values" )
-@click.option( "--coords-scale", type=float, required=True,
+@click.option("-cs", "--coords-scale", type=float, required=False, default=1.0,
               help="The scale factor that converts the input coordinates to Angstrom\n(Select 1 if Reading From Copick Format) or the voxel spacing of the tomogram that 3D template matching was run on" )
-@click.option( "--voxel-spacing", type=float, required=False, default=5,
+@click.option("-vs", "--voxel-spacing", type=float, required=False, default=5,
               help="Pixel size of tomograms to extract minislabs from in Angstrom" )
-@click.option( "--pixel-size", type=float, required=False, default=1.54,
+@click.option("-ps", "--pixel-size", type=float, required=False, default=1.54,
               help="Pixel size in Angstroms" )
-@click.option( "--tomo-type", type=str, required=False, default=None,
+@click.option("-tt", "--tomo-type", type=str, required=False, default=None,
               help="Tomogram Type if Extracting from Copick Project" )
-@click.option( "--user-id", type=str, required=False, default=None,
+@click.option("-uid", "--user-id", type=str, required=False, default=None,
               help="UserID for Copick Query" )
-@click.option( "--particle-name", type=str, required=False, default=None,
+@click.option("-pn", "--particle-name", type=str, required=False, default=None,
               help="Particle Name for Copick Query" )
-@click.option( "--session-id", type=str, required=False, default=None,
+@click.option("-sid", "--session-id", type=str, required=False, default=None,
               help="SessionID for Copick Query" )
-def submit_slabpick(
+def slabpick(
     in_coords: str,
     in_vols: str, 
     out_dir: str,
@@ -121,28 +121,28 @@ normalize_stack \\
 ###########################################################################################      
 
 @cli.command(context_settings=cli_context)
-@click.option( "--particle-diameter", type=float, required=False, default=300,
+@click.option("-diam", "--particle-diameter", type=float, required=False, default=300,
               help="Particle Diameter" )
-@click.option( "--tau-fudge", type=float, required=False, default=2,
+@click.option("-tau", "--tau-fudge", type=float, required=False, default=2,
               help="Tau Fudge Factor" )
-@click.option( "--num-classes", type=str, required=False, default='5',
+@click.option("-nclasses", "--num-classes", type=str, required=False, default='5',
               help="Number of Classes (Can Be Provided as a Single Value, or a Range (min,max,interval))" )
-@click.option( "--highres-limit", type=float, required=False, default=-1,
+@click.option("-hl", "--highres-limit", type=float, required=False, default=-1,
               help="High Resolution Limit for Classification in Angstroms (-1 Means Use Nyquist Limit)" )
-@click.option( "--class-algorithm",  required=False, default="2DEM",
+@click.option("-alg", "--class-algorithm",  required=False, default="2DEM",
              type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
               help="2D Classification Algorithm, choose either '2DEM' or 'VDAM'." )
-@click.option( "--num-gpus", type=int, required=False, default=2,
+@click.option('-ngpus', "--num-gpus", type=int, required=False, default=2,
               callback=submit_slurm.validate_num_gpus,
               help="Number of GPUs for Processing" )
-@click.option( "--gpu-constraint", required=False, default="h100",
+@click.option('-const', "--gpu-constraint", required=False, default="h100",
               type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
               help="GPU Hardware to Reqest for Processing" )
-@click.option( "--num-threads", type=int, required=False, default=16,
+@click.option('-nthreads', "--num-threads", type=int, required=False, default=16,
               help="Number of Threads to Use" )
-@click.option( "--bootstrap-ntrials", type=int, required=False, default=0,
+@click.option('-ntrials', "--bootstrap-ntrials", type=int, required=False, default=0,
               help="Number of Trials to Run Bootstraping for SAD Method" )
-def submit_class2d(
+def class2d(
     particle_diameter: float,
     tau_fudge: float,
     num_classes: str,

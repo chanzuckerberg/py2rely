@@ -137,13 +137,13 @@ def find_final_iteration(classPath):
 
 @cli.command(context_settings=cli_context, name='extract-desktop')
 @click.option(
-    '--job', 
+    '-j', '--job', 
     required=True, 
     type=str, 
     default='job001', 
     help='Job Associated to the class2D to export classes from')
 @click.option(
-    '--extract-classes',
+    '-e', '--extract-classes',
     required=False,
     type=click.BOOL,
     default=True,
