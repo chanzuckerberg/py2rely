@@ -1,4 +1,4 @@
-site_name: Relion Sub-tomogram Pipelines
+site_name: py2rely - The Pipeline To Rely On
 site_description: Documentation for Relion Sub-tomogram Processing Pipelines
 site_url: https://chanzuckerberg.github.io/py2rely/
 repo_url: https://github.com/chanzuckerberg/py2rely
@@ -16,38 +16,46 @@ theme:
     - search.suggest
   palette:
     - scheme: default
-      primary: indigo
+      primary: black
       accent: indigo
       toggle:
         icon: material/brightness-7
         name: Switch to dark mode
     - scheme: slate
-      primary: indigo
+      primary: black
       accent: indigo
       toggle:
         icon: material/brightness-4
         name: Switch to light mode
 
 markdown_extensions:
+  - admonition
+  - pymdownx.details
   - pymdownx.highlight
   - pymdownx.superfences
   - pymdownx.inlinehilite
-  - pymdownx.tabbed
+  - pymdownx.tabbed:
+      alternate_style: true
   - pymdownx.arithmatex
   - pymdownx.emoji:
       emoji_index: !!python/name:materialx.emoji.twemoji
       emoji_generator: !!python/name:materialx.emoji.to_svg
+  - attr_list
+  - md_in_html
 
 plugins:
   - search
   - git-revision-date-localized
 
 nav:
-  - Home: index.md
-  - Getting Started:
+  - 🏡 Home: index.md
+  - 🚀 Getting Started:
     - Installation: getting-started/installation.md
     - Quick Start: getting-started/quick-start.md
-  - User Guide:
+  - 📚 User Guide:
     - Overview: user-guide/overview.md
-  - API Reference:
+    - Importing Data: user-guide/importing-data.md
+    - 2D Slab Classification: user-guide/2d-slab-classification.md
+    - 3D Sub-tomogram Averaging: user-guide/3d-subtomogram-averaging.md
+  - 📖 API Reference:
     - Overview: api-reference/overview.md

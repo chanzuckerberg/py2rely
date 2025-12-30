@@ -29,12 +29,12 @@ Then install the code with:
 ### Basic Usage
 `py2rely` provides a clean, scriptable command-line interface. Run the following command to view all the available sub-commands:
 ```
-py2rely -h
+py2rely
 ```
 
 ## 📚 Documentation 
 
-For comprehensive guides, usage examples, and API references, visit the [py2rely documentation](https://chanzuckerberg.github.io/py2rely/).
+For comprehensive guides, usage examples, and API references, visit the [documentation](https://chanzuckerberg.github.io/py2rely/).
 
 ## 🤝 Contributing 
 

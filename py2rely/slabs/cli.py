@@ -1,8 +1,8 @@
 from py2rely.slabs.class2D import slab_average, auto_class_ranker
-from py2rely.slabs.slurm import submit_class2d, submit_slabpick
 from py2rely.slabs.visualize.gui import classes as extract
 from py2rely.slabs.visualize.web_gui import extractor
 from py2rely.slabs.visualize.gallery import summary
+from py2rely.slabs.slurm import class2d, slabpick
 import rich_click as click
 
 @click.group()
@@ -21,8 +21,8 @@ def slab_slurm():
     """Run Jobs to Execute 2D Class Averaging on Slabs on Slurm."""
     pass
 
-slab_slurm.add_command(submit_class2d)
-slab_slurm.add_command(submit_slabpick)
+slab_slurm.add_command(class2d)
+slab_slurm.add_command(slabpick)
 
 if __name__ == "__main__":
     slab()

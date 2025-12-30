@@ -181,7 +181,7 @@ def run_import_particles(
     elif session_id is not None: # Assume user_id is not None
         fname = f'{session_id}_{name}'
     else:
-        fname = copick_name
+        fname = name
     fname =  session + '_' + fname
 
     # Specify Output Path
