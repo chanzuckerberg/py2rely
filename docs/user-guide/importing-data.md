@@ -172,7 +172,7 @@ py2rely requires two input files for sub-tomogram averaging:
 
     ```bash
     py2rely prepare filter-unused-tilts \
-        --particles input/full_picks.star \
+        --particles input/24jan01_virus_like_particle.star \
         --tomograms input/tiltSeries/aligned_tilt_series.star
     ```
     
@@ -217,11 +217,8 @@ py2rely prepare particles \
 
 # 3. Clean up unused tomograms
 py2rely prepare filter-unused-tilts \
-    --particles input/full_picks.star \
-    --tomograms input/tiltSeries/aligned_tilt_series.star
-
-# 4. Verify
-python -c "import starfile; print(len(starfile.read('input/full_picks.star')['particles']))"
+    -p input/24jan01_virus_like_particle.star \
+    -t input/tiltSeries/aligned_tilt_series.star
 ```
 
 ---

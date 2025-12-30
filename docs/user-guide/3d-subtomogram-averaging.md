@@ -24,11 +24,10 @@ Create a parameter JSON file with default settings:
 
 ```bash
 py2rely prepare relion5-parameters \
-    -p input/full_picks.star \
+    -p input/24jan01_virus_like_particle.star \
     -ts input/tiltSeries/aligned_tilt_series.star \
-    -ps 1.54 -lp 50 -pd 330 -bs 2 \
-    -sym C1 -bl 4,2,1 \
-    -o sta_parameters.json
+    -ps 1.54 -lp 50 -pd 290 -bs 1.75 \
+    -s C1 -bl 4,2,1
 ```
 
 !!! info "What this command does:"
@@ -40,6 +39,19 @@ py2rely prepare relion5-parameters \
     - CTF refinement settings
     - Post-processing options
     - Job dependencies and execution order
+
+    ??? success "Knowing the box sizes per bin"
+
+        ✅ After the parameters JSON file is complete, we will see an output such as this:
+
+        ```bash
+        [Initialize] Running Refinement Pipeline with Given Binnings and Resulting Box Sizes
+        [Initialize] Box Size: 84 @ bin=4
+        [Initialize] Box Size: 168 @ bin=2
+        [Initialize] Box Size: 352 @ bin=1
+        ```
+
+        This will be necessary information when generating a template for the STA pipeline.
 
     ??? note "📋 `prepare relion5-parameters`"
 
@@ -189,30 +201,25 @@ After initial refinement at a coarse resolution, you can optionally run 3D class
 
 ## Example: Complete Workflow
 
-Here's a complete example from start to finish:
+Here's the commands after the tilt series and particles starfiles are [generated](importing-data.md):
 
 ```bash
-# 1. Import data
-py2rely prepare tilt-series \
-    --base-project /data/aretomo \
-    --s 24mar08a -ps 1.54
-
-py2rely prepare particles \
-    -c copick.json -s 24mar08a \
-    --name virus-like-particle \
-    -ps 1.54 -x 4096 -y 4096 -z 1200
-
 # 2. Generate parameters
 py2rely prepare relion5-parameters \
-    --tilt-series input/tiltSeries/aligned_tilt_series.star \
-    --particles input/full_picks.star \
-    --tilt-series-pixel-size 1.54 \
-    --symm I2 \
-    --protein-diameter 290 \
-    --binning-list 4,2,1 \
+    -ts input/tiltSeries/aligned_tilt_series.star \
+    -p input/24jan01_virus_like_particle.star \
+    -ps 1.54 -s I2 \
+    -pd 290 -bl 4,2,1
 
 # 3. Create Template and Align
+py2rely prepare template \
+    -i VLP_emd_41917.map -o reference.mrc \
+    -ivs 0.83 -ovs 6.16 -lp 50 -b 84 
 
+relion_align_symmetry \
+    --i reference.mrc \
+    --o reference.mrc \
+    --sym I2 
 
 # 3. Run pipeline
 py2rely pipelines sta \
