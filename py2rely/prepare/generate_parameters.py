@@ -28,6 +28,10 @@ def cli(ctx):
               help="Create Template Parameters for Denovo Model Generation")
 @click.option("-bs","--box-scaling",type=float,required=False,default=2.0,
               help="Default Padding for Sub-Tomogram Averaging")
+@click.option("--nclasses", type=int, required=False, default=1,
+              help="Number of Classes for 3D Auto Classification")
+@click.option('--ninit-models', '-nim', type=int, required=False, default=1,
+              help="Number of Classes for Initial Model (Denovo) Generation")
 @click.option("-bl","--binning-list", type=str, required=False, default="4,2,1",
               callback=my_slurm.parse_int_list,
               help="List of Binning Factors to Process the Refinement Steps (provided as a comma-separated list)")
@@ -42,6 +46,8 @@ def relion5_parameters(
     denovo_generation: bool,
     box_scaling: float,
     binning_list: List[int],
+    nclasses: int,
+    ninit_models: int
     ):
     """
     Generate a JSON file with the default parameters for the py2rely.
@@ -51,7 +57,7 @@ def relion5_parameters(
         output, tilt_series, particles, 
         tilt_series_pixel_size, symmetry, low_pass, 
         protein_diameter, denovo_generation, box_scaling, 
-        binning_list
+        binning_list, nclasses, ninit_models
     )
 
 def create_relion5_parameters(
@@ -65,6 +71,8 @@ def create_relion5_parameters(
     denovo_generation: bool,
     box_scaling: float,
     binning_list: List[int],
+    nclasses: int,
+    ninit_models: int
     ):
     import py2rely.prepare.parameters as parameters
     from py2rely.utils import sta_tools
@@ -93,6 +101,7 @@ def create_relion5_parameters(
     table.add_row("Protein Diameter (Å)", str(protein_diameter))
     table.add_row("Box Scaling", str(box_scaling))
     table.add_row("Binning List", str(binning_list))
+    table.add_row("Number of Classes", str(nclasses))
     table.add_row("Denovo Generation", str(denovo_generation))
     console.print(table)
 
@@ -110,7 +119,7 @@ def create_relion5_parameters(
             in_tomograms=tilt_series,            
             use_direct_entries="yes",
             nr_iter=70,
-            nr_classes=1,
+            nr_classes=ninit_models,
             tau_fudge=4,
             particle_diameter=protein_diameter,
             sym_name=symmetry,
@@ -172,7 +181,7 @@ def create_relion5_parameters(
             sym_name=symmetry,
             do_ctf_correction= "yes",
             ctf_intact_first_peak= "no",
-            nr_classes= 2,
+            nr_classes= nclasses,
             tau_fudge= 3,
             nr_iter= 15,
             do_fast_subsets="no",
@@ -248,6 +257,20 @@ def create_relion5_parameters(
               help="Run 3D-Classification Job After Refinement")
 @click.option("--new-pipeline", type=bool, required=False, default=True,
               help="Create a new pipeline trajectory")
+@click.option(
+    "--extract3D","-e3d",
+    type=bool,
+    required=False,
+    default=False,
+    help="Extract 3D Particles Before Initial Model Generation (if an inital model is generated denovo)"
+)
+@click.option(
+    "--manual-masking", "-mm",
+    type=bool,
+    required=False,
+    default=False,
+    help="Apply Manual Masking After First Refinement Job"
+)
 @my_slurm.add_compute_options
 def relion5_pipeline(
     parameter: str,
@@ -257,7 +280,9 @@ def relion5_pipeline(
     num_gpus: int, 
     num_days: int,
     gpu_constraint: str, 
-    new_pipeline: bool
+    new_pipeline: bool,
+    extract3d: bool,
+    manual_masking: bool
     ):
     """
     Prepare py2rely pipeline for submission.
@@ -265,7 +290,8 @@ def relion5_pipeline(
 
     run_relion5_pipeline(
         parameter, reference_template, run_denovo_generation, 
-        run_class3d, num_gpus, num_days, gpu_constraint, new_pipeline
+        run_class3d, num_gpus, num_days, gpu_constraint, new_pipeline,
+        extract3d, manual_masking
     )
 
 def run_relion5_pipeline(
@@ -276,7 +302,9 @@ def run_relion5_pipeline(
     num_gpus: int, 
     num_days: int,
     gpu_constraint: str, 
-    new_pipeline: bool
+    new_pipeline: bool,
+    extract3d: bool,
+    manual_masking: bool
     ):
     from rich.console import Console
     import os
@@ -296,6 +324,7 @@ def run_relion5_pipeline(
 py2rely pipelines sta \\
     --parameter {parameter} \\
     --run-denovo-generation {run_denovo_generation} --run-class3D {run_class3d} \\
+    --extract3D {extract3d} --manual-masking {manual_masking} \\
     """
     # Only add reference template if it is provided
     if reference_template is not None:

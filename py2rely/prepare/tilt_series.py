@@ -14,7 +14,7 @@ def cli(ctx):
               help="Main Aretomo Project Folder Path" )
 @click.option("-s","--session",type=str,required=True, default='23dec21',
               help="Session for Generating Relion Experiment")
-@click.option("-r","--run",type=str,required=False, default='run001',
+@click.option("-r","--run",type=str,required=False, default=None,
               help="Run for Generating Relion Experiment")
 @click.option("-o","--output",type=str,required=False, default='input',
               help="Output directory path to write STAR files")
@@ -74,28 +74,21 @@ def run_import_tilt_series(
 
     # Get the rich-click console
     console = get_console()
-
-    # Set up output paths and directories
-    # Entry to Save in `import.json`
-    tiltSeriesHeader = f'{session}_tiltSeries'
-    # Path to Output Without TiltSeries Sub-Folder
-    output_path = output
-    # Create TiltSeries Sub-Folder
-    output = os.path.join(output,'tiltSeries')
-    os.makedirs(output, exist_ok=True)
-
-    console.rule("[bold cyan]Importing Tilt-Series")
-
+    
     # Log pipeline parameters
+    os.makedirs(output, exist_ok=True)    
+    tiltSeriesHeader = f'{session}_tiltSeries'
+    console.rule("[bold cyan]Importing Tilt-Series")
     utils = sta_tools.PipelineHelper(None, requireRelion=False)
     utils.print_pipeline_parameters('Importing Tilt-Series', base_project = base_project, session = session, run = run,
                                     output = output, pixel_size = pixel_size, total_dose = total_dose, 
                                     voltage = voltage, spherical_aberration = spherical_aberration,
                                     amplitude_contrast = amplitude_contrast, header = tiltSeriesHeader, 
-                                    file_name=os.path.join(output_path,'import.json'))
+                                    file_name=os.path.join(output,'import.json'))
 
     # Locate all CTF parameter files in the project directory
-    inputPath = os.path.join( base_project, session, run, '*_CTF.txt')
+    run = run or ''
+    inputPath = os.path.join(base_project, session, run, '*_CTF.txt')
     console.print(Panel.fit(f"[b white]Search path[/b white]\n{inputPath}", border_style="blue"))
     all_tiltSeries = np.array(glob.glob(inputPath), dtype=str)
 
@@ -123,9 +116,11 @@ def run_import_tilt_series(
     except:
         pass
 
-    # Initialize containers for tomogram data
-    tiltSeriesDirectory = output
+    # Create TiltSeries Sub-Folder
+    tiltSeriesDirectory = os.path.join(output, f'{session}_tiltSeries')
     os.makedirs(tiltSeriesDirectory, exist_ok=True)
+    
+    # Initialize containers for tomogram data
     aln_column_names = ['SEC', 'ROT', 'GMAG', 'TX', 'TY', 'SMEAN', 'SFIT', 'SCALE', 'BASE', 'TILT']
     tomoNames = [] # Names of tomograms
     tiltSeriesStarNames = [] # Paths to individual STAR files for tilt series
@@ -311,9 +306,10 @@ def run_combine_tilt_series(
     console = get_console()
     console.rule("[bold cyan]Combine Tilt-Series")
     console.print(f"[b]Output:[/b] {output}")
+    console.print()
 
     # Iterate Through all Input StarFiles
-    for ii in _progress(input, description="Combining Tilt-Series"):
+    for ii in _progress(range(len(input)), description="Combining Tilt-Series"):
 
         filename = input[ii]
         console.print(f"[b]Adding[/b] {filename} to the Merged StarFile")

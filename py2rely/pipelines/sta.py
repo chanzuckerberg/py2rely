@@ -30,11 +30,27 @@ import rich_click as click
     default=False, 
     help="Run 3D-Classification Job After Refinement"
 )
+@click.option(
+    "--extract3D","-e3d",
+    type=bool,
+    required=False,
+    default=False,
+    help="Extract 3D Particles Before Initial Model Generation"
+)
+@click.option(
+    "--manual-masking", "-mm",
+    type=bool,
+    required=False,
+    default=False,
+    help="Apply Manual Masking After First Refinement Job"
+)
 def average(
     parameter: str,
     reference_template: str,
     run_denovo_generation: bool, 
     run_class3d: bool, 
+    extract3d: bool,
+    manual_masking: bool,
     ):
     """
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
@@ -43,6 +59,7 @@ def average(
     run_average(
         parameter, reference_template,
         run_denovo_generation, run_class3d, 
+        extract3d,manual_masking
     )
 
 def run_average(
@@ -50,6 +67,8 @@ def run_average(
     reference_template: str,
     run_denovo_generation: bool, 
     run_class3d: bool, 
+    extract3d: bool,
+    manual_masking: bool,
     ):
     from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
     from pipeliner.api.manage_project import PipelinerProject
@@ -72,6 +91,8 @@ def run_average(
 
     # Generate Pseudo Sub-Tomograms 
     utils.initialize_pseudo_tomos()
+    if extract3d and run_denovo_generation: # We only want to extract 3D particles if we are generating the initial model de novo
+        utils.pseudo_subtomo_job.joboptions['do_output_2dstacks'].value = False
     utils.run_pseudo_subtomo()
 
     #############################################################################################    
@@ -85,7 +106,7 @@ def run_average(
     particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
     if run_denovo_generation:
         # Initialize and I/O for Denovo Initial Model Generation
-        utils.initialize_initial_model()       
+        utils.initialize_initial_model()
         utils.run_initial_model()
         print(f'\nGenerating Initial Model with "Denovo Reconstruction"\n')        
         refine_reference = utils.initial_model_job.output_dir + 'initial_model.mrc'
@@ -101,6 +122,12 @@ def run_average(
         refine_reference = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
 
     #############################################################################################        
+
+    # Extract at 2D if original extraction is in 3D.
+    # We only want to extract 3D particles if we are generating the initial model de novo    
+    if extract3d and run_denovo_generation: 
+        utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
+        particles = utils.pseudo_subtomo_job.output_dir + 'particles.star'
 
     # Main Loop 
     utils.initialize_mask_create()
@@ -143,6 +170,10 @@ def run_average(
             utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
             utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
             utils.run_mask_create(utils.tomo_refine3D_job, utils.tomo_class3D_job)
+
+            if manual_masking and binFactor == 0:
+                print('[UPDATE] Manual masking requested. Exiting for user intervention.')
+                exit()
 
             # Post-Process to Estimate Resolution     
             utils.post_process_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'half1.mrc'

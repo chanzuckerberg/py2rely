@@ -370,7 +370,7 @@ def run_create_template(
 
     # Compose output path if needed
     if output is None:
-        output = pathlib.Path(f"template_{input.stem}_{output_voxel_size}A.mrc")
+        output = pathlib.Path(f"template_{input.split('.')[0]}_{output_voxel_size}A.mrc")
 
     if map_spacing_A > output_voxel_size:
         raise NotImplementedError(
@@ -390,12 +390,12 @@ def run_create_template(
         template = -template
 
     if mirror:
+        print('Mirroring the handedness of the template')
         template = np.flip(template, axis=0)
 
     write_mrc(output, template, output_voxel_size)
     logging.info("✅ Wrote %s (voxel size %.3f Å) shape=%s", output, output_voxel_size, template.shape)
 
 
-# Allow `python cpu_template_tools.py ...` execution
 if __name__ == "__main__":  # pragma: no cover
     create_template()  # Click will parse sys.argv

@@ -73,6 +73,10 @@ class Relion5Pipeline(PipelineHelper):
         """
         pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo') if rerunPseudoSubtomo else None
         self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Pseudo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
+        
+        # Disable 3D stack output after the first run
+        if not self.pseudo_subtomo_job.joboptions['do_output_2dstacks'].value: 
+            self.pseudo_subtomo_job.joboptions['do_output_2dstacks'].value = True
 
     def initialize_initial_model(self):
         """

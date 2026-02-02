@@ -332,10 +332,12 @@ def run_combine_particles(
 
     console = get_console()
     console.rule("[bold cyan]Combine Particles")
+    console.print(f"[b]Input:[/b] {', '.join(input)}")
     console.print(f"[b]Output:[/b] {output}")
+    console.print()
 
     # Iterate Through all Input StarFiles
-    for ii in _progress(input, description="Combining Particles"):
+    for ii in _progress(range(len(input)), description="Combining Particles"):
 
         filename = input[ii]
         print(f'Adding {filename} to the Merged StarFile')
