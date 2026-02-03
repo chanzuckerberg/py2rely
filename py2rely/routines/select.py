@@ -136,8 +136,9 @@ def run_class_select(
     if run_refinement:
 
         # Assign Best Class and Output Particle Selection for Sub-Sequent Job      
+        final_iter = utils.find_final_iteration().split('/')[-1].split('_')[1]
         utils.tomo_refine3D_job.joboptions['in_particles'].value = utils.tomo_select_job.output_dir + 'particles.star'
-        utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.tomo_class3D_job.output_dir + f'run_it025_class{best_class:03d}.mrc'    
+        utils.tomo_refine3D_job.joboptions['fn_ref'].value = utils.tomo_class3D_job.output_dir + f'run_{final_iter}_class{best_class:03d}.mrc'    
         
         # Estimate Resolution for Low-Pass Filtering
         models = starfile.read(utils.tomo_select_job.joboptions['fn_data'].value[:-9] + 'model.star')

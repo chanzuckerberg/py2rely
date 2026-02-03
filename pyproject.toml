@@ -26,7 +26,7 @@ readme = "README.md"
 license = { file = "LICENSE" }
 
 [project.optional-dependencies]
-web = ["gradio"]
+web = ["gradio", "pytz"]
 gui = ["PyQt5", "pyqtgraph"]
 
 [project.scripts]
