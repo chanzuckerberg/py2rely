@@ -191,7 +191,7 @@ After classification, visualize class averages and extract the best classes. On 
     For a native desktop experience:
     
     ```bash
-    py2rely slab extract \
+    py2rely slab extract-desktop \
         -j job001
     ```
 
@@ -236,8 +236,8 @@ py2rely slab class2d \
     --nr-classes 100 \
     --nr-iter 20
 
-# Extract good classes (via GUI)
-py2rely slab extractor --particles slabs/particles.star --class-job job001
+# Extract good classes
+py2rely slab extract
 # Export to: slabs/selected_particles.star
 
 # Second pass: refined classification
@@ -247,6 +247,34 @@ py2rely slab class2d \
     --nr-iter 30 \
     --highres-limit 8.0
 ```
+
+## Step 4: 📤 Exporting Back to Copick
+
+After selecting good classes, you may want to write the curated particle set back into CoPick for reuse in downstream workflow: (e.g. 3D sub-tomogram averaging or further annotation).
+
+This is done using rln_map_particles, which maps particles selected in RELION back to their original runs.
+```bash
+rln_map_particles \ 
+    --rln_file Select/job002/particles.star \
+    --map_file stack/particle_map.csv \
+    --particle_name ribosome --user_id octopi \
+    --user_id_out slabpick --session_id_out 1  session_id 1
+```
+
+??? note "📋 `rln_map_particles` Parameters"
+
+     | Parameter | Description |
+     |-----------|-------------|
+     | `--rln_file` | RELION STAR file containing selected or rejected particles |
+     | `--map_file` | Particle-to-slab bookkeeping file mapping slabs back to tomograms |
+     | `--coords_file` | Original CoPick JSON file used to generate the slabs |
+     | `--particle_name` | Input particle name used in the original CoPick query |
+     | `--session_id` | Input CoPick session ID where the original coordinates were queried |
+     | `--user_id` | Input CoPick user ID where the original coordinates were queried |
+     | `--particle_name_out` | Particle name for the exported (curated) picks |
+     | `--session_id_out` | CoPick session ID to write the curated particles to |
+     | `--user_id_out` | CoPick user ID to write the curated particles under |
+     | `--rejected_set` | Export rejected particles instead of selected ones |
 
 ## Example: Complete Workflow
 

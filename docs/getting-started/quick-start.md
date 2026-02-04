@@ -12,7 +12,7 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
 
 === "Step 1: Extract Slabs"
 
-    Extract slabs from your tomograms (requires `slabpick`):
+    Extract slabs from your tomograms (requires [`slabpick`](https://github.com/apeck12/slabpick)):
 
     ```bash
     make_minislabs \
@@ -96,8 +96,31 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
 
             - More responsive UI
 
-!!! warning "GUI Requirements"
-    Make sure you've installed either `gradio` (for web GUI) or `PyQt5` (for desktop GUI) as described in the [Installation Guide](installation.md).
+    !!! warning "GUI Requirements"
+        Make sure you've installed either `gradio` (for web GUI) or `PyQt5` (for desktop GUI) as described in the [Installation Guide](installation.md).
+
+=== "Step 4: Exporting 2D Classes to Copick"
+
+    After selecting good classes, you can write the curated particle set back into `CoPick` for reuse in downstream workflows (e.g. 3D STA or visualization).
+
+    ```bash
+    rln_map_particles \
+        --rln_file Select/job002/particles.star \
+        --map_file stack/particle_map.csv \
+        --coords_file copick_config.json \
+        --particle_name ribosome \
+        --session_id 1 \
+        --user_id octopi \
+        --particle_name_out ribosome_clean \
+        --session_id_out 2 \
+        --user_id_out slabpick
+    ```
+
+    !!! info "Input vs output CoPick identifiers"
+        - `--session_id` and `--user_id` specify **where the original particle coordinates came from**
+        - `*_out` parameters define **where the curated particle set will be written**
+
+        This allows you to preserve the original picks while tracking multiple rounds of curation.    
 
 ---
 
@@ -259,7 +282,7 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
 
 After a 2D and 3D workflow is complete, we can export the particles back to Copick to visualize the particle orientations in the tomogram
 
-=== "Export to Copick"
+=== "Export STA Results to Copick"
 
     Export refined particles back to Copick format:
     ```bash
@@ -274,7 +297,7 @@ After a 2D and 3D workflow is complete, we can export the particles back to Copi
     
     Useful for visualization in ChimeraX or training segmentation models.
 
-=== "Export Class Results"
+=== "Export Class3D to a New StarFile"
 
     In cases where we want to take classification jobs and aggretate the multiple classes to a new particle stack, we can use the `class2star` command.
 
@@ -285,6 +308,25 @@ After a 2D and 3D workflow is complete, we can export the particles back to Copi
         --export-classes 1,2,3 \
         --output input/best_classes.star
     ```
+
+=== "Export Class2D to Copick"
+
+    Curated particle selections from 2D slab classification can be written
+    back to **CoPick** using `rln_map_particles`.
+
+    ```bash
+    rln_map_particles \
+        --rln_file Select/job002/particles.star \
+        --map_file stack/particle_map.csv \
+        --coords_file copick_config.json \
+        --particle_name ribosome \
+        --session_id 1 \
+        --user_id octopi \
+        --particle_name_out ribosome_clean \
+        --session_id_out 2 \
+        --user_id_out slabpick
+    ```
+
 
 ---
 
