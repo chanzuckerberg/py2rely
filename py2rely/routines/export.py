@@ -135,120 +135,142 @@ def star2copick(
     )
 
 def run_star2copick(
-    particles: str, 
+    particles: str,
     configs: str,
     sessions: str,
     particle_name: str,
-    user_id: str, 
+    user_id: str,
     session_id: int,
     suffix: str,
     dim_x: int,
-    dim_y: int, 
-    dim_z: int    
+    dim_y: int,
+    dim_z: int,
     ):
+    """
+    Export Particles Starfile into Corresponding Copick Projects
+    """
     from scipy.spatial.transform import Rotation as R
-    from py2rely.utils.progress import _progress
-    import starfile, copick
-    import numpy as np 
+    import starfile, copick, threading, os
+    from py2rely.utils import map
+    import numpy as np
 
     # Parse User Inputs
     configs = configs.split(',')
-    sessions = sessions.split(',')    
+    sessions = sessions.split(',')
 
     # Check that the number of user provided configs matches the number of sessions
     if len(configs) != len(sessions):
-        print(f'[Error]: The number of config files ({len(configs)}) does not match the number of sessions ({len(sessions)}).')
-        exit()
+        raise ValueError(
+            f"The number of config files ({len(configs)}) does not match the number of sessions ({len(sessions)})."
+        )
 
     # Read Particles from StarFile
     df = starfile.read(particles)
     pixel_size = df['optics']['rlnTomoTiltSeriesPixelSize'].iloc[0]
-    particles = df['particles']
+    particles_df = df['particles']
 
-    # Check Possible Export Sessions 
-    available_sessions = particles['rlnTomoName'].str.split('_').str[0].unique()
-
-    # Find which requested sessions are actually available
+    # Check Possible Export Sessions
+    available_sessions = particles_df['rlnTomoName'].str.split('_').str[0].unique()
     valid_sessions = [s for s in sessions if s in available_sessions]
     missing_sessions = [s for s in sessions if s not in available_sessions]
-    
-    # Warn about missing sessions 
+
+    # One lock per session/root to keep writes safe
+    session_locks = {s: threading.Lock() for s in valid_sessions}    
+
     if missing_sessions:
         print('[Warning]: Some specified sessions are not present in the particles star file.')
         print(f'Missing sessions: {missing_sessions}')
 
-    # Error if no valid sessions
     if not valid_sessions:
-        print(f'[Error]: None of the specified sessions {sessions} are present in the particles star file.')
-        print(f'Available sessions: {list(available_sessions)}')
-        exit()
+        raise ValueError(
+            f"None of the specified sessions {sessions} are present in the particles star file. "
+            f"Available sessions: {list(available_sessions)}"
+        )
 
     # Create copick roots only for valid sessions
-    print('[Info]: Creating copick roots for valid sessions:', valid_sessions)
-    copick_roots = {}
+    print('[Info]: Opening copick roots for valid sessions:', valid_sessions)
+    copick_roots: dict[str, object] = {}
     for session, config in zip(sessions, configs):
         if session in valid_sessions:
             copick_roots[session] = copick.from_file(config)
 
-    # Process Only runs from Valid Sessions 
-    uniqueRuns = np.unique(particles['rlnTomoName'])   
-    for uniqueRun in _progress(uniqueRuns, description="Exporting Particles"):
-        
-        # Extract the Associated Session and Run to Export too
-        mysession = uniqueRun.split('_')[0]
+    # Pre-group rows by unique run to avoid repeated boolean indexing in each worker
+    # (This is usually faster and cleaner than filtering inside threads.)
+    grouped = dict(tuple(particles_df.groupby('rlnTomoName', sort=False)))
+    unique_runs = list(grouped.keys())
 
-        # Skip if this session wasn't requested by the user
+    # Constants for coordinate shift
+    shift = np.array([dim_x / 2, dim_y / 2, dim_z / 2], dtype=np.float64) * float(pixel_size)
+
+    def process_one_run(unique_run: str):
+        # Extract session / run
+        mysession = unique_run.split('_')[0]
         if mysession not in valid_sessions:
-            continue
+            return ("skipped_session", unique_run)
 
-        myrun = '_'.join(uniqueRun.split('_')[1:])
-        
-        # Pull Out All Points with Associated Run
-        rlnPoints = particles[particles['rlnTomoName'] == uniqueRun]
-        numPoints = rlnPoints.shape[0]
-        points = np.zeros([numPoints,3])
-        orientations = np.zeros([numPoints, 4, 4])       
-        for jj in range(numPoints):      
+        myrun = '_'.join(unique_run.split('_')[1:])
 
-            # Pull Out Coordinates
-            cx = rlnPoints.iloc[jj]['rlnCenteredCoordinateXAngst'] + ( dim_x / 2 ) * pixel_size
-            cy = rlnPoints.iloc[jj]['rlnCenteredCoordinateYAngst'] + ( dim_y / 2 ) * pixel_size
-            cz = rlnPoints.iloc[jj]['rlnCenteredCoordinateZAngst'] + ( dim_z / 2 ) * pixel_size
+        rlnPoints = grouped[unique_run]
 
-            points[jj,] = np.array([cx,cy,cz])
+        # ---- Vectorized coordinates ----
+        cx = rlnPoints['rlnCenteredCoordinateXAngst'].to_numpy(dtype=np.float32) + shift[0]
+        cy = rlnPoints['rlnCenteredCoordinateYAngst'].to_numpy(dtype=np.float32) + shift[1]
+        cz = rlnPoints['rlnCenteredCoordinateZAngst'].to_numpy(dtype=np.float32) + shift[2]
+        points = np.stack([cx, cy, cz], axis=1)
 
-            # Pull Out Orientation
-            euler = np.array([rlnPoints.iloc[jj]['rlnAngleRot'], 
-                            rlnPoints.iloc[jj]['rlnAngleTilt'], 
-                            rlnPoints.iloc[jj]['rlnAnglePsi']])
-            rot = R.from_euler('ZYZ', euler, degrees=True)
-            orientations[jj,:3,:3] = rot.inv().as_matrix()
-        orientations[:,3,3] = 1
+        # ---- Vectorized orientations ----
+        # Euler angles (Rot, Tilt, Psi) -> ZYZ
+        eulers = np.stack([
+            rlnPoints['rlnAngleRot'].to_numpy(dtype=np.float32),
+            rlnPoints['rlnAngleTilt'].to_numpy(dtype=np.float32),
+            rlnPoints['rlnAnglePsi'].to_numpy(dtype=np.float32),
+        ], axis=1)
 
-        # Write Points to Associated Run
-        root = copick_roots[mysession]     
-        run = root.get_run(myrun + suffix)
-        
-        # Check to see if run exists
-        if run is None:
-            print(f'[Warning]: Run {myrun + suffix} not found in Copick root for session {mysession}. Skipping.')
-            continue
+        rot = R.from_euler('ZYZ', eulers, degrees=True)
+        mats = rot.inv().as_matrix()  # (N, 3, 3)
 
-        # Save Picks - Overwrite if exists
-        picks = run.get_picks(
-            object_name = particle_name, 
-            user_id=user_id, 
-            session_id = session_id)
-        if len(picks) == 0:
-            picks = run.new_picks(
-                object_name = particle_name, 
-                user_id=user_id, 
-                session_id = session_id)
-        else: 
-            # Assume only one picks object per run with this name
-            picks = picks[0]  
-        picks.from_numpy(points, orientations)
+        n = points.shape[0]
+        orientations = np.zeros((n, 4, 4), dtype=np.float32)
+        orientations[:, :3, :3] = mats
+        orientations[:, 3, 3] = 1.0
 
+        # ---- Write to CoPick (guarded) ----
+        root = copick_roots[mysession]
+        with session_locks[mysession]:
+            run = root.get_run(myrun + suffix)
+            if run is None:
+                return "missing_run"
+
+            picks = run.get_picks(
+                object_name=particle_name,
+                user_id=user_id,
+                session_id=session_id
+            )
+            if len(picks) == 0:
+                picks = run.new_picks(
+                    object_name=particle_name,
+                    user_id=user_id,
+                    session_id=session_id
+                )
+            else:
+                picks = picks[0]
+
+            picks.from_numpy(points, orientations)
+
+        return "ok"
+
+    # Run workers
+    max_workers = max(4, os.cpu_count() // 2)
+    results = map.run_threaded(
+        unique_runs,
+        process_one_run,
+        max_workers=max_workers,
+        description="Exporting Particles (threaded)",
+        get_status=lambda r: r,      # result IS the status
+        on_status=map.warn_missing_run,
+    )
+
+    print("[Info]: Done. Summary:", results)    
 
 # @export.command(context_settings={"show_default": True})
 # @click.option(

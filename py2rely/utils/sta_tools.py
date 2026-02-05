@@ -49,7 +49,8 @@ class PipelineHelper:
 
         self.boxSizes = [24, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 84, 96, 100, 104, 112, 120, 128,\
                          132, 140, 168, 180, 192, 196, 208, 216, 220, 224, 256, 288, 300, 320, 352, 360,\
-                         384, 416, 440, 448, 480, 480, 512, 540, 560, 576, 588, 600, 630, 648, 672, 686, 700]
+                         384, 416, 440, 448, 480, 480, 512, 540, 560, 576, 588, 600, 630, 648, 672, 686, 700,\
+                         720, 756, 768, 784, 800, 840, 864, 896, 912, 960, 1008, 1024, 1080, 1120, 1152, 1152]
 
         # self.initialize_post_process()
 
@@ -57,11 +58,11 @@ class PipelineHelper:
         self.binning = None      
 
         # Initialize Jobs
-        self.reconstruct_job = None
-        self.pseudo_subtomo_job = None
         self.mask_create_job = None
-        self.post_process_job = None
+        self.reconstruct_job = None
         self.tomo_select_job = None
+        self.post_process_job = None
+        self.pseudo_subtomo_job = None
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -137,7 +138,7 @@ class PipelineHelper:
         for bin in self.binningList:        
         
             boxSize = self.return_new_box_size(bin)
-            print('[Initialize] Box Size: {} @ bin={}'.format(boxSize,bin))  
+            print('[Initialize] Crop Size: {} @ bin={}'.format(boxSize,bin))  
 
     def return_new_box_size(self, bin: float):
         """
@@ -222,6 +223,12 @@ class PipelineHelper:
             job: The job with updated parameters.
         """
 
+        # Check if parameters for the specified step exist in the JSON data
+        if self.params[step] is None:
+            raise ValueError(f"No parameters found for step '{step}' in the JSON file.\n"
+                             f"Be sure to construct parameters for the {step} job.")
+
+        # Set job options based on the parameters for the specified step
         for key,value in self.params[step].items():
             if key in job.joboptions:
                 job.joboptions[key].value = value
@@ -247,8 +254,8 @@ class PipelineHelper:
                 jobName: str, 
                 jobTag: str, 
                 jobIter: str = None,
-                classifyStep: bool = False, 
-                keepClasses: list = None):
+                keepClasses: list = None,
+                exitOnFail: bool = True):
         """
         Run a job and handle its completion status.
 
@@ -256,8 +263,11 @@ class PipelineHelper:
             job: A pipeline job object.
             jobName: Name of the job.
             jobTag: Tag to identify the job in logs.
-            classifyStep (optional): Classification step to stop at, if provided.
             keepClasses (optional): List of classes to keep after classification.
+            exitOnFail (optional): Whether to exit if the job fails.
+
+        Returns:
+            str: The result of the job execution.
         """        
 
         # Set Timeout to XX hours
@@ -281,7 +291,8 @@ class PipelineHelper:
             print('[{}] Job Result :: '.format(jobTag) + result)
 
             # Exit If Job Fails
-            if result == 'Failed': print(f'{jobTag} Failed!...\n'); exit()
+            if result == 'Failed' and exitOnFail: 
+                print(f'{jobTag} Failed!...\n'); exit()
 
             # Ensure the binning key exists before assigning the job output directory
             bin_key = f'bin{self.binning}'
@@ -298,15 +309,25 @@ class PipelineHelper:
                 self.historyDirectories[bin_key][jobName] = {}
                 # Assume this is the first iteration for this job at this resolution
                 jobIter = 'iter1'
+            elif jobIter is None: # Failback to automatic iteration numbering
+                # Determine the next iteration number
+                current_iters = sorted(self.historyDirectories[bin_key][jobName].keys())
+                last_iter = current_iters[-1]
+                last_iter_num = int(last_iter.replace('iter', ''))
+                jobIter = f'iter{last_iter_num + 1}'
+
             self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
 
             # Save the new output directory
             self.save_new_output_directory()     
 
             if keepClasses is not None: 
-                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)   
+                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)                 
         else: 
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
+            result = 'Already Completed'
+        
+        return result
 
     def get_resolution(self, job, 
                       job_name: str = None):
@@ -382,7 +403,7 @@ class PipelineHelper:
     def update_job_binning_box_size(self,
                                     reconstruct_particle_job,
                                     pseudo_subtomo_job, 
-                                    binInd: int,
+                                    binInd: int = None,
                                     binningFactor: int = None):
         """
         Update jobs with new binning and box size parameters.
@@ -618,9 +639,14 @@ class PipelineHelper:
         """        
         # Estimate Mask Isocontour if autoContour is True
         if autoContour:
-            with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
-                autoContour = np.percentile( file.data.flatten(), 98)
-                self.mask_create_job.joboptions['inimask_threshold'].value = str(autoContour)
+            path = self.mask_create_job.joboptions['fn_in'].value
+            lp = self.mask_create_job.joboptions['lowpass_filter'].value
+            value = self.get_reconstruction_std(path, lp)
+            self.mask_create_job.joboptions['inimask_threshold'].value = str(value)
+            # with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
+            #     contour_val = np.percentile( file.data.flatten(), 98)
+            #     print(f'autoContour: {contour_val}')
+            #     self.mask_create_job.joboptions['inimask_threshold'].value = str(contour_val)
 
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
@@ -703,22 +729,34 @@ class PipelineHelper:
             voxel_size = mrc.voxel_size.x  # Assuming cubic voxels
 
         if low_pass > 0:
-            # Calculate sigma for Gaussian filter
-            # The relationship between resolution and Gaussian sigma
-            # Resolution ≈ 2 * π * sigma * voxel_size
-            sigma = low_pass / (2 * np.pi * voxel_size)
-            
-            # Apply Gaussian low-pass filter
-            filtered_vol = ndimage.gaussian_filter(vol, sigma=sigma)
+            # --- Low-pass filter to new_resolution (FFT-based radial cutoff) ---
+            # Convert resolution (Å) to spatial frequency cutoff (1/Å)
+            cutoff = 1.0 / low_pass
 
-            # TODO : 
-            # Try both np.std(vol) and np.std(filtered_vol) to see which one is better
-            # How do I determine which is the better mask?
+            nz, ny, nx = vol.shape
+            dz = dy = dx = voxel_size  # sampling in Å
+
+            # Frequency grids in 1/Å
+            fz = np.fft.fftfreq(nz, d=dz)
+            fy = np.fft.fftfreq(ny, d=dy)
+            fx = np.fft.fftfreq(nx, d=dx)
+
+            FZ, FY, FX = np.meshgrid(fz, fy, fx, indexing='ij')
+            freq_radius = np.sqrt(FX**2 + FY**2 + FZ**2)
+
+            # Radial low-pass mask
+            lp_mask = freq_radius <= cutoff
+
+            # Apply filter in Fourier space
+            vol_fft = np.fft.fftn(vol)
+            vol_fft_filtered = vol_fft * lp_mask
+            filtered_vol = np.abs(np.fft.ifftn(vol_fft_filtered)).astype(np.float32)
 
             if save_vol:
                 self.write_mrc(filtered_vol, 'filtered_vol.mrc', voxel_size)
 
-            return np.std(filtered_vol)
+            # return np.std(filtered_vol)
+            return np.percentile(filtered_vol.flatten(), 98.5)
         else:        
             return np.std(vol)
 

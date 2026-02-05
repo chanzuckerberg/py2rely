@@ -75,7 +75,9 @@ class TheClassifier:
         maxIter = self.utils.find_final_iteration()
         best_class, current_res = self._get_best_class(maxIter)
 
-         # Start off By running the selection job
+        print(f'[AutoClass3D] Best Class: {best_class} with Estimated Resolution: {current_res:.2f} Angstroms')
+
+        # Start off By running the selection job
         self.utils.tomo_select_job.joboptions['fn_data'].value = maxIter
         self.utils.tomo_select_job.joboptions['select_minval'].value = best_class
         self.utils.tomo_select_job.joboptions['select_maxval'].value = best_class

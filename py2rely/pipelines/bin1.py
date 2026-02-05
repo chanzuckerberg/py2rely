@@ -30,7 +30,6 @@ class HighResolutionRefinement:
         self.utils.update_job_binning_box_size(
             self.utils.reconstruct_particle_job,
             self.utils.pseudo_subtomo_job,
-            None,
             binningFactor=1
         )
 
@@ -64,8 +63,8 @@ class HighResolutionRefinement:
         # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
         self.utils.update_job_binning_box_size(
             self.utils.reconstruct_particle_job,
-            self.utils.pseudo_subtomo_job,
-            None, binningFactor=1
+            self.utils.pseudo_subtomo_job, 
+            binningFactor=1
         )
 
         # Run the High Resolution Refinement Pipeline

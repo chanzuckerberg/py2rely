@@ -222,7 +222,7 @@ def run_import_particles(
         run_ids = [run_id for run_id in run_ids if root.get_run(run_id).get_voxel_spacing(voxel_size) is not None]
         skipped_run_ids = [run_id for run_id in run_ids if root.get_run(run_id).get_voxel_spacing(voxel_size) is None]
         if skipped_run_ids: 
-                print(f"Warning: skipping runs with no voxel spacing {voxel_size}: {skipped_run_ids}")
+                console.print(f"[WARNING]: skipping runs with no voxel spacing {voxel_size}: {skipped_run_ids}")
 
     for runID in _progress(run_ids, description="Gathering Particles"):
 
@@ -234,35 +234,40 @@ def run_import_particles(
             console.print(f"[yellow]Note:[/yellow] no picks found for run [b]{runID}[/b]")
             continue
 
-        # Iterate Through All Available Picks Based On Query
-        nPicks = len(picks)
-        for ii in range(nPicks):       
+        try:
 
-            # Extract All Points Per Pick
-            points = picks[ii].points
-            nPoints = len(points)             
-            coordinates = np.zeros([nPoints, 3])
-            orientations = np.zeros([nPoints, 3])            
-            for ii in range(nPoints):
+            # Iterate Through All Available Picks Based On Query
+            nPicks = len(picks)
+            for ii in range(nPicks):       
 
-                # Extract 3D Coordinates (Scale By Tilt-Series Pixel Size)
-                coordinates[ii,] = [points[ii].location.x / pixel_size,   
-                                    points[ii].location.y / pixel_size,
-                                    points[ii].location.z / pixel_size]
+                # Extract All Points Per Pick
+                points = picks[ii].points
+                nPoints = len(points)             
+                coordinates = np.zeros([nPoints, 3])
+                orientations = np.zeros([nPoints, 3])            
+                for ii in range(nPoints):
+
+                    # Extract 3D Coordinates (Scale By Tilt-Series Pixel Size)
+                    coordinates[ii,] = [points[ii].location.x / pixel_size,   
+                                        points[ii].location.y / pixel_size,
+                                        points[ii].location.z / pixel_size]
+                    
+                    # Convert from Rotation to Euler Angles
+                    rot = np.array(points[ii].transformation_)[:3,:3] # Ignore Translation Vector
+                    r = R.from_matrix(rot)
+                    orientations[ii,] = r.inv().as_euler('ZYZ',degrees=True)
                 
-                # Convert from Rotation to Euler Angles
-                rot = np.array(points[ii].transformation_)[:3,:3] # Ignore Translation Vector
-                r = R.from_matrix(rot)
-                orientations[ii,] = r.inv().as_euler('ZYZ',degrees=True)
-            
-            # Write Outputs to StarFile Dictionary
-            myStarFile['rlnTomoName'].extend([session + '_' + runID]*nPoints)
-            myStarFile['rlnCoordinateX'].extend(coordinates[:,0])
-            myStarFile['rlnCoordinateY'].extend(coordinates[:,1])
-            myStarFile['rlnCoordinateZ'].extend(coordinates[:,2]) 
-            myStarFile['rlnAngleRot'].extend(orientations[:,0])
-            myStarFile['rlnAngleTilt'].extend(orientations[:,1])
-            myStarFile['rlnAnglePsi'].extend(orientations[:,2])
+                # Write Outputs to StarFile Dictionary
+                myStarFile['rlnTomoName'].extend([session + '_' + runID]*nPoints)
+                myStarFile['rlnCoordinateX'].extend(coordinates[:,0])
+                myStarFile['rlnCoordinateY'].extend(coordinates[:,1])
+                myStarFile['rlnCoordinateZ'].extend(coordinates[:,2]) 
+                myStarFile['rlnAngleRot'].extend(orientations[:,0])
+                myStarFile['rlnAngleTilt'].extend(orientations[:,1])
+                myStarFile['rlnAnglePsi'].extend(orientations[:,2])
+        except Exception as e:
+            console.print(f"[yellow]Error processing picks for run {runID}:[/yellow] {e}")
+            continue
         
     # Convert coordinates to centered values in Angstroms and Add new columns for centered coordinates in Angstroms
     if relion5:
@@ -275,7 +280,7 @@ def run_import_particles(
         isinstance(v, (list, np.ndarray, pd.Series)) and len(v) == 0 
         for v in myStarFile.values()
     ):
-        print("\n[WARNING]: No Particles Found for that Given Query\n")
+        console.print("\n[WARNING]: No Particles Found for that Given Query\n")
         return
 
     # Convert From Dictionary to DataFrame
@@ -332,10 +337,12 @@ def run_combine_particles(
 
     console = get_console()
     console.rule("[bold cyan]Combine Particles")
+    console.print(f"[b]Input:[/b] {', '.join(input)}")
     console.print(f"[b]Output:[/b] {output}")
+    console.print()
 
     # Iterate Through all Input StarFiles
-    for ii in _progress(input, description="Combining Particles"):
+    for ii in _progress(range(len(input)), description="Combining Particles"):
 
         filename = input[ii]
         print(f'Adding {filename} to the Merged StarFile')

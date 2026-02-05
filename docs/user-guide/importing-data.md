@@ -139,6 +139,36 @@ py2rely requires two input files for sub-tomogram averaging:
 
     </details>
 
+=== "From CryoET DataPortal"
+
+    Import tilt series and alignments directly from datasets hosted on the  
+    [Chan Zuckerberg CryoET Data Portal](https://cryoetdataportal.czscience.com).
+
+    The command retrieves all files required for sub-tomogram averaging, including:
+
+    - Tilt series stacks
+    - Alignment files
+    - CTF estimation outputs
+    - Metadata required by `py2rely`
+
+    The resulting directory mirrors the structure expected from an AreTomo processing session.
+
+    <details markdown="1">
+    <summary> `copick download project` Parameters</summary>
+    | Parameter | Short | Description |
+    |----------|-------|-------------|
+    | `--dataset` | `-ds` | CryoET Data Portal dataset ID |
+    | `--output` | `-o` | Output directory for downloaded files |
+
+    </details>
+
+    ??? question " What is this workflow used for?"
+        This workflow is designed primarily for **method developers** and **benchmarking**, where you want to:
+
+        - Validate particle coordinates against public datasets  
+        - Reproduce or compare published reconstructions  
+        - Test new picking or averaging methods on standardized data  
+
 === "Combine Multiple Sessions"
 
     If you collected data across multiple days or runs, you can merge them into a single tilt series file.

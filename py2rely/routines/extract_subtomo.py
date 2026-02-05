@@ -12,6 +12,8 @@ def extract_subtomo_options(func):
     options = [
         click.option("-p", "--parameter",type=str,required=True,
                       help="Path to Pipeline Parameter JSON File."),
+        click.option("--particles", type=str,required=True, default='particles.star',
+                      help="Path to Particles STAR File."),
         click.option("-bf", "--binfactor",type=int,required=False, default=None,
                       help="(Optional) Binning Factor, if not provided, will use the starting binning factor from the parameter pipeline file."),
         click.option("-t", "--tomogram",type=str,required=False, default=None,
@@ -25,18 +27,20 @@ def extract_subtomo_options(func):
 @extract_subtomo_options
 def extract_subtomo(
     parameter: str,
+    particles: str,
     tomogram: str,
-    binfactor: int = None,
+    binfactor: int,
     ): 
     """Extract pseudo sub-tomograms from tilt series"""
 
     run_extract_subtomo(
-        parameter, tomogram, binfactor,
+        parameter, particles, tomogram, binfactor,
     )  
 
 
 def run_extract_subtomo(
     parameter: str,
+    particles: str,
     tomogram: str,
     binfactor: int = None,
     ):
@@ -76,14 +80,24 @@ def run_extract_subtomo(
         utils.binning = binfactor
 
     # Initialize Pseudo Subtomo Extraction
+    utils.initialize_reconstruct_particle()    
     utils.initialize_pseudo_tomos()  
 
     # Print Input Parameters
     utils.print_pipeline_parameters('Pseudo Subtomo Extraction', Parameter=parameter, 
-                                     Tomogram_Path=tomogram, Binning_Factor=binfactor)                                
+                                     Tomogram_Path=tomogram, Binning_Factor=binfactor,
+                                     Particles=particles)    
+
+    # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
+    utils.update_job_binning_box_size(
+        utils.reconstruct_particle_job, utils.pseudo_subtomo_job,
+        binningFactor = binfactor
+    )              
+
+    utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
 
     # Run
-    utils.run_pseudo_subtomo()
+    utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
 
 @cli.command(context_settings=cli_context, name='extract-subtomo')
 @extract_subtomo_options

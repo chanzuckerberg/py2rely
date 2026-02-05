@@ -73,6 +73,10 @@ class Relion5Pipeline(PipelineHelper):
         """
         pseudoSubtomoIter = self.return_job_iter(f'bin{self.binning}', 'pseudo_subtomo') if rerunPseudoSubtomo else None
         self.run_job(self.pseudo_subtomo_job, 'pseudo_subtomo', f'Pseudo Tomogram Generation @ bin={self.binning}', jobIter=pseudoSubtomoIter)
+        
+        # Disable 3D stack output after the first run
+        if not self.pseudo_subtomo_job.joboptions['do_output_2dstacks'].value: 
+            self.pseudo_subtomo_job.joboptions['do_output_2dstacks'].value = True
 
     def initialize_initial_model(self):
         """
@@ -184,7 +188,6 @@ class Relion5Pipeline(PipelineHelper):
 
     def run_tomo_class3D(self, 
                          rerunClassify: bool = False,
-                         isClassifyStep: bool = True,
                          generateInitialModel: bool = False):
         """
         Run the 3D classification job and handle its execution.
@@ -198,7 +201,23 @@ class Relion5Pipeline(PipelineHelper):
         if generateInitialModel: class3Dname = 'initialmodel_class3D'
         else:                    class3Dname = 'class3D'
 
-        self.run_job(self.tomo_class3D_job, class3Dname, f'3D Classification @ bin={self.binning}', classifyStep=isClassifyStep, jobIter=classifyJobIter)            
+        # Try Running with Correct GrayScale First, Fallback to No GrayScale Correction if it Fails
+        step_info = f'3D Classification @ bin={self.binning}'
+        result = self.run_job(
+            self.tomo_class3D_job, class3Dname, step_info, 
+            jobIter=classifyJobIter, exitOnFail=False
+        )
+
+        # If Failed, Retry without GrayScale Correction
+        if result == 'Failed':
+            print(f"\nRetrying Class3D with CC-calculation in the first iteration...")
+            self.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = "no"
+            classifyJobIter = self.return_job_iter(f'bin{self.binning}', 'class3D')
+            self.run_job(
+                self.tomo_class3D_job, class3Dname, step_info, 
+                jobIter=classifyJobIter
+            )        
+
 
     def run_initial_model_class3D(self,
                                   reference_template: str,
@@ -225,7 +244,7 @@ class Relion5Pipeline(PipelineHelper):
         (nr_iter, self.tomo_class3D_job.joboptions['nr_iter'].value) = (self.tomo_class3D_job.joboptions['nr_iter'].value, nr_iter)
         (nClasses, self.tomo_class3D_job.joboptions['nr_classes'].value) = (self.tomo_class3D_job.joboptions['nr_classes'].value, nClasses)
         (tau_fudge, self.tomo_class3D_job.joboptions['tau_fudge'].value) = (self.tomo_class3D_job.joboptions['tau_fudge'].value, tau_fudge)
-        self.run_tomo_class3D(isClassifyStep=False, generateInitialModel=True)
+        self.run_tomo_class3D(generateInitialModel=True)
 
         # Restore Original Classification Parameters Parameters
         self.tomo_class3D_job.joboptions['ref_correct_greyscale'].value = "yes"
