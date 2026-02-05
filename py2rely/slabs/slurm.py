@@ -1,6 +1,7 @@
 from py2rely.routines import submit_slurm
 from py2rely import cli_context
 import rich_click as click
+import os
 
 @click.group()
 @click.pass_context
@@ -9,20 +10,18 @@ def cli(ctx):
 
 @cli.command(context_settings=cli_context)
 @click.option("-ic","--in-coords", type=str, required=True,   
-              help="Input Coordinates File Path" )
+              help="Input Coordinates File Path (either single config or a comma-separated list e.g., config1.json,config2.json)" )
 @click.option("-iv","--in-vols", type=str, required=False, default=None,
               help="Input Volumes File Path")
 @click.option("-o","--out-dir", type=str, required=True, 
               help="Output Directory" )
 @click.option("-es","--extract-shape", type=str, required=True, default="500,500,400",
               help="Extraction Shape for Particles Extraction (x y z) in Angstroms provided as comma-separated values" )
-@click.option("-cs", "--coords-scale", type=float, required=False, default=1.0,
-              help="The scale factor that converts the input coordinates to Angstrom\n(Select 1 if Reading From Copick Format) or the voxel spacing of the tomogram that 3D template matching was run on" )
 @click.option("-vs", "--voxel-spacing", type=float, required=False, default=5,
               help="Pixel size of tomograms to extract minislabs from in Angstrom" )
 @click.option("-ps", "--pixel-size", type=float, required=False, default=1.54,
               help="Pixel size in Angstroms" )
-@click.option("-tt", "--tomo-type", type=str, required=False, default=None,
+@click.option("-ta", "--tomo-alg", type=str, required=False, default=None,
               help="Tomogram Type if Extracting from Copick Project" )
 @click.option("-uid", "--user-id", type=str, required=False, default=None,
               help="UserID for Copick Query" )
@@ -35,10 +34,9 @@ def slabpick(
     in_vols: str, 
     out_dir: str,
     extract_shape: str,
-    coords_scale: float,
     voxel_spacing: float,
     pixel_size: float,
-    tomo_type: str,
+    tomo_alg: str,
     user_id: str,
     particle_name: str,
     session_id: str
@@ -53,26 +51,27 @@ def slabpick(
         extract_shape (str): The extraction shape for particles extraction (x y z) in Angstroms
     """
 
-    # Convert extract_shape from comma-separated string to space-separated string
+    # Convert extract_shape and in_coords from comma-separated string to space-separated string
     extract_shape = extract_shape.replace(",", " ")
+    in_coords = in_coords.replace(",", " ")
     # Check to make sure three elements are provided
     if len(extract_shape.split()) != 3:
         raise click.BadParameter("Extract Shape (--extract-shape) must have three comma-separated values (x,y,z)")
 
     # Check to Make sure a Tomogram Algorithm is Specified if Extracting from Copick Project
-    if tomo_type is None and in_coords.endswith(".json"):
-        raise click.BadParameter("Tomogram Type (--tomo-type) is required when reading from a copick-config (*.json) file")
+    if tomo_alg is None and in_coords.endswith(".json"):
+        raise click.BadParameter("Tomogram Algorithm (--tomo-alg) is required when reading from a copick-config (*.json) file")
 
     make_minislabs_command = f"""
 echo "################################################################################"
 echo "Making Minislabs"
 echo "################################################################################"
 make_minislabs \\
-    --in_coords={in_coords} \\
-    --out_dir={out_dir}/stack \\
+    --in_coords {in_coords} \\
+    --out_dir {os.path.join(out_dir, "stack")} \\
     --extract_shape {extract_shape} \\
-    --coords_scale {coords_scale} --voxel_spacing {voxel_spacing} \\
-    --col_name rlnMicrographName --make_stack
+    --voxel_spacing {voxel_spacing} \\
+    --make_stack
 """
 
     normalize_command = f"""
@@ -80,8 +79,8 @@ echo "##########################################################################
 echo "Normalizing Particles Stack"
 echo "################################################################################"    
 normalize_stack \\
-    --in_stack={out_dir}/stack/particles.mrcs \\
-    --out_stack={out_dir}/stack/particles_relion.mrcs \\
+    --in_stack={os.path.join(out_dir, "stack", "particles.mrcs")} \\
+    --out_stack={os.path.join(out_dir, "stack", "particles_relion.mrcs")} \\
     --apix {pixel_size}
 """
 
@@ -100,8 +99,8 @@ normalize_stack \\
     if in_vols is not None:
         optional_commands.append(f'--in_vol {in_vols}')   
     
-    if tomo_type is not None:
-        optional_commands.append(f'--tomo_type {tomo_type}')
+    if tomo_alg is not None:
+        optional_commands.append(f'--tomo_type {tomo_alg}')
 
     # Append optional commands to the last line, joined by spaces
     if optional_commands:
@@ -116,7 +115,8 @@ normalize_stack \\
         command,
         '18:00:00',
         num_gpus = 0,
-        big_cpu_memory = True)      
+        load_relion = False
+        )      
 
 ###########################################################################################      
 
@@ -222,7 +222,6 @@ py2rely slab class2d \\
         num_gpus = num_gpus,
         gpu_constraint = gpu_constraint,
         load_relion = True,
-        big_cpu_memory = False, 
         additional_commands = job_array_flag)
 
 ########################################################################################
@@ -268,8 +267,7 @@ py2rely slab auto-class-ranker \\
         '18:00:00',
         num_gpus = num_gpus,
         gpu_constraint = gpu_constraint,
-        load_relion = True,
-        big_cpu_memory = False)
+        load_relion = True)
 
 def create_shellsubmit(
     job_name, 
@@ -280,7 +278,6 @@ def create_shellsubmit(
     num_gpus = 1, 
         gpu_constraint = 'h100',
     load_relion = True,
-    big_cpu_memory = False,
     additional_commands = ''):
 
     if num_gpus > 0:
@@ -288,26 +285,21 @@ def create_shellsubmit(
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 
-    if big_cpu_memory:
-        slurm_mem = f'#SBATCH --mem-per-cpu=196G'
-    else:
-        slurm_mem = f'#SBATCH --mem-per-cpu=16G'
-        slurm_cpu = f'#SBATCH --cpus-per-task=8'
+    slurm_mem = f'#SBATCH --mem-per-cpu=16G'
+    slurm_cpu = f'#SBATCH --cpus-per-task=6'
 
-    if load_relion:
-        load_relion_command = submit_slurm.get_load_relion_command()
+    load_relion_command = submit_slurm.get_load_relion_command() if load_relion else ''
 
     shell_script_content = f"""#!/bin/bash
 
 {slurm_gpus}
 #SBATCH --time={total_time}
 {slurm_mem}
+{slurm_cpu}
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
-
 {load_relion_command}
-
 ml anaconda 
 conda activate /hpc/projects/group.czii/conda_environments/pyrely
 {command}

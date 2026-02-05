@@ -13,8 +13,8 @@ def auto_mask_create(utils, low_pass):
     # Configure mask creation
     utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
     utils.mask_create_job.joboptions['lowpass_filter'].value = low_pass
-    ini_mask = utils.get_reconstruction_std(utils.reconstruct_particle_job.output_dir + 'merged.mrc')
-    utils.mask_create_job.joboptions['extend_inimask'].value = 0
+    ini_mask = utils.get_reconstruction_std(utils.reconstruct_particle_job.output_dir + 'merged.mrc', low_pass)
+    utils.mask_create_job.joboptions['extend_inimask'].value = 3
     utils.mask_create_job.joboptions['inimask_threshold'].value = ini_mask
     utils.mask_create_job.joboptions['nr_threads'].value = 16
 
@@ -35,8 +35,6 @@ def auto_mask_create(utils, low_pass):
         if not check_phase_randomised_fsc_warning(utils.post_process_job.output_dir + 'run.err'):
             print(f"Success at width_mask_edge={width_edge}")
             break
-
-    print("Warning still present after trying all edge widths.")
 
 def check_phase_randomised_fsc_warning(filepath):
     warning_line = "WARNING: The phase-randomised FSC is larger than 0.10 at the estimated resolution!"
