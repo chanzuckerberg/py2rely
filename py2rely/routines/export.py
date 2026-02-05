@@ -194,9 +194,6 @@ def run_star2copick(
         if session in valid_sessions:
             copick_roots[session] = copick.from_file(config)
 
-    # One lock per session/root to keep writes safe
-    session_locks = {s: threading.Lock() for s in valid_sessions}
-
     # Pre-group rows by unique run to avoid repeated boolean indexing in each worker
     # (This is usually faster and cleaner than filtering inside threads.)
     grouped = dict(tuple(particles_df.groupby('rlnTomoName', sort=False)))
