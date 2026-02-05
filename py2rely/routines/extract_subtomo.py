@@ -96,8 +96,6 @@ def run_extract_subtomo(
 
     utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
 
-    exit()     
-
     # Run
     utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
 
