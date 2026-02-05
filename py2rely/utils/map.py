@@ -72,4 +72,5 @@ def warn_missing_run(ur: str, status: str, result: Any):
     if status == "missing_run":
         mysession = ur.split('_')[0]
         myrun = '_'.join(ur.split('_')[1:])
+        suffix = ""
         print(f'[Warning]: Run {myrun + suffix} not found in Copick root for session {mysession}. Skipping.')
