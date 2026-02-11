@@ -6,7 +6,7 @@ import rich_click as click
 class ThePolisher:
     """Class for high-resolution polishing with two entry points."""
         
-    max_counts = 2 # Max Counts before terminating the Polisher
+    max_counts = 5 # Max Counts before terminating the Polisher
 
     def __init__(self, parameter_path: str, 
                  tomograms: str = None, motion: str = None,

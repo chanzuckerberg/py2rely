@@ -8,7 +8,7 @@ import os
 def cli(ctx):
     pass
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-ic","--in-coords", type=str, required=True,   
               help="Input Coordinates File Path (either single config or a comma-separated list e.g., config1.json,config2.json)" )
 @click.option("-iv","--in-vols", type=str, required=False, default=None,
@@ -42,13 +42,7 @@ def slabpick(
     session_id: str
     ):
     """
-    Create a Slurm Shell Script to Run Extract Minislabs
-
-    Args:
-        in_coords (str): The input coordinates file path
-        in_vols (str): The input volumes file path
-        out_dir (str): The output directory
-        extract_shape (str): The extraction shape for particles extraction (x y z) in Angstroms
+    Create a Slurm Shell Script to Run Extract Minislabs from Slabpick
     """
 
     # Convert extract_shape and in_coords from comma-separated string to space-separated string
@@ -120,7 +114,7 @@ normalize_stack \\
 
 ###########################################################################################      
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-diam", "--particle-diameter", type=float, required=False, default=300,
               help="Particle Diameter" )
 @click.option("-tau", "--tau-fudge", type=float, required=False, default=2,
@@ -155,17 +149,6 @@ def class2d(
     ):
     """
     Create a Slurm Shell Script to Run Class2D
-
-    Args:
-        particle_diameter (float): The particle diameter in Angstroms
-        tau_fudge (float): The tau fudge factor
-        num_classes (str): The number of classes to use
-        class_algorithm (str): The classification algorithm to use
-        highres_limit (float): The high resolution limit in Angstroms
-        num_gpus (int): The number of GPUs to use
-        gpu_constraint (str): The GPU constraint
-        num_threads (int): The number of threads to use
-        bootstrap_ntrials (int): The number of bootstrap trials to run
     """
 
     # Determine number of iterations based on classification algorithm
@@ -226,7 +209,7 @@ py2rely slab class2d \\
 
 ########################################################################################
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option( "--shell-path", type=str, required=False, default='pipeline_class_average.sh',
               help="The Saved Parameter Path" )
 @click.option( "--job-name", type=str, required=False, default="bootstrap_relion",

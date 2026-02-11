@@ -135,7 +135,7 @@ def find_final_iteration(classPath):
 
     return maxIter
 
-@cli.command(context_settings=cli_context, name='extract-desktop')
+@cli.command(context_settings=cli_context, name='extract-desktop', no_args_is_help=True)
 @click.option(
     '-j', '--job', 
     required=True, 

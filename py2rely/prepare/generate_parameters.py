@@ -9,7 +9,7 @@ def cli(ctx):
     pass
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-o","--output",type=str,required=False,default='sta_parameters.json',
               help="The Saved Parameter Path",)
 @click.option("-ts","--tilt-series",type=str,required=False,default="input/tiltSeries/aligned_tilt_series.star",
@@ -244,7 +244,7 @@ def create_relion5_parameters(
     utils.read_json_params_file(output)
 
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-p","--parameter",type=str,required=True,default='sta_parameters.json',
               help="The Saved Parameter Path")
 @click.option("-rt","--reference-template",type=str,required=False,default=None,

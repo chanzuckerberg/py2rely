@@ -1,7 +1,7 @@
 from py2rely import cli_context
 import rich_click as click
 
-@click.command(context_settings=cli_context, name='sta')
+@click.command(context_settings=cli_context, name='sta', no_args_is_help=True)
 @click.option(
     "-p","--parameter",
     type=str,
@@ -215,7 +215,7 @@ def run_average(
     else:     
         # Estimate the Resolution of the Final Reconstruction
         print(f'Exiting the STA Pipeline @ Bin = {utils.binning}, Estimating the Current Resolution...')        
-        bin1.run_resolution_estimate(particles)
+        bin1.run_resolution_estimate()
 
 def remove_duplicates(utils, starfile, distance_scale):
     import subprocess

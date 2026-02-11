@@ -1,7 +1,7 @@
 from py2rely import cli_context
 import rich_click as click
 
-@click.command(context_settings=cli_context, name='extract')
+@click.command(context_settings=cli_context, name='extract', no_args_is_help=True)
 @click.option(
     '--parameter', type=str,
     help='Path to Parameters starfile'

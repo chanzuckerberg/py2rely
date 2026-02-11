@@ -67,7 +67,7 @@ def class_average_gallery(stack_path: str,
 
     print(f"Gallery saved as {output_pdf_path}")
 
-@click.command(context_settings=cli_context)
+@click.command(context_settings=cli_context, no_args_is_help=True)
 @click.option('-i', '--input', 
               required=True, 
               type=str, 
