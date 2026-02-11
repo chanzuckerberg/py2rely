@@ -107,7 +107,7 @@ def run_import_starfile(
 @click.option("-uid","--user-id", type=str, default=None, help="User ID")
 @click.option("-rids","--run-ids", type=str, default=None, help="Run IDs to filter (comma-separated)")
 @click.option("-vs","--voxel-size", type=float, default=None, help="Voxel Size of Picked Particles' Tomograms")
-@click.option("-a",'--authors', type=str, default=None, help="Authors from CryoET Portal Submissions")
+@click.option("-a",'--authors', type=str, default=None, help="Authors from CryoET Portal Submissions provided in Quotation Marks (e.g, 'John Smith')")
 @common.add_common_options
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
@@ -158,6 +158,7 @@ def run_import_particles(
     """    
     from py2rely.utils.progress import _progress, get_console
     from scipy.spatial.transform import Rotation as R
+    from packaging.version import Version
     from py2rely.utils import sta_tools
     import os, starfile
     import pandas as pd
@@ -166,6 +167,11 @@ def run_import_particles(
     
     console = get_console()
     console.rule("[bold cyan]Import Copick Particles")
+
+    # Check if Copick Version 
+    version = Version(copick.__version__)
+    if authors and version < Version("1.19.0"):
+        raise Warning(f"Author filtering requires Copick version 1.19 or higher. Current version: {version}. Upgrade with 'copick install --upgrade copick'")
 
     # Provide warning if userID and sessionID are not provided
     if session_id is None and user_id is None:
