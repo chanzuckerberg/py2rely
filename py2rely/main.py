@@ -1,6 +1,6 @@
 import rich_click as click
 from py2rely import cli_context
-from py2rely import groups
+from py2rely import groups  # imported for rich-click configuration / option grouping
 
 from py2rely.routines.cli import routines_slurm as subroutines_slurm
 from py2rely.routines.cli import routines as subroutines
