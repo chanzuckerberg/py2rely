@@ -53,7 +53,7 @@ py2rely prepare relion5-parameters \
 
         This will be necessary information when generating a template for the STA pipeline.
 
-    ??? note "📋 `prepare relion5-parameters`"
+    ??? note "📋 `py2rely prepare relion5-parameters`"
 
         | Parameter | Short | Description | Default |
         |-----------|-------|-------------|---------|
@@ -67,6 +67,20 @@ py2rely prepare relion5-parameters \
         | `--denovo-generation` | `-dg` | Enable de novo model generation | `False` |
         | `--box-scaling` | `-bs` | Box size padding factor | `2.0` |
         | `--binning-list` | `-bl` | Binning factors (comma-separated) | `4,2,1` |
+        | `--nthreads` | `-nj` | Number of threads for the pipeline | `8` |
+        | `--nprocesses` | `-np` | Number of processes (required if not using SLURM) | `None` |
+
+        !!! warning "Compute behavior"
+
+            - If `--nprocesses` is **not specified**, `py2rely` will automatically
+            use the maximum number of available processes.
+
+            - If running through a scheduler (e.g., **SLURM**), this flag can
+            safely be omitted.
+
+            - If running on a personal workstation or server, we recommend
+            setting `--nprocesses` to a modest value such as **3–5**
+            to avoid oversubscribing CPU resources.
 
 !!! tip "Symmetry"
 
@@ -78,7 +92,7 @@ The overall STA pipeline is composed of a series of steps that are ran sequentia
 
 ![pipeline](../assets/workflow.png)
 
-!!! info "py2rely sta pipeline"
+!!! info "py2rely pipelines sta"
 
     At each resolution level, the pipeline:
 
@@ -89,7 +103,7 @@ The overall STA pipeline is composed of a series of steps that are ran sequentia
     - Post-processes to estimate resolution
 
 
-    ??? note "📋 `sta` Parameters"
+    ??? note "📋 `py2rely pipelines sta` Parameters"
 
         | Parameter | Short | Description | Default |
         |-----------|-------|-------------|---------|

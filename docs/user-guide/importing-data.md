@@ -63,6 +63,57 @@ py2rely requires two input files for sub-tomogram averaging:
 
     </details>
 
+    ??? example "Importing Coordinates into Copick"
+
+        If you have particle coordinates generated from an external tool
+        (e.g., a neural network, template matcher, Dynamo, EMAN2, etc.),
+        you can programmatically write them into a Copick project using
+        the Copick Python API. 
+
+        ```python
+        from scipy.spatial.transform import Rotation as R
+        import copick, starfile
+
+        # Load copick project
+        root = copick.from_file('config.json')
+
+        # Load starfile with coordinates
+        df = starfile.read('particles.star')
+        nPoints = df.shape[0]
+        cx, cy, cz = df['coordX'], df['coordY'], df['coordZ']
+
+        # (Optional) Convert Relion Euler Angles to Rotation Matrices
+        eulers = np.stack(df['rot'], df['tilt'], df['psi'])
+        rot = R.from_euler('ZYZ', eulers, degrees=True)
+        mats = rot.inv().as_matrix() # (N, 3, 3)
+        
+        orientations = np.zeros((n,4,4))
+        orientations[:,:3,:3] = mats 
+
+        # if no orientations are available, instead set matrix to identity
+        # orientations[:,:3,:3] = np.identity(3)
+        
+        orientations[:,3,3] = 1
+        
+        # Create a Pick Entry 
+        run = root.get_run('Position_10_1')
+        pick = run.get_picks(
+            object_name = 'ribosome', 
+            user_id='method', session_id='1',
+            exist_ok = True
+        )
+        picks.from_numpy(points, orientations)
+        ```
+
+        Once written to Copick, you can generate a RELION5-compatible STAR file with:
+
+        ```bash
+        py2rely prepare particles --config copick_config.json ...
+        ```
+
+        After this step, the coordinates can be used in the full
+        sub-tomogram averaging pipeline.
+
 === "Combine Multiple Sources"
 
     Merge particles from different picking methods, sessions, or manual annotations. 
@@ -78,6 +129,53 @@ py2rely requires two input files for sub-tomogram averaging:
     !!! info "Common Scenarios"
         - Merge automated + manual picks (derived from different copick sessionIDs, userIDs)
         - Multiple experimental sessions
+
+=== "From ML Challenge Dataset"
+
+    Use ground-truth particle coordinates from the **CryoET ML Challenge dataset**
+    described in:
+
+    > Peck, A. et al., *Nature Methods* (2025)  
+    > https://www.nature.com/articles/s41592-025-02800-5
+
+    The coordinates are hosted on the CryoET Data Portal and can be accessed
+    via a Copick configuration file.
+
+    ### Step 1 — Configure Copick
+
+    Ensure your `copick_config.json` references the following datasets:
+
+    - `10445` / `10446` — Public/Private evaluation dataset    
+
+    !!! example "Generate a copick configuration file for a specified dataset"
+        `copick config dataportal -ds 10445 --overlay /path/to/overlay --output 10445_config.json`
+
+    ### Step 2 — Import Ground-Truth Coordinates
+
+    Use the standard `prepare particles` command, filtering by author:
+
+    ```bash
+    py2rely prepare particles \
+        --config 10445_config.json \
+        --session 10445 --name virus-like-particle \
+        -a "Jonathan Schwartz" \
+        -ps 1.54 -x 4096 -y 4096 -z 1200
+    ```
+
+    The `-a / --authors` flag filters picks to those corresponding to
+    **challenge ground truth annotations**.
+
+    ✅ This generates a Relion5-compatible STAR file that can be used for:
+
+    - Benchmarking particle picking methods  
+    - Evaluating recall / precision  
+    - Comparing automated picks to known ground truth  
+
+    !!! tip "Why use the author filter?"
+
+        The ML challenge datasets contain multiple annotation sources.
+        Filtering by author ensures that you retrieve the curated
+        ground-truth coordinates used for evaluation.
 
 ---
 
@@ -107,9 +205,18 @@ py2rely requires two input files for sub-tomogram averaging:
     
     !!! info "How does `py2rely` find my data?"
 
-         Given `--base-project`, `--session`, and `--run` flags - py2rely looks for any alignment data in the following full search path: 
-         
-         * `/{base-project}/{session}/{run}/*_CTF.txt`.
+        Given `--base-project`, `--session`, and optionally `--run`,
+        `py2rely` searches for tilt series using:
+
+        ```
+        {base-project}/{session}/{run}/*_CTF.txt
+        ```
+
+        If `--run` is omitted, all runs within the session directory are searched:
+
+        ```
+        {base-project}/{session}/*_CTF.txt
+        ```
 
     **Output structure:**
     ```bash
@@ -144,21 +251,32 @@ py2rely requires two input files for sub-tomogram averaging:
     Import tilt series and alignments directly from datasets hosted on the  
     [Chan Zuckerberg CryoET Data Portal](https://cryoetdataportal.czscience.com).
 
+    !!! example "Download Command"
+        `copick download project -ds 10445 -o path/to/files`
+        !!! warning
+            Make sure you are using **copick ≥ v1.18**.
+
     The command retrieves all files required for sub-tomogram averaging, including:
 
-    - Tilt series stacks
-    - Alignment files
-    - CTF estimation outputs
-    - Metadata required by `py2rely`
+    - Tilt series stacks (`*.mrc`)
+    - Alignment files (`*.aln`)
+    - CTF estimation outputs (`*_CTF.txt`)
+    - Metadata required by `py2rely` (e.g., `ordered_list.csv`)
 
-    The resulting directory mirrors the structure expected from an AreTomo processing session.
+    The resulting directory mirrors the structure expected from an AreTomo processing session,
+    meaning it can be used directly with:
+
+    ```bash
+    py2rely prepare tilt-series ...
+    ```
 
     <details markdown="1">
-    <summary> `copick download project` Parameters</summary>
-    | Parameter | Short | Description |
-    |----------|-------|-------------|
-    | `--dataset` | `-ds` | CryoET Data Portal dataset ID |
-    | `--output` | `-o` | Output directory for downloaded files |
+    <summary><b>`copick download project` Parameters</b></summary>
+
+    | Parameter     | Short | Description                                  |
+    |---------------|-------|----------------------------------------------|
+    | `--dataset`   | `-ds` | CryoET Data Portal dataset ID               |
+    | `--output`    | `-o`  | Output directory for downloaded files       |
 
     </details>
 
