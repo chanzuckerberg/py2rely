@@ -146,7 +146,7 @@ def high_resolution_options(func):
     return func  
 
 
-@click.command(context_settings=cli_context, name='bin1')
+@click.command(context_settings=cli_context, name='bin1', no_args_is_help=True)
 @high_resolution_options
 def high_resolution_cli(
     parameter: str,

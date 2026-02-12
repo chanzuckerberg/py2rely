@@ -9,7 +9,7 @@ def cli(ctx):
     pass
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-o","--output",type=str,required=False,default='sta_parameters.json',
               help="The Saved Parameter Path",)
 @click.option("-ts","--tilt-series",type=str,required=False,default="input/tiltSeries/aligned_tilt_series.star",
@@ -28,13 +28,17 @@ def cli(ctx):
               help="Create Template Parameters for Denovo Model Generation")
 @click.option("-bs","--box-scaling",type=float,required=False,default=2.0,
               help="Default Padding for Sub-Tomogram Averaging")
-@click.option("--nclasses", type=int, required=False, default=1,
+@click.option("--nclasses", '-nc', type=int, required=False, default=1,
               help="Number of Classes for 3D Auto Classification")
 @click.option('--ninit-models', '-nim', type=int, required=False, default=1,
               help="Number of Classes for Initial Model (Denovo) Generation")
 @click.option("-bl","--binning-list", type=str, required=False, default="4,2,1",
               callback=my_slurm.parse_int_list,
               help="List of Binning Factors to Process the Refinement Steps (provided as a comma-separated list)")
+@click.option('--nthreads', '-nj', type=int, required=False, default=8,
+              help="Number of Threads for the Pipeline.")
+@click.option("--nprocesses", "-np", type=int, required=False, default=None,
+              help="Number of Processes for the Pipeline. This is required if the job is not submitted through SLURM cluster.")
 def relion5_parameters(
     output: str,
     tilt_series: str,
@@ -47,7 +51,9 @@ def relion5_parameters(
     box_scaling: float,
     binning_list: List[int],
     nclasses: int,
-    ninit_models: int
+    ninit_models: int,
+    nthreads: int,
+    nprocesses: int
     ):
     """
     Generate a JSON file with the default parameters for the py2rely.
@@ -57,7 +63,7 @@ def relion5_parameters(
         output, tilt_series, particles, 
         tilt_series_pixel_size, symmetry, low_pass, 
         protein_diameter, denovo_generation, box_scaling, 
-        binning_list, nclasses, ninit_models
+        binning_list, nclasses, ninit_models, nthreads, nprocesses
     )
 
 def create_relion5_parameters(
@@ -72,7 +78,9 @@ def create_relion5_parameters(
     box_scaling: float,
     binning_list: List[int],
     nclasses: int,
-    ninit_models: int
+    ninit_models: int,
+    nthreads: int,
+    nprocesses: int
     ):
     import py2rely.prepare.parameters as parameters
     from py2rely.utils import sta_tools
@@ -103,7 +111,11 @@ def create_relion5_parameters(
     table.add_row("Binning List", str(binning_list))
     table.add_row("Number of Classes", str(nclasses))
     table.add_row("Denovo Generation", str(denovo_generation))
+    table.add_row("Nthreads", str(nthreads))
+    table.add_row("Nprocesses", str(nprocesses))
     console.print(table)
+
+    my_mpi_command = f"mpirun -n {nprocesses}" if nprocesses else "mpirun"
 
     # TODO: validate:
     # - each job that can use mpi has parameters set to use mpi
@@ -127,7 +139,7 @@ def create_relion5_parameters(
             nr_pool=16,
             use_gpu="yes",
             gpu_ids="",
-            nr_threads=8
+            nr_threads=nthreads
         ) if denovo_generation else None,
         reconstruct=parameters.Reconstruct(
             in_tomograms=tilt_series,
@@ -136,8 +148,8 @@ def create_relion5_parameters(
             do_from2d="yes",
             crop_size=-1,
             point_group=symmetry,
-            nr_threads=8,
-            mpi_command="mpirun"
+            nr_threads=nthreads,
+            mpi_command=my_mpi_command
         ),
         pseudo_subtomo=parameters.PseudoSubtomo(
             in_tomograms=tilt_series,
@@ -146,7 +158,7 @@ def create_relion5_parameters(
             crop_size=-1,
             do_float16="yes",
             do_output_2dstacks="yes",
-            nr_threads=8,
+            nr_threads=nthreads,
             nr_mpi=3,
         ),
         refine3D=parameters.Refine3D(
@@ -169,8 +181,8 @@ def create_relion5_parameters(
             nr_pool= 30,   
             use_gpu= "yes",
             gpu_ids= "",
-            nr_threads=8,
-            mpi_command="mpirun",
+            nr_threads=nthreads,
+            mpi_command=my_mpi_command,
             other_args="" # --maxsig 3000
         ),
         class3D=parameters.Class3D(
@@ -197,8 +209,8 @@ def create_relion5_parameters(
             nr_pool= 30, 
             use_gpu= "no",
             gpu_ids= "",
-            nr_threads=8,
-            mpi_command="mpirun",
+            nr_threads=nthreads,
+            mpi_command=my_mpi_command,
             sigma_tilt= 0,
             other_args=""
         ),
@@ -220,7 +232,7 @@ def create_relion5_parameters(
             lambda_param=0.1,
             do_scale="yes",
             do_frame_scale="yes",
-            nr_threads=8
+            nr_threads=nthreads
         ) if 1 in binning_list else None,
         bayesian_polish=parameters.BayesianPolish(
             in_tomograms=tilt_series,
@@ -229,7 +241,7 @@ def create_relion5_parameters(
             do_motion="yes",
             sigma_vel=0.2,
             sigma_div=5000,
-            nr_threads=8
+            nr_threads=nthreads
         ) if 1 in binning_list else None
     )
 
@@ -244,7 +256,7 @@ def create_relion5_parameters(
     utils.read_json_params_file(output)
 
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-p","--parameter",type=str,required=True,default='sta_parameters.json',
               help="The Saved Parameter Path")
 @click.option("-rt","--reference-template",type=str,required=False,default=None,
@@ -320,6 +332,8 @@ def run_relion5_pipeline(
         print('Deleting Existing Output Directories-History for a fresh new pipeline run')
         os.remove('output_directories_history.json')
 
+    # Check the provided parameter file to 
+
     command = f"""
 py2rely pipelines sta \\
     --parameter {parameter} \\
@@ -342,6 +356,11 @@ py2rely pipelines sta \\
 
     console.rule("[bold green]Submission Ready")
     console.print(f"[green]SLURM shell script written as[/green] [b]pipeline.sh[/b]\n")
+
+
+# def validate_parameters(parameters: str, ngpus: int):
+
+    # load the parameters and check if nprocesses are requested, if so, 
 
 if __name__ == "__main__":
     cli()

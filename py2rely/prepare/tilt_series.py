@@ -8,7 +8,7 @@ import rich_click as click
 def cli(ctx):
     pass
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("--base-project",type=str,required=False,
               default = "/hpc/projects/group.czii/krios1.processing/aretomo3",
               help="Main Aretomo Project Folder Path" )
@@ -41,7 +41,28 @@ def tilt_series(
     ):
     """
     Import tilt series data, process alignment and CTF parameters, and generate
-    Relion-compatible STAR files for tomograms.
+    Relion5-compatible STAR files for tomograms.
+
+    How does py2rely find my data?
+    ------------------------------
+
+    Given --base-project, --session, and optionally --run, py2rely searches
+    for alignment and CTF files using the following full search path:
+
+        {base-project}/{session}/{run}/*_CTF.txt
+
+    If --run is omitted, all runs within the session directory are searched:
+
+        {base-project}/{session}/*_CTF.txt
+
+    For each matching tilt series, the corresponding:
+
+        - .mrc (tilt stack)
+        - .aln (AreTomo alignment file)
+        - _order_list.csv (IMOD acquisition order)
+        - _CTF.txt (CTF parameters)
+
+    are parsed to construct Relion5 tilt-series STAR files.
     """
 
     run_import_tilt_series(
@@ -275,7 +296,7 @@ def run_import_tilt_series(
 
 ###########################################################################################
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option( "-i","--input", type=str, required=True, multiple=True,    
                help="StarFiles to Merge for STA Pipeline" )
 @click.option( "-o","--output", type=str, required=False,
@@ -342,7 +363,7 @@ def run_combine_tilt_series(
         f"→ Combined [b]{n_rows:,.0f}[/b] total entries into '[b]{output}[/b]'.\n"
     )
     
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-p","--particles",type=str,required=True,
               help="Path to Particles Starfile")
 @click.option("-t","--tomograms",type=str,required=True,

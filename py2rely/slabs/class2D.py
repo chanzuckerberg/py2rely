@@ -20,7 +20,7 @@ def add_class2D_options(func):
     return func
 
 # Create the boilerplate JSON file with a default file path
-@cli.command(context_settings=cli_context, name='class2d')
+@cli.command(context_settings=cli_context, name='class2d', no_args_is_help=True)
 @add_class2D_options
 @click.option(
     "--do-ctf-correction",

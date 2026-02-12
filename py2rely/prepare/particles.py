@@ -30,14 +30,14 @@ def import_particles(
     Import particles from STAR files.
     """
 
-    run_import_particles(
+    run_import_starfile(
         input, output, x, y, z, pixel_size, 
         voltage, spherical_aberration, amplitude_contrast, 
         optics_group, optics_group_name
     )
 
 
-def run_import_particles(
+def run_import_starfile(
     input: str,
     output: str,
     x: float,
@@ -98,7 +98,7 @@ def run_import_particles(
 
 ###########################################################################################
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @click.option("-c","--config", type=str, required=True, help="Path to Copick Config")
 @click.option("-s","--session", type=str, required=True, help="Experiment Session")
 @click.option("-o","--output", type=str, default="input", help="Path to write STAR file")
@@ -107,6 +107,7 @@ def run_import_particles(
 @click.option("-uid","--user-id", type=str, default=None, help="User ID")
 @click.option("-rids","--run-ids", type=str, default=None, help="Run IDs to filter (comma-separated)")
 @click.option("-vs","--voxel-size", type=float, default=None, help="Voxel Size of Picked Particles' Tomograms")
+@click.option("-a",'--authors', type=str, default=None, help="Authors from CryoET Portal Submissions provided in Quotation Marks (e.g, 'John Smith')")
 @common.add_common_options
 @common.add_optics_options
 @click.option('--relion5', type=bool, required=False, default=True, help='Use Relion5 Centered Coordinate format for the output STAR file')
@@ -114,7 +115,7 @@ def particles(
     config: str, session: str, name: str, output: str, pixel_size: float,
     voxel_size: float, session_id: str, user_id: str, run_ids: str, x: float,
     y: float, z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
-    optics_group: int, optics_group_name: str, relion5: bool
+    optics_group: int, optics_group_name: str, relion5: bool, authors: str
     ):
     """Import particles from Copick project.
     """    
@@ -122,7 +123,7 @@ def particles(
     run_import_particles(
         config, session, name, output, pixel_size, voxel_size, 
         session_id, user_id, run_ids, x, y, z, voltage, 
-        spherical_aberration, amplitude_contrast, optics_group, optics_group_name, relion5
+        spherical_aberration, amplitude_contrast, optics_group, optics_group_name, relion5, authors
     )
 
 def run_import_particles(
@@ -130,7 +131,7 @@ def run_import_particles(
     name: str, output: str, pixel_size: float, voxel_size: float, 
     session_id: str, user_id: str, run_ids: str, x: float, y: float, 
     z: float, voltage: float, spherical_aberration: float, amplitude_contrast: float,
-    optics_group: int, optics_group_name: str, relion5: bool
+    optics_group: int, optics_group_name: str, relion5: bool, authors: str
     ):
     """
     Import particles from Copick project.
@@ -157,6 +158,7 @@ def run_import_particles(
     """    
     from py2rely.utils.progress import _progress, get_console
     from scipy.spatial.transform import Rotation as R
+    from packaging.version import Version
     from py2rely.utils import sta_tools
     import os, starfile
     import pandas as pd
@@ -165,6 +167,14 @@ def run_import_particles(
     
     console = get_console()
     console.rule("[bold cyan]Import Copick Particles")
+
+    # Check if Copick Version 
+    version = Version(copick.__version__)
+    if authors and version < Version("1.19.0"):
+        raise click.ClickException(
+            f"Author filtering requires Copick version 1.19 or higher. Current version: {version}. "
+            f"Upgrade with 'copick install --upgrade copick'"
+        )
 
     # Provide warning if userID and sessionID are not provided
     if session_id is None and user_id is None:
@@ -191,7 +201,7 @@ def run_import_particles(
     utils = sta_tools.PipelineHelper(None, requireRelion=False)
     utils.print_pipeline_parameters(
         'Gathering Copick Particles', config = config, output_path = writePath, 
-        copick_name = name, copick_session_id = session_id, copick_user_id = user_id, 
+        copick_name = name, copick_session_id = session_id, copick_user_id = user_id, authors = authors,
         pixel_size = pixel_size, voxel_size = voxel_size, tomo_dim_x = x, tomo_dim_y = y, tomo_dim_z = z, voltage = voltage, 
         spherical_aberration = spherical_aberration, amplitude_contrast = amplitude_contrast, 
         optics_group = optics_group, optics_group_name = optics_group_name, 
@@ -228,7 +238,9 @@ def run_import_particles(
 
         # Query CopickRun and Picks
         run = root.get_run(runID)
-        picks = run.get_picks(object_name = name, session_id = session_id, user_id = user_id)
+        picks = run.get_picks(
+            object_name = name, session_id = session_id, user_id = user_id,
+            portal_author_query = [authors] if authors else None)
 
         if picks is None or len(picks) == 0:
             console.print(f"[yellow]Note:[/yellow] no picks found for run [b]{runID}[/b]")

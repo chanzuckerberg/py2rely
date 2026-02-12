@@ -249,7 +249,7 @@ class LargerThanZeroInt(click.ParamType):
 POSFLOAT = LargerThanZeroFloat()
 POSINT = LargerThanZeroInt()
 
-@click.command(context_settings={"show_default": True}, name='template')
+@click.command(context_settings={"show_default": True}, name='template', no_args_is_help=True)
 @click.option( "-i", "--input",
     type=str, required=True, help="Map to generate template from; MRC file.",
 )
