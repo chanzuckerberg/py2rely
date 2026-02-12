@@ -171,7 +171,10 @@ def run_import_particles(
     # Check if Copick Version 
     version = Version(copick.__version__)
     if authors and version < Version("1.19.0"):
-        raise Warning(f"Author filtering requires Copick version 1.19 or higher. Current version: {version}. Upgrade with 'copick install --upgrade copick'")
+        raise click.ClickException(
+            f"Author filtering requires Copick version 1.19 or higher. Current version: {version}. "
+            f"Upgrade with 'copick install --upgrade copick'"
+        )
 
     # Provide warning if userID and sessionID are not provided
     if session_id is None and user_id is None:
