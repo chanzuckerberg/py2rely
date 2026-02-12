@@ -73,6 +73,7 @@ py2rely requires two input files for sub-tomogram averaging:
         ```python
         from scipy.spatial.transform import Rotation as R
         import copick, starfile
+        import numpy as np
 
         # Load copick project
         root = copick.from_file('config.json')
