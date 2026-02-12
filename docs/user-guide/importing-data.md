@@ -159,8 +159,7 @@ py2rely requires two input files for sub-tomogram averaging:
     py2rely prepare particles \
         --config 10445_config.json \
         --session 10445 --name virus-like-particle \
-        -a "Jonathan Schwartz" \
-        -ps 1.54 -x 4096 -y 4096 -z 1200
+        --authors "Jonathan Schwartz"
     ```
 
     The `-a / --authors` flag filters picks to those corresponding to

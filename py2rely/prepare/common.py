@@ -19,7 +19,7 @@ def add_common_options(func):
         click.option("-x", "--x", type=float, default=4096, help="Box size along x-axis in the picked tomogram"),
         click.option("-y", "--y", type=float, default=4096, help="Box size along y-axis in the picked tomogram"),
         click.option("-z", "--z", type=float, default=1200, help="Box size along z-axis in the picked tomogram"),
-        click.option("-ps", "--pixel-size", type=float, default=1.54, help="Picked Coordinates Pixel Size (Å)"),
+        click.option("-ps", "--pixel-size", type=float, default=1.54, help="Tilt Series Pixel Size (Å)"),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve correct order
         func = option(func)
