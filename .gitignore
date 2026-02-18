@@ -151,6 +151,9 @@ venv.bak/
 .dmypy.json
 dmypy.json
 
+# py2rely env config (saved next to package when running from source)
+py2rely/envs/
+
 # Pyre type checker
 .pyre/
 
