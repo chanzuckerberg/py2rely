@@ -126,15 +126,14 @@ normalize_stack \\
 @click.option("-alg", "--class-algorithm",  required=False, default="2DEM",
              type=click.Choice(["2DEM", "VDAM"], case_sensitive=False),
               help="2D Classification Algorithm, choose either '2DEM' or 'VDAM'." )
-@click.option('-ngpus', "--num-gpus", type=int, required=False, default=2,
-              callback=submit_slurm.validate_num_gpus,
+@click.option('-ng', "--num-gpus", type=int, required=False, default=2,
               help="Number of GPUs for Processing" )
-@click.option('-const', "--gpu-constraint", required=False, default="h100",
-              type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
+@click.option('-gc', "--gpu-constraint", required=False, default="h100",
+              type=submit_slurm.validate_gpu_constraint,
               help="GPU Hardware to Reqest for Processing" )
-@click.option('-nthreads', "--num-threads", type=int, required=False, default=16,
+@click.option('-nj', "--num-threads", type=int, required=False, default=16,
               help="Number of Threads to Use" )
-@click.option('-ntrials', "--bootstrap-ntrials", type=int, required=False, default=0,
+@click.option('-nt', "--bootstrap-ntrials", type=int, required=False, default=0,
               help="Number of Trials to Run Bootstraping for SAD Method" )
 def class2d(
     particle_diameter: float,
@@ -210,17 +209,16 @@ py2rely slab class2d \\
 ########################################################################################
 
 @cli.command(context_settings=cli_context, no_args_is_help=True)
-@click.option( "--shell-path", type=str, required=False, default='pipeline_class_average.sh',
-              help="The Saved Parameter Path" )
+@click.option( "-o", "--output", type=str, required=False, default='pipeline_class_average.sh',
+              help="The Saved SLURM Submission Script" )
 @click.option( "--job-name", type=str, required=False, default="bootstrap_relion",
               help="Job Name Displayed by Slurm Scheduler" )
 @click.option( "--output-file", type=str, required=False, default="bootstrap.out",
               help="Output Text File that Results" )
-@click.option( "--num-gpus", type=int, required=False, default=1,
-              callback=submit_slurm.validate_num_gpus,
+@click.option( "-ng", "--num-gpus", type=int, required=False, default=1,
               help="Number of GPUs for Processing" )
-@click.option( "--gpu-constraint", required=False, default="h100",
-              type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False),
+@click.option( "-gc", "--gpu-constraint", required=False, default="h100",
+              type=submit_slurm.validate_gpu_constraint,
               help="GPU Hardware to Reqest for Processing" )
 @click.option( "--min-class-job", type=int, required=False, default=1,
               help="The minimum class job number (starting point for bootstrapping)" )

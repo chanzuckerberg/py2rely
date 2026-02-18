@@ -36,13 +36,8 @@ def create_shellsubmit(
     gpu_constraint = 'h100', 
     additional_commands = ''):
 
-    # Convert GPU constraint to lowercase
-    available_gpus = {'H200': 'h200', 'H100': 'h100', 'A100': 'a100', 'A6000': 'a6000'}
-    all_gpus = ['h200', 'h100', 'a100', 'a6000', 'H200', 'H100', 'A100', 'A6000']
-    if gpu_constraint in available_gpus:
-        gpu_constraint = available_gpus[gpu_constraint]
-    elif gpu_constraint not in all_gpus:
-        raise ValueError(f"Invalid GPU constraint: {gpu_constraint}. Available constraints are: {all_gpus}")
+    # Validate GPU constraint and set SLURM directives
+    gpu_constraint = check_gpus(gpu_constraint)
 
     if num_gpus > 0 and gpu_constraint is not None:
         slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
@@ -53,7 +48,7 @@ def create_shellsubmit(
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 
-    
+
     # {log_compute_utilization()}
     shell_script_content = f"""#!/bin/bash
 
@@ -99,58 +94,37 @@ def parse_int_list(ctx, param, value):
 def add_compute_options(func):
     """Decorator to add common compute options to a Click command."""
     options = [
-        click.option("--num-gpus",type=int,required=False,default=4,
-                    help="Number of GPUs to Use for Refinement",
+        click.option("-ng", "--num-gpus",type=int,required=False,default=4,
+                    help="Number of GPUs to Use for Processing",
                     callback=validate_even_gpus),
-        click.option("--gpu-constraint",required=False,default="h100",
+        click.option("-gc", "--gpu-constraint",required=False,default="h100",
                     help="GPU Constraint for Slurm Job",
-                    type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False))
+                    callback=validate_gpu_constraint)
     ]
     for option in reversed(options):  # Add options in reverse order to preserve correct order
         func = option(func)
     return func
 
-def log_compute_utilization():
+def validate_gpu_constraint(ctx, param, value):
+    return check_gpus(value)
 
-    command = f"""# Set up logging file
-LOGFILE="relion_utilization.log"
-echo "Timestamp, CPU Usage (%), Memory Usage (MB), GPU Utilization (%), GPU Memory Usage (MB)" > $LOGFILE
+def check_gpus(gpu_constraint):
+    import subprocess
+    cmd = [
+        "sinfo",
+        "-p", "gpu",
+        "-o", "%f",
+        "-h",
+    ]
+    out = subprocess.check_output(cmd, text=True)
+    features = set()
+    for line in out.splitlines():
+        for feat in line.split(","):
+            feat = feat.strip()
+            if feat:
+                features.add(feat)
 
-# Start resource monitoring in the background
-{{
-    while true; do
-        TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+    if gpu_constraint not in features:
+        raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
 
-        # CPU Usage (already averaged across all cores)
-        CPU_USAGE=$(mpstat 1 1 | awk '/Average:/ {{print 100 - $NF}}')
-        
-        # Memory Usage (total system memory used)
-        MEM_USAGE=$(free -m | awk '/Mem:/ {{print $3}}')
-
-        # Get GPU Utilization and GPU Memory Usage (report averages instead of sum)
-        GPU_STATS=$(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits | awk -F ', ' '{{g_util+=$1; g_mem+=$2; count+=1}} END {{print g_util/count", "g_mem/count}}')
-
-        # Ensure that if no GPU data is returned, default to 0 values
-        if [[ -z "$GPU_STATS" ]]; then
-            GPU_STATS="0, 0"
-        fi
-
-        # Write to log file
-        echo "$TIMESTAMP, $CPU_USAGE, $MEM_USAGE, $GPU_STATS" >> $LOGFILE
-        
-        sleep 60  # Wait (in seconds)
-    done
-}} &  # Run in the background
-"""
-
-    return command
-
-def complete_log_compute_utilization():
-    return """# Stop logging after job completion
-pkill -P $$  # Kills the background logging process
-"""
-
-def validate_num_gpus(ctx, param, value):
-    if value is not None and (value < 1 or value > 4):
-        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
-    return value  
+    return gpu_constraint
