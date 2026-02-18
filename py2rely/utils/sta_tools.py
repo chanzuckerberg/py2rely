@@ -1,8 +1,11 @@
-from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
+from pipeliner.jobs.relion import select_job, maskcreate_job
 import pipeliner.job_manager as job_manager
+from py2rely.utils.progress import get_console
 import glob, starfile, json, re, mrcfile
-from scipy import ndimage
-import subprocess, os
+import subprocess, os, submitit
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.panel import Panel
 import numpy as np
 import warnings
 
@@ -27,18 +30,22 @@ class PipelineHelper:
     A helper class for managing and running a Relion-based pipeline in a cryo-EM project.
     """    
 
-    def __init__(self, inProject, requireRelion = True):
+    def __init__(self, inProject, requireRelion=True, use_submitit=False):
         """
         Initialize the PipelineHelper with the given project.
 
         Args:
             inProject: The project instance that manages the pipeline.
+            requireRelion: If True, check that RELION is available.
+            use_submitit: If True, run_job will delegate to submit_job and run the job via submitit.
+            executor: Submitit executor (required if use_submitit is True).
         """
 
         if requireRelion:
             self.check_if_relion_is_available()
 
         self.myProject = inProject
+        self.use_submitit = use_submitit
 
         # Define sampling angles and box sizes for various stages of the pipeline.
         self.sampling = ['30 degrees', '15 degrees', '7.5 degrees', '3.7 degrees', '1.8 degrees', '0.9 degrees',\
@@ -73,11 +80,6 @@ class PipelineHelper:
             header: Optional header name under which parameters will be saved in JSON.
             **kwargs: Arbitrary parameters. If 'file_name' is given, parameters are also saved.
         """
-        import os
-        from py2rely.utils.progress import get_console
-        from rich.syntax import Syntax
-        from rich.table import Table
-        from rich.panel import Panel
 
         console = get_console()
         file_name = kwargs.pop("file_name", None)
@@ -259,6 +261,9 @@ class PipelineHelper:
         """
         Run a job and handle its completion status.
 
+        If use_submitit is True and executor is set, delegates to submit_job
+        so the job runs via submitit on the cluster.
+
         Args:
             job: A pipeline job object.
             jobName: Name of the job.
@@ -268,66 +273,107 @@ class PipelineHelper:
 
         Returns:
             str: The result of the job execution.
-        """        
+        """
 
-        # Set Timeout to XX hours
         nDays = 14
         nHours = nDays * 24
 
-        # Assume We Are Re-Running a Job if JobIter is not None
-        if not self.check_if_job_already_completed(job,jobName) or jobIter:
+        if self.use_submitit:
+            return self.submit_job(
+                job, jobName, jobTag,
+                jobIter=jobIter,
+                keepClasses=keepClasses,
+                exitOnFail=exitOnFail,
+                nHours=nHours,
+            )
 
-            # Run Import Tomograms Job
-            print(f'\n[{jobTag}] Starting Job...')
-
-            # Run Import Job
-            self.myProject.run_job(job)
-
-            # Wait up to 24 hours for the job to finish
-            result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
-
-            # Print Results
-            print('[{}] Job Complete!'.format(jobTag))
-            print('[{}] Job Result :: '.format(jobTag) + result)
-
-            # Exit If Job Fails
-            if result == 'Failed' and exitOnFail: 
-                print(f'{jobTag} Failed!...\n'); exit()
-
-            # Ensure the binning key exists before assigning the job output directory
-            bin_key = f'bin{self.binning}'
-            if bin_key not in self.outputDirectories:
-                self.outputDirectories[bin_key] = {}
-
-            # Save Job Name to Output Directory (Main Pipeline)
-            self.outputDirectories[bin_key][jobName] = job.output_dir
-
-            # Log All the Repititions for Each Process
-            if bin_key not in self.historyDirectories:
-                self.historyDirectories[bin_key] = {}
-            if jobName not in self.historyDirectories[bin_key]:
-                self.historyDirectories[bin_key][jobName] = {}
-                # Assume this is the first iteration for this job at this resolution
-                jobIter = 'iter1'
-            elif jobIter is None: # Failback to automatic iteration numbering
-                # Determine the next iteration number
-                current_iters = sorted(self.historyDirectories[bin_key][jobName].keys())
-                last_iter = current_iters[-1]
-                last_iter_num = int(last_iter.replace('iter', ''))
-                jobIter = f'iter{last_iter_num + 1}'
-
-            self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
-
-            # Save the new output directory
-            self.save_new_output_directory()     
-
-            if keepClasses is not None: 
-                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)                 
-        else: 
-            job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-            result = 'Already Completed'
-        
+        result, output_dir = self._execute_job(job, jobName, jobTag, jobIter, nHours)
+        job.output_dir = output_dir
+        self._post_job_completion(result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail)
         return result
+
+    def submit_job(self, 
+                  job, 
+                  jobName: str, 
+                  jobTag: str, 
+                  jobIter: str = None,
+                  keepClasses: list = None,
+                  exitOnFail: bool = True,
+                  nHours: int = 14 * 24):
+        """
+        Submit job to submitit: run on cluster, then do bookkeeping here.
+        Same contract as run_job.
+        """
+        if self.check_if_job_already_completed(job, jobName) and not jobIter:
+            job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
+            return 'Already Completed'
+
+        print(f'\n[{jobTag}] Submitting job via submitit...')
+        submitted = self.executor.submit(self._execute_job, job, jobName, jobTag, jobIter, nHours)
+        result, output_dir = submitted.result()
+        job.output_dir = output_dir
+        self._post_job_completion(result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail)
+        return result
+
+    def _execute_job(self, job, jobName: str, jobTag: str, jobIter: str = None, nHours: int = 14 * 24):
+        """
+        Execute a single job (run + wait). No bookkeeping.
+        Returns (result, job.output_dir). Used both locally and by submitit worker.
+        """
+        if self.check_if_job_already_completed(job, jobName) and not jobIter:
+            return ('Already Completed', self.outputDirectories[f'bin{self.binning}'][jobName])
+
+        print(f'\n[{jobTag}] Starting Job...')
+        self.myProject.run_job(job)
+        result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
+        return (result, job.output_dir)
+
+    def _post_job_completion(self, result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail):
+        """
+        Post-job completion processing.
+
+        Args:
+            job: A pipeline job object.
+            jobName: Name of the job.
+            jobTag: Tag to identify the job in logs.
+        """
+        # Print Results
+        print(f'[{jobTag}] Job Complete!')
+        print(f'[{jobTag}] Job Result :: {result}')
+
+        # Exit If Job Fails
+        if result == 'Failed' and exitOnFail: 
+            print(f'{jobTag} Failed!...\n'); exit()
+
+        # Ensure the binning key exists before assigning the job output directory
+        bin_key = f'bin{self.binning}'
+        if bin_key not in self.outputDirectories:
+            self.outputDirectories[bin_key] = {}
+
+        # Save Job Name to Output Directory (Main Pipeline)
+        self.outputDirectories[bin_key][jobName] = job.output_dir
+
+        # Log All the Repititions for Each Process
+        if bin_key not in self.historyDirectories:
+            self.historyDirectories[bin_key] = {}
+        if jobName not in self.historyDirectories[bin_key]:
+            self.historyDirectories[bin_key][jobName] = {}
+            # Assume this is the first iteration for this job at this resolution
+            jobIter = 'iter1'
+        elif jobIter is None: # Failback to automatic iteration numbering
+            # Determine the next iteration number
+            current_iters = sorted(self.historyDirectories[bin_key][jobName].keys())
+            last_iter = current_iters[-1]
+            last_iter_num = int(last_iter.replace('iter', ''))
+            jobIter = f'iter{last_iter_num + 1}'
+
+        self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
+
+        # Save the new output directory
+        self.save_new_output_directory()     
+
+        if keepClasses is not None: 
+            self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)    
 
     def get_resolution(self, job, 
                       job_name: str = None):
@@ -782,25 +828,3 @@ class PipelineHelper:
         # Get the resolution at the closest index
         closest_resolution = resolutions[closest_index]
         return closest_resolution
-
-
-
-    # # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
-    # def return_job_iter(self, binKey, jobName):
-
-    #     # Check if the binKey and jobName exist in the outputDirectories
-    #     if binKey in self.outputDirectories and jobName in self.outputDirectories[binKey]:
-    #         # If jobName is a string (e.g., 'job002'), set it as the first iteration
-    #         if isinstance(self.outputDirectories[binKey][jobName], str):
-    #             # Assign the current job to 'iter1'
-    #             self.outputDirectories[binKey][jobName + '_history'] = {'iter1': self.outputDirectories[binKey][jobName]}
-    #             return 'iter2'
-            
-    #         # If jobName is already a dictionary, find the next iteration
-    #         current_iters = sorted(self.outputDirectories[binKey][jobName].keys())
-    #         last_iter = current_iters[-1]
-    #         last_iter_num = int(last_iter.replace('iter', ''))
-    #         return f'iter{last_iter_num + 1}'
-    #     else:
-    #         # If the jobName or binKey doesn't exist, return None
-    #         return None
