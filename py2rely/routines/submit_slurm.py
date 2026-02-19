@@ -1,30 +1,22 @@
+from typing import Optional
+
 import rich_click as click
 
-def get_load_relion_command():
-    load_relion_command = """
-# Read the GPU names into an array
-IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
+from py2rely.config import get_load_commands
 
-# Access the first GPU name
-first_gpu_name="${gpu_names[0]}"
+def get_env_setup_script(prompt_if_missing: bool = True, include_relion: bool = True) -> str:
+    """
+    Build env setup block from saved config (python_load, relion_load).
+    Prompts and creates envs/ if missing. Empty values are omitted (no line).
+    """
+    python_load, relion_load = get_load_commands(prompt_if_missing=prompt_if_missing)
+    lines = []
+    if python_load:
+        lines.append(python_load)
+    if include_relion:
+        lines.append(relion_load)
+    return "\n".join(lines) if lines else ""
 
-# Figure Out which Relion Module to Load
-echo "Detected GPU: $first_gpu_name"
-if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80    
-elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80
-elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
-    echo "Loading relion/CU86"
-    module load relion/ver5.0-12cf15de-CU86
-else
-    echo "Loading relion/CU90"
-    module load relion/ver5.0-12cf15de-CU90 
-fi"""
-
-    return load_relion_command
 
 def create_shellsubmit(
     job_name, 
@@ -35,6 +27,18 @@ def create_shellsubmit(
     num_gpus = 1, 
     gpu_constraint = 'h100', 
     additional_commands = ''):
+    """
+    Create a shell script to submit a SLURM job.
+    Args:
+        job_name: The name of the job.
+        output_file: The output file for the job.
+        shell_name: The name of the shell script to create.
+        command: The command to run in the job.
+        total_time: The total time for the job.
+        num_gpus: The number of GPUs to use for the job.
+        gpu_constraint: The GPU constraint for the job.
+        additional_commands: Additional commands to add to the shell script.
+    """
 
     # Validate GPU constraint and set SLURM directives
     gpu_constraint = check_gpus(gpu_constraint)
@@ -48,7 +52,8 @@ def create_shellsubmit(
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 
-
+    python_load, relion_load = get_load_commands(prompt_if_missing=True)
+    
     # {log_compute_utilization()}
     shell_script_content = f"""#!/bin/bash
 
@@ -60,16 +65,11 @@ def create_shellsubmit(
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
+{python_load}
 
-ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/pyrely
-
-{get_load_relion_command()}
-
+{relion_load}
 {command}
-
 """
-# {complete_log_compute_utilization()}
 
     with open(shell_name, 'w') as file:
         file.write(shell_script_content)
@@ -116,15 +116,20 @@ def check_gpus(gpu_constraint):
         "-o", "%f",
         "-h",
     ]
-    out = subprocess.check_output(cmd, text=True)
-    features = set()
-    for line in out.splitlines():
-        for feat in line.split(","):
-            feat = feat.strip()
-            if feat:
-                features.add(feat)
+    try:
+        out = subprocess.check_output(cmd, text=True)
+        features = set()
+        for line in out.splitlines():
+            for feat in line.split(","):
+                feat = feat.strip()
+                if feat:
+                    features.add(feat)
 
-    if gpu_constraint not in features:
-        raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
+        if gpu_constraint not in features:
+            raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
+
+    except Exception as e:
+        print(f"Warning: Invalid GPU constraint. Using default of h100. Error: {e}")
+        return 'h100'
 
     return gpu_constraint

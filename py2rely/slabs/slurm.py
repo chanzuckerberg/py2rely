@@ -269,7 +269,7 @@ def create_shellsubmit(
     slurm_mem = f'#SBATCH --mem-per-cpu=16G'
     slurm_cpu = f'#SBATCH --cpus-per-task=6'
 
-    load_relion_command = submit_slurm.get_load_relion_command() if load_relion else ''
+    env_setup = submit_slurm.get_env_setup_script(include_relion=load_relion)
 
     shell_script_content = f"""#!/bin/bash
 
@@ -280,9 +280,7 @@ def create_shellsubmit(
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
-{load_relion_command}
-ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/pyrely
+{env_setup}
 {command}
 """
 
