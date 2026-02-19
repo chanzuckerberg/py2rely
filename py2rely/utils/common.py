@@ -1,5 +1,5 @@
+from py2rely.routines.submit_slurm import validate_gpu_constraint, validate_even_gpus
 import rich_click as click
-
 
 def add_sta_options(func):
     """
@@ -46,6 +46,10 @@ def add_submitit_options(func):
              "--submitit", type=bool, required=False, default=False,
             help="Submit Jobs with Submitit SLURM Interface" ),
         click.option(
+            '--gpu-constraint', '-gc', type=str, default=None,
+            help='GPU Constraint for Slurm Job',
+            callback=validate_gpu_constraint),
+        click.option(
             '--cpu-constraint', '-cc', type=str, default='4,16',
             help='Number of CPUs and mem-per-cpu to requested. (e.g., "4,16" for 4 CPUs and 16GB per CPU)'),
         click.option(
@@ -57,7 +61,7 @@ def add_submitit_options(func):
         func = option(func)
     return func
 
-def add_core_slurm_compute_options(func):
+def add_core_slurm_options(func):
     """
     Decorator to add core SLURM compute options to a Click command.
     """
@@ -65,7 +69,7 @@ def add_core_slurm_compute_options(func):
         click.option("-ng", "--num-gpus", type=int, required=False, default=4,
                      help="Number of GPUs to Use for Processing",
                      callback=validate_even_gpus),
-        click.option("-gc", "--gpu-constraint", required=False, default="h100",
+        click.option("-gc", "--gpu-constraint", required=False, default=None,
                      help="GPU Constraint for Slurm Job",
                      callback=validate_gpu_constraint)
     ]

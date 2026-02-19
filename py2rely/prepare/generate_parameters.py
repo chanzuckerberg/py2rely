@@ -1,8 +1,9 @@
+from py2rely.routines.submit_slurm import validate_even_gpus
 import py2rely.routines.submit_slurm as my_slurm
 from py2rely.utils import common
 from py2rely import cli_context
-from typing import List
 import rich_click as click
+from typing import List
 
 @click.group()
 @click.pass_context
@@ -263,7 +264,9 @@ def create_relion5_parameters(
               help='Number of days to request for the SLURM job')
 @click.option("--new-pipeline", type=bool, required=False, default=True,
               help="Create a new pipeline trajectory")
-@my_slurm.add_compute_options
+@click.option("-ng", "--num-gpus", type=int, required=False, default=4,
+              help="Number of GPUs to Use for Processing",
+              callback=validate_even_gpus)
 @common.add_submitit_options
 def relion5_pipeline(
     parameter: str,
@@ -272,12 +275,12 @@ def relion5_pipeline(
     run_class3d: bool,
     num_gpus: int, 
     num_days: int,
-    gpu_constraint: str, 
     new_pipeline: bool,
     extract3d: bool,
     manual_masking: bool,
     submitit: bool,
     cpu_constraint: str,
+    gpu_constraint: str,
     timeout: int
     ):
     """

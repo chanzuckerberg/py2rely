@@ -1,21 +1,6 @@
-from typing import Optional
-
-import rich_click as click
-
 from py2rely.config import get_load_commands
-
-def get_env_setup_script(prompt_if_missing: bool = True, include_relion: bool = True) -> str:
-    """
-    Build env setup block from saved config (python_load, relion_load).
-    Prompts and creates envs/ if missing. Empty values are omitted (no line).
-    """
-    python_load, relion_load = get_load_commands(prompt_if_missing=prompt_if_missing)
-    lines = []
-    if python_load:
-        lines.append(python_load)
-    if include_relion:
-        lines.append(relion_load)
-    return "\n".join(lines) if lines else ""
+from typing import Optional
+import rich_click as click
 
 def create_shellsubmit(
     job_name, 
@@ -42,18 +27,16 @@ def create_shellsubmit(
     # Validate GPU constraint and set SLURM directives
     gpu_constraint = check_gpus(gpu_constraint)
 
+    # Determine the SLURM directives for the GPU constraint.
     if num_gpus > 0 and gpu_constraint is not None:
         slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
     elif num_gpus > 0 and gpu_constraint is None:
-        gpu_constraint = 'a100'
-        print('Setting GPU constraint to default of A100')
-        slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
+        slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 
     python_load, relion_load = get_load_commands(prompt_if_missing=True)
-    
-    # {log_compute_utilization()}
+
     shell_script_content = f"""#!/bin/bash
 
 {slurm_gpus}
@@ -105,30 +88,33 @@ def add_compute_options(func):
     return func
 
 def validate_gpu_constraint(ctx, param, value):
+    """Validate the GPU constraint, entry for click callback."""
     return check_gpus(value)
 
 def check_gpus(gpu_constraint):
     import subprocess
+
+    # We don't need to check the gpu constraint if it is None.
+    # Assume it could be a non-slurm system.
+    if gpu_constraint is None:
+        return None
+
+    # Check the gpu constraint against the available GPUs on the SLURM system.
     cmd = [
         "sinfo",
         "-p", "gpu",
         "-o", "%f",
         "-h",
     ]
-    try:
-        out = subprocess.check_output(cmd, text=True)
-        features = set()
-        for line in out.splitlines():
-            for feat in line.split(","):
-                feat = feat.strip()
-                if feat:
-                    features.add(feat)
+    out = subprocess.check_output(cmd, text=True)
+    features = set()
+    for line in out.splitlines():
+        for feat in line.split(","):
+            feat = feat.strip()
+            if feat:
+                features.add(feat)
 
-        if gpu_constraint not in features:
-            raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
-
-    except Exception as e:
-        print(f"Warning: Invalid GPU constraint. Using default of h100. Error: {e}")
-        return 'h100'
+    if gpu_constraint not in features:
+        raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
 
     return gpu_constraint

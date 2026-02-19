@@ -38,7 +38,6 @@ class PipelineHelper:
             inProject: The project instance that manages the pipeline.
             requireRelion: If True, check that RELION is available.
             use_submitit: If True, run_job will delegate to submit_job and run the job via submitit.
-            executor: Submitit executor (required if use_submitit is True).
         """
 
         if requireRelion:
@@ -70,6 +69,21 @@ class PipelineHelper:
         self.tomo_select_job = None
         self.post_process_job = None
         self.pseudo_subtomo_job = None
+
+        # Default timeout is 14 days
+        self.timeout = 14 * 24
+
+    def set_compute_constraints(self, cpu_constraint: List[int, int], gpu_constraint: List[str, int], timeout: int):
+        """
+        Set the compute constraints for the pipeline.
+        Args:
+            cpu_constraint: The number of CPUs and memory per CPU (e.g., [4,16] for 4 CPUs and 16GB per CPU).
+            gpu_constraint: The GPU constraint for the job. (e.g., ["a100",2] for 2 A100 GPUs in the gpu queue).
+            timeout: The timeout for the job in minutes.
+        """
+        self.ncpus, self.mem_per_cpu = cpu_constraint
+        self.gpu_queue, self.num_gpus = gpu_constraint
+        self.timeout = timeout # in hours
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -274,21 +288,16 @@ class PipelineHelper:
         Returns:
             str: The result of the job execution.
         """
-
-        nDays = 14
-        nHours = nDays * 24
-
+        # TODO: if the job is post-processing, mask create and select then be ran the master process.
         if self.use_submitit:
             return self.submit_job(
                 job, jobName, jobTag,
                 jobIter=jobIter,
                 keepClasses=keepClasses,
                 exitOnFail=exitOnFail,
-                nHours=nHours,
             )
 
-        result, output_dir = self._execute_job(job, jobName, jobTag, jobIter, nHours)
-        job.output_dir = output_dir
+        result = self._execute_job(job, jobName, jobTag, jobIter)
         self._post_job_completion(result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail)
         return result
 
@@ -298,8 +307,7 @@ class PipelineHelper:
                   jobTag: str, 
                   jobIter: str = None,
                   keepClasses: list = None,
-                  exitOnFail: bool = True,
-                  nHours: int = 14 * 24):
+                  exitOnFail: bool = True):
         """
         Submit job to submitit: run on cluster, then do bookkeeping here.
         Same contract as run_job.
@@ -308,14 +316,35 @@ class PipelineHelper:
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
             return 'Already Completed'
 
+        # Estimate the output directory for submitit to write too
+        log_dir = 'path' # todo
+        os.makedirs(log_dir, exist_ok=True)
+        executor = submitit.AutoExecutor(folder=log_dir)
+
+        # TODO: I need to check the job parameters to determine whether it should go on the 
+        # gpu queue or the cpu queue.
+
         print(f'\n[{jobTag}] Submitting job via submitit...')
-        submitted = self.executor.submit(self._execute_job, job, jobName, jobTag, jobIter, nHours)
-        result, output_dir = submitted.result()
-        job.output_dir = output_dir
-        self._post_job_completion(result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail)
+        executor.update_parameters(
+            slurm_partition=self.gpu_queue,
+            timeout_min=self.timeout,
+            cpus_per_task=self.ncpus,
+            slurm_additional_parameters={
+                "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                "gpus": f"{self.num_gpus}",
+            },
+        )
+        if self.gpu_queue:
+            executor.update_parameters(
+                slurm_constraint=self.gpu_queue,
+            )
+
+        submitted = executor.submit(self._execute_job, job, jobName, jobTag, jobIter, self.timeout)
+        result = submitted.result()
+        self._post_job_completion(job, jobName, jobTag, jobIter, keepClasses)
         return result
 
-    def _execute_job(self, job, jobName: str, jobTag: str, jobIter: str = None, nHours: int = 14 * 24):
+    def _execute_job(self, job, jobName: str, jobTag: str, jobIter: str, nHours: int, exitOnFail: bool):
         """
         Execute a single job (run + wait). No bookkeeping.
         Returns (result, job.output_dir). Used both locally and by submitit worker.
@@ -326,9 +355,16 @@ class PipelineHelper:
         print(f'\n[{jobTag}] Starting Job...')
         self.myProject.run_job(job)
         result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
-        return (result, job.output_dir)
 
-    def _post_job_completion(self, result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail):
+        # Print Results
+        print(f'[{jobTag}] Job Complete!')
+        print(f'[{jobTag}] Job Result :: {result}')
+
+        # Exit If Job Fails
+        if result == 'Failed' and exitOnFail: 
+            print(f'{jobTag} Failed!...\n'); exit()
+
+    def _post_job_completion(self, job, jobName, jobIter, keepClasses):
         """
         Post-job completion processing.
 
@@ -337,13 +373,6 @@ class PipelineHelper:
             jobName: Name of the job.
             jobTag: Tag to identify the job in logs.
         """
-        # Print Results
-        print(f'[{jobTag}] Job Complete!')
-        print(f'[{jobTag}] Job Result :: {result}')
-
-        # Exit If Job Fails
-        if result == 'Failed' and exitOnFail: 
-            print(f'{jobTag} Failed!...\n'); exit()
 
         # Ensure the binning key exists before assigning the job output directory
         bin_key = f'bin{self.binning}'
