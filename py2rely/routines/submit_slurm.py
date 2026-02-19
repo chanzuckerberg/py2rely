@@ -17,7 +17,6 @@ def get_env_setup_script(prompt_if_missing: bool = True, include_relion: bool = 
         lines.append(relion_load)
     return "\n".join(lines) if lines else ""
 
-
 def create_shellsubmit(
     job_name, 
     output_file,

@@ -1,4 +1,5 @@
 import py2rely.routines.submit_slurm as my_slurm
+from py2rely.utils import common
 from py2rely import cli_context
 from typing import List
 import rich_click as click
@@ -257,33 +258,13 @@ def create_relion5_parameters(
 
 
 @cli.command(context_settings=cli_context, no_args_is_help=True)
-@click.option("-p","--parameter",type=str,required=True,default='sta_parameters.json',
-              help="The Saved Parameter Path")
-@click.option("-rt","--reference-template",type=str,required=False,default=None,
-              help="Provided Template for Preliminary Refinment (Optional)")
-@click.option("-dg","--run-denovo-generation",type=bool,required=False, default=False,
-              help="Generate Initial Reconstruction with Denovo")
+@common.add_sta_options
 @click.option('-ndays', '--num-days', type=int, required=False, default=3,
               help='Number of days to request for the SLURM job')
-@click.option("--run-class3D",type=bool,required=False,default=False, 
-              help="Run 3D-Classification Job After Refinement")
 @click.option("--new-pipeline", type=bool, required=False, default=True,
               help="Create a new pipeline trajectory")
-@click.option(
-    "--extract3D","-e3d",
-    type=bool,
-    required=False,
-    default=False,
-    help="Extract 3D Particles Before Initial Model Generation (if an inital model is generated denovo)"
-)
-@click.option(
-    "--manual-masking", "-mm",
-    type=bool,
-    required=False,
-    default=False,
-    help="Apply Manual Masking After First Refinement Job"
-)
 @my_slurm.add_compute_options
+@common.add_submitit_options
 def relion5_pipeline(
     parameter: str,
     reference_template: str,
@@ -294,7 +275,10 @@ def relion5_pipeline(
     gpu_constraint: str, 
     new_pipeline: bool,
     extract3d: bool,
-    manual_masking: bool
+    manual_masking: bool,
+    submitit: bool,
+    cpu_constraint: str,
+    timeout: int
     ):
     """
     Prepare py2rely pipeline for submission.
@@ -303,7 +287,7 @@ def relion5_pipeline(
     run_relion5_pipeline(
         parameter, reference_template, run_denovo_generation, 
         run_class3d, num_gpus, num_days, gpu_constraint, new_pipeline,
-        extract3d, manual_masking
+        extract3d, manual_masking, submitit, cpu_constraint, timeout
     )
 
 def run_relion5_pipeline(
@@ -316,7 +300,10 @@ def run_relion5_pipeline(
     gpu_constraint: str, 
     new_pipeline: bool,
     extract3d: bool,
-    manual_masking: bool
+    manual_masking: bool,
+    submitit: bool,
+    cpu_constraint: str,
+    timeout: int
     ):
     from rich.console import Console
     import os
@@ -343,6 +330,10 @@ py2rely pipelines sta \\
     # Only add reference template if it is provided
     if reference_template is not None:
         command += f"--reference-template {reference_template}"
+
+    if submitit:
+        command += f" --submitit True --cpu-constraint {cpu_constraint} --timeout {timeout}"
+        num_gpus = 0  # submitit will handle gpu requests
     
     my_slurm.create_shellsubmit(
         job_name='relion5',

@@ -1,49 +1,10 @@
+from py2rely.utils import common
 from py2rely import cli_context
 import rich_click as click
 
 @click.command(context_settings=cli_context, name='sta', no_args_is_help=True)
-@click.option(
-    "-p","--parameter",
-    type=str,
-    required=True,
-    default='sta_parameters.json',
-    help="The Saved Parameter Path",
-)
-@click.option(
-    "-rt","--reference-template",
-    type=str,
-    required=False,
-    default=None,
-    help="Provided Template for Preliminary Refinment (Optional)",
-)
-@click.option(
-    "-dg","--run-denovo-generation",
-    type=bool,
-    required=False, 
-    default=False,
-    help="Generate Initial Reconstruction with Denovo"
-)
-@click.option(
-    "--run-class3D",
-    type=bool,
-    required=False,
-    default=False, 
-    help="Run 3D-Classification Job After Refinement"
-)
-@click.option(
-    "--extract3D","-e3d",
-    type=bool,
-    required=False,
-    default=False,
-    help="Extract 3D Particles Before Initial Model Generation"
-)
-@click.option(
-    "--manual-masking", "-mm",
-    type=bool,
-    required=False,
-    default=False,
-    help="Apply Manual Masking After First Refinement Job"
-)
+@common.add_sta_options
+@common.add_submitit_options
 def average(
     parameter: str,
     reference_template: str,
@@ -51,6 +12,9 @@ def average(
     run_class3d: bool, 
     extract3d: bool,
     manual_masking: bool,
+    submitit: bool,
+    cpu_constraint: str,
+    timeout: int
     ):
     """
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
@@ -59,7 +23,8 @@ def average(
     run_average(
         parameter, reference_template,
         run_denovo_generation, run_class3d, 
-        extract3d,manual_masking
+        extract3d,manual_masking,
+        submitit, cpu_constraint, timeout
     )
 
 def run_average(
@@ -69,6 +34,9 @@ def run_average(
     run_class3d: bool, 
     extract3d: bool,
     manual_masking: bool,
+    submitit: bool,
+    cpu_constraint: str,
+    timeout: int
     ):
     from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
     from pipeliner.api.manage_project import PipelinerProject

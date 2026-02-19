@@ -71,6 +71,10 @@ click.rich_click.OPTION_GROUPS = {
         {
             "name": "Compute Resources",
             "options": ["--num-days", "--num-gpus", "--gpu-constraint"],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--timeout"],
         }
     ],
     "py2rely prepare template": [
@@ -85,6 +89,20 @@ click.rich_click.OPTION_GROUPS = {
         {
             "name": "Output",
             "options": ["--output", "--output-voxel-size", "--box-size"],
+        }
+    ],
+    "py2rely pipelines sta": [
+        {
+            "name": "Pipeline Options",
+            "options": ["--parameter", "--extract3D", "--run-class3D", "--manual-masking"],
+        },
+        {
+            "name": "Initial Model Generation",
+            "options": ["--run-denovo-generation", "--reference-template"],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--timeout"],
         }
     ],
     "py2rely slab class2d": [
