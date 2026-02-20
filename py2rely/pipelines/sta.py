@@ -15,6 +15,7 @@ def average(
     submitit: bool,
     cpu_constraint: str,
     gpu_constraint: str,
+    num_gpus: int,
     timeout: int
     ):
     """
@@ -24,7 +25,7 @@ def average(
         parameter, reference_template,
         run_denovo_generation, run_class3d, 
         extract3d,manual_masking,
-        submitit, cpu_constraint, gpu_constraint, timeout
+        submitit, cpu_constraint, gpu_constraint, num_gpus, timeout
     )
 
 def run_average(
@@ -37,6 +38,7 @@ def run_average(
     submitit: bool,
     cpu_constraint: str,
     gpu_constraint: str,
+    num_gpus: int,
     timeout: int
     ):
     from py2rely.pipelines.bin1 import HighResolutionRefinement as HRrefine
@@ -47,12 +49,13 @@ def run_average(
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
-    utils = relion5_tools.Relion5Pipeline(my_project, submitit=submitit)
+    utils = relion5_tools.Relion5Pipeline(my_project, use_submitit=submitit)
     utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
+    # Set Compute Constraints if Using Submitit
     if submitit:
-        utils.set_compute_constraints(cpu_constraint, gpu_constraint, timeout)
+        utils.set_compute_constraints(cpu_constraint, gpu_constraint, num_gpus, timeout)
 
     # Print Input Parameters
     utils.print_pipeline_parameters('STA Pipeline', Parameter = parameter,

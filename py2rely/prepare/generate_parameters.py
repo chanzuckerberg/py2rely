@@ -264,9 +264,6 @@ def create_relion5_parameters(
               help='Number of days to request for the SLURM job')
 @click.option("--new-pipeline", type=bool, required=False, default=True,
               help="Create a new pipeline trajectory")
-@click.option("-ng", "--num-gpus", type=int, required=False, default=4,
-              help="Number of GPUs to Use for Processing",
-              callback=validate_even_gpus)
 @common.add_submitit_options
 def relion5_pipeline(
     parameter: str,
@@ -335,7 +332,7 @@ py2rely pipelines sta \\
         command += f"--reference-template {reference_template}"
 
     if submitit:
-        command += f" --submitit True --cpu-constraint {cpu_constraint} --timeout {timeout}"
+        command += f" --submitit True --cpu-constraint {cpu_constraint} --timeout {timeout} --ngpus {num_gpus}"
         num_gpus = 0  # submitit will handle gpu requests
     
     my_slurm.create_shellsubmit(

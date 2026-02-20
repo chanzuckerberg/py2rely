@@ -99,7 +99,7 @@ click.rich_click.OPTION_GROUPS = {
         },
         {
             "name": "Submitit Options",
-            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--timeout"],
+            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],
         }
     ],
     "py2rely slab class2d": [

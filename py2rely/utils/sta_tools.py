@@ -1,6 +1,6 @@
 from pipeliner.jobs.relion import select_job, maskcreate_job
-import pipeliner.job_manager as job_manager
 from py2rely.utils.progress import get_console
+import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
 import subprocess, os, submitit
 from rich.syntax import Syntax
@@ -12,7 +12,7 @@ import warnings
 # Define Custom Postprocess Job to Avoid Future Warnings
 from pipeliner.job_options import JobOptionValidationResult
 from pipeliner.jobs.relion.postprocess_job import PostprocessJob
-from typing import List
+from typing import List, Tuple
 
 class CustomPostprocessJob(PostprocessJob):
     """
@@ -40,9 +40,11 @@ class PipelineHelper:
             use_submitit: If True, run_job will delegate to submit_job and run the job via submitit.
         """
 
+        # Check if RELION is Available
         if requireRelion:
             self.check_if_relion_is_available()
 
+        # Assing Input Variables 
         self.myProject = inProject
         self.use_submitit = use_submitit
 
@@ -73,17 +75,30 @@ class PipelineHelper:
         # Default timeout is 14 days
         self.timeout = 14 * 24
 
-    def set_compute_constraints(self, cpu_constraint: List[int, int], gpu_constraint: List[str, int], timeout: int):
+        # Default Submitit parameters
+        self.num_gpus = 4
+        self.ntasks = = self.num_gpus + 1
+        self.gpu_constraint = "a100"
+        self.ncpus, self.mem_per_cpu = 4, 16
+        self.submitit_ignore_jobs = ['post_process','mask_create','select']
+
+    def set_compute_constraints(self, cpu_constraint: List[int], gpu_constraint: Tuple[str, int], ngpus: int, timeout: int):
         """
         Set the compute constraints for the pipeline.
         Args:
             cpu_constraint: The number of CPUs and memory per CPU (e.g., [4,16] for 4 CPUs and 16GB per CPU).
-            gpu_constraint: The GPU constraint for the job. (e.g., ["a100",2] for 2 A100 GPUs in the gpu queue).
+            gpu_constraint: The GPU constraint for the job. (e.g., "a100").
+            ngpus: The number of GPUs to be used.
             timeout: The timeout for the job in minutes.
         """
-        self.ncpus, self.mem_per_cpu = cpu_constraint
-        self.gpu_queue, self.num_gpus = gpu_constraint
+        # Timeout 
         self.timeout = timeout # in hours
+        # GPU Constraints
+        self.num_gpus = ngpus
+        self.ntasks = self.num_gpus + 1
+        self.gpu_constraint = gpu_constraint
+        # CPU Constraints
+        self.ncpus, self.mem_per_cpu = cpu_constraint
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -218,7 +233,6 @@ class PipelineHelper:
         Returns:
             dict: Parsed JSON data.
         """
-
         try:
             readFile = open(json_fname)
             outData = json.load(readFile)
@@ -288,73 +302,17 @@ class PipelineHelper:
         Returns:
             str: The result of the job execution.
         """
-        # TODO: if the job is post-processing, mask create and select then be ran the master process.
-        if self.use_submitit:
-            return self.submit_job(
-                job, jobName, jobTag,
-                jobIter=jobIter,
-                keepClasses=keepClasses,
-                exitOnFail=exitOnFail,
-            )
 
-        result = self._execute_job(job, jobName, jobTag, jobIter)
-        self._post_job_completion(result, job, jobName, jobTag, jobIter, keepClasses, exitOnFail)
-        return result
-
-    def submit_job(self, 
-                  job, 
-                  jobName: str, 
-                  jobTag: str, 
-                  jobIter: str = None,
-                  keepClasses: list = None,
-                  exitOnFail: bool = True):
-        """
-        Submit job to submitit: run on cluster, then do bookkeeping here.
-        Same contract as run_job.
-        """
+        # Check if Job Already Completed
         if self.check_if_job_already_completed(job, jobName) and not jobIter:
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-            return 'Already Completed'
+            return 'Already Completed' 
 
-        # Estimate the output directory for submitit to write too
-        log_dir = 'path' # todo
-        os.makedirs(log_dir, exist_ok=True)
-        executor = submitit.AutoExecutor(folder=log_dir)
-
-        # TODO: I need to check the job parameters to determine whether it should go on the 
-        # gpu queue or the cpu queue.
-
-        print(f'\n[{jobTag}] Submitting job via submitit...')
-        executor.update_parameters(
-            slurm_partition=self.gpu_queue,
-            timeout_min=self.timeout,
-            cpus_per_task=self.ncpus,
-            slurm_additional_parameters={
-                "mem": f"{self.mem_per_cpu * self.ncpus}G",
-                "gpus": f"{self.num_gpus}",
-            },
-        )
-        if self.gpu_queue:
-            executor.update_parameters(
-                slurm_constraint=self.gpu_queue,
-            )
-
-        submitted = executor.submit(self._execute_job, job, jobName, jobTag, jobIter, self.timeout)
-        result = submitted.result()
-        self._post_job_completion(job, jobName, jobTag, jobIter, keepClasses)
-        return result
-
-    def _execute_job(self, job, jobName: str, jobTag: str, jobIter: str, nHours: int, exitOnFail: bool):
-        """
-        Execute a single job (run + wait). No bookkeeping.
-        Returns (result, job.output_dir). Used both locally and by submitit worker.
-        """
-        if self.check_if_job_already_completed(job, jobName) and not jobIter:
-            return ('Already Completed', self.outputDirectories[f'bin{self.binning}'][jobName])
-
-        print(f'\n[{jobTag}] Starting Job...')
-        self.myProject.run_job(job)
-        result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
+        # TODO: if the job is post-processing, mask create and select then be ran the master process.
+        if self.use_submitit:
+            return self.submit_job( job, jobTag, timeout )
+        else:
+            result = self._execute_job(job, jobTag, self.timeout)
 
         # Print Results
         print(f'[{jobTag}] Job Complete!')
@@ -364,6 +322,63 @@ class PipelineHelper:
         if result == 'Failed' and exitOnFail: 
             print(f'{jobTag} Failed!...\n'); exit()
 
+        self._post_job_completion( job, jobName, jobIter, keepClasses)
+        return result
+
+    def submit_job(self, job, jobTag: str):
+        """
+        Submit job to submitit: run on cluster, then do bookkeeping here.
+        Same contract as run_job.
+        """
+
+        # Estimate the output directory for submitit to write too
+        log_dir = os.path.join(job.OUT_DIR, 'submitit_logs') # todo
+        os.makedirs(log_dir, exist_ok=True)
+        executor = submitit.AutoExecutor(folder=log_dir)
+
+        # TODO: I need to check the job parameters to determine whether it should go on the 
+        # gpu queue or the cpu queue.
+        use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
+
+        # I Need to figure out how to specify ntasks for submitit jobs.
+        print(f'\n[{jobTag}] Submitting job via submitit...')
+        executor.update_parameters(
+            slurm_partition = 'gpu' if use_gpu else 'cpu',
+            timeout_min=self.timeout,
+            tasks_per_node=self.ntasks,
+            cpus_per_task=self.ncpus,            
+        )
+        if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
+            executor.update_parameters(
+                slurm_constraint=self.gpu_constraint,
+                slurm_additional_parameters={
+                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                    "gpus": f"{self.num_gpus}",
+                },
+            )
+        else: # For CPU Jobs, we'll only define CPU Constraints
+            executor.update_parameters(
+                slurm_additional_parameters={
+                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                },
+            )
+
+        submitted = executor.submit(self._execute_job, job, jobTag, timeout)
+        result = submitted.result()
+        return result
+
+    def _execute_job(self, job, jobTag: str, nHours: int):
+        """
+        Execute a single job (run + wait). No bookkeeping.
+        Returns:
+            result - Results provided by the CCPEM-pipeliner.
+        """
+
+        print(f'\n[{jobTag}] Starting Job...')
+        self.myProject.run_job(job)
+        result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
+        return result
+
     def _post_job_completion(self, job, jobName, jobIter, keepClasses):
         """
         Post-job completion processing.
@@ -371,7 +386,8 @@ class PipelineHelper:
         Args:
             job: A pipeline job object.
             jobName: Name of the job.
-            jobTag: Tag to identify the job in logs.
+            jobIter: Iteration identifier for the job.
+            keepClasses: List of classes to keep after classification.
         """
 
         # Ensure the binning key exists before assigning the job output directory
@@ -669,7 +685,6 @@ class PipelineHelper:
         """
         Initialize the post-processing job with default settings.
         """        
-        # self.post_process_job = postprocess_job.PostprocessJob()
         self.post_process_job = CustomPostprocessJob()
         self.post_process_job.joboptions['angpix'].value = -1
         self.post_process_job.joboptions['do_auto_bfac'].value = 'no'
@@ -718,10 +733,6 @@ class PipelineHelper:
             lp = self.mask_create_job.joboptions['lowpass_filter'].value
             value = self.get_reconstruction_std(path, lp)
             self.mask_create_job.joboptions['inimask_threshold'].value = str(value)
-            # with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
-            #     contour_val = np.percentile( file.data.flatten(), 98)
-            #     print(f'autoContour: {contour_val}')
-            #     self.mask_create_job.joboptions['inimask_threshold'].value = str(contour_val)
 
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')

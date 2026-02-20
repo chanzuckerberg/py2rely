@@ -46,6 +46,10 @@ def add_submitit_options(func):
              "--submitit", type=bool, required=False, default=False,
             help="Submit Jobs with Submitit SLURM Interface" ),
         click.option(
+            '--num-gpus', '-ng', type=int, default=4,
+            help='Number of GPUs to Use for Processing',
+            callback=validate_even_gpus),
+        click.option(
             '--gpu-constraint', '-gc', type=str, default=None,
             help='GPU Constraint for Slurm Job',
             callback=validate_gpu_constraint),
