@@ -91,7 +91,7 @@ click.rich_click.OPTION_GROUPS = {
     "py2rely pipelines sta": [
         {
             "name": "Pipeline Options",
-            "options": ["--parameter", "--extract3D", "--run-class3D", "--manual-masking"],
+            "options": ["--parameter", "--manual-masking", "--extract3D", "--run-class3D", "--class-selection"],
         },
         {
             "name": "Initial Model Generation",

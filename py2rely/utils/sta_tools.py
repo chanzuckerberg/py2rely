@@ -1,5 +1,6 @@
 from pipeliner.jobs.relion import select_job, maskcreate_job
 from py2rely.utils.progress import get_console
+from py2rely.config import get_load_commands
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
 import subprocess, os, submitit
@@ -20,6 +21,7 @@ class CustomPostprocessJob(PostprocessJob):
     """
     def additional_joboption_validation(self) -> List[JobOptionValidationResult]:
         return []
+
 ##############################################################################
 
 # Suppress all future warnings
@@ -77,7 +79,7 @@ class PipelineHelper:
 
         # Default Submitit parameters
         self.num_gpus = 4
-        self.ntasks = = self.num_gpus + 1
+        self.ntasks = self.num_gpus + 1
         self.gpu_constraint = "a100"
         self.ncpus, self.mem_per_cpu = 4, 16
         self.submitit_ignore_jobs = ['post_process','mask_create','select']
@@ -91,14 +93,25 @@ class PipelineHelper:
             ngpus: The number of GPUs to be used.
             timeout: The timeout for the job in minutes.
         """
-        # Timeout 
-        self.timeout = timeout # in hours
+        from py2rely.routines.submit_slurm import check_gpus
+
+        # Timeout  - convert to hours
+        self.timeout = timeout 
+        self.timeout = timeout * 60 # in minutes for slurm / submitit
+
         # GPU Constraints
         self.num_gpus = ngpus
         self.ntasks = self.num_gpus + 1
         self.gpu_constraint = gpu_constraint
         # CPU Constraints
         self.ncpus, self.mem_per_cpu = cpu_constraint
+
+        # Validate GPU Constraint
+        check_gpus(self.gpu_constraint)
+
+        # Warn if no GPU constraint specified
+        if self.gpu_constraint is None:
+            print('No GPU Constraint Specified. Proceeding Without One...')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -310,9 +323,10 @@ class PipelineHelper:
 
         # TODO: if the job is post-processing, mask create and select then be ran the master process.
         if self.use_submitit:
-            return self.submit_job( job, jobTag, timeout )
+            result = self.submit_job( job, jobTag )
         else:
-            result = self._execute_job(job, jobTag, self.timeout)
+            # We only need the result for local runs
+            result = self._execute_job(job, jobTag, self.timeout )[0]
 
         # Print Results
         print(f'[{jobTag}] Job Complete!')
@@ -331,40 +345,52 @@ class PipelineHelper:
         Same contract as run_job.
         """
 
+        # Verbose Output
+        print(f'\n[{jobTag}] Submitting job via submitit...')
+        
         # Estimate the output directory for submitit to write too
         log_dir = os.path.join(job.OUT_DIR, 'submitit_logs') # todo
         os.makedirs(log_dir, exist_ok=True)
         executor = submitit.AutoExecutor(folder=log_dir)
+    
+        # Adjust MPI Command if Present
+        if 'mpi_command' in job.joboptions:
+            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n {self.ntasks}'
 
-        # TODO: I need to check the job parameters to determine whether it should go on the 
-        # gpu queue or the cpu queue.
+        # Update Executor Parameters
         use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
-
-        # I Need to figure out how to specify ntasks for submitit jobs.
-        print(f'\n[{jobTag}] Submitting job via submitit...')
         executor.update_parameters(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
             timeout_min=self.timeout,
-            tasks_per_node=self.ntasks,
-            cpus_per_task=self.ncpus,            
+            tasks_per_node=1,
+            slurm_use_srun=False,
+            cpus_per_task=self.ncpus,  
+            slurm_additional_parameters={
+                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                },
         )
+        # Add GPU Constraints if Needed
         if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
             executor.update_parameters(
-                slurm_constraint=self.gpu_constraint,
                 slurm_additional_parameters={
-                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
                     "gpus": f"{self.num_gpus}",
                 },
             )
-        else: # For CPU Jobs, we'll only define CPU Constraints
-            executor.update_parameters(
-                slurm_additional_parameters={
-                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
-                },
-            )
+            if self.gpu_constraint:
+                executor.update_parameters(
+                    slurm_constraint=self.gpu_constraint,
+                )
 
-        submitted = executor.submit(self._execute_job, job, jobTag, timeout)
-        result = submitted.result()
+        # Get the Relion Module if Its Defined in Env Folder
+        relion_setup = get_load_commands(prompt_if_missing=False)[1]
+        if len(relion_setup) > 0:
+            executor.update_parameters( slurm_setup = [relion_setup] )
+
+        # Submit the Job and Wait for Result
+        submitted = executor.submit(self._execute_job, job, jobTag, self.timeout)
+        result, out_dir = submitted.result()
+        job.output_dir = out_dir
+        
         return result
 
     def _execute_job(self, job, jobTag: str, nHours: int):
@@ -377,7 +403,7 @@ class PipelineHelper:
         print(f'\n[{jobTag}] Starting Job...')
         self.myProject.run_job(job)
         result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
-        return result
+        return result, job.output_dir
 
     def _post_job_completion(self, job, jobName, jobIter, keepClasses):
         """
@@ -686,7 +712,7 @@ class PipelineHelper:
         Initialize the post-processing job with default settings.
         """        
         self.post_process_job = CustomPostprocessJob()
-        self.post_process_job.joboptions['angpix'].value = -1
+        self.post_process_job.joboptions['angpix'].value = None
         self.post_process_job.joboptions['do_auto_bfac'].value = 'no'
 
         # Initialize Current Resolution as 1 micron

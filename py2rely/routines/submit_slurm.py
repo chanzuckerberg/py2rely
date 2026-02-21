@@ -8,8 +8,7 @@ def create_shellsubmit(
     shell_name,
     command,
     total_time = '12:00:00',
-    num_gpus = 1, 
-    gpu_constraint = 'h100', 
+    num_gpus = 1, gpu_constraint = None, 
     additional_commands = ''):
     """
     Create a shell script to submit a SLURM job.
@@ -42,8 +41,8 @@ def create_shellsubmit(
 {slurm_gpus}
 #SBATCH --nodes=1
 #SBATCH --time={total_time}
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=16G
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=8G
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}

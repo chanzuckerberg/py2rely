@@ -6,7 +6,7 @@ import rich_click as click
 class ThePolisher:
     """Class for high-resolution polishing with two entry points."""
         
-    max_counts = 5 # Max Counts before terminating the Polisher
+    max_counts = 3 # Max Counts before terminating the Polisher
 
     def __init__(self, parameter_path: str, 
                  tomograms: str = None, motion: str = None,
@@ -59,14 +59,14 @@ class ThePolisher:
 
         return instance
 
-    def run(self, particles: str, mask: str, num_iterations: int = 2):
+    def run(self, particles: str, mask: str, num_iterations: int = 5):
         """Execute the main polishing pipeline."""
 
         # Initialize the Best Resolution
         self.best_resolution = 999
         self.counter = 0
 
-        # For now, lets start off with 2 iterations
+        # For now, lets start off with 5 iterations
         for ii in range(num_iterations):
 
             # Half Map from Refinement

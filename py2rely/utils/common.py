@@ -23,6 +23,11 @@ def add_sta_options(func):
             required=False, default=False,
             help="Run 3D-Classification Job After Refinement" ),
         click.option(
+            '--class-selection', '-cs', 
+            required=False, default='auto',
+            type=click.Choice(['auto', 'manual'], case_sensitive=False),
+            help="Method for Selecting Classes After 3D Classification" ),
+        click.option(
             "--extract3D","-e3d",type=bool,
             required=False, default=False,
             help="Extract 3D Particles Before Initial Model Generation" ),
@@ -43,9 +48,6 @@ def add_submitit_options(func):
     """
     options = [
         click.option(
-             "--submitit", type=bool, required=False, default=False,
-            help="Submit Jobs with Submitit SLURM Interface" ),
-        click.option(
             '--num-gpus', '-ng', type=int, default=4,
             help='Number of GPUs to Use for Processing',
             callback=validate_even_gpus),
@@ -57,7 +59,7 @@ def add_submitit_options(func):
             '--cpu-constraint', '-cc', type=str, default='4,16',
             help='Number of CPUs and mem-per-cpu to requested. (e.g., "4,16" for 4 CPUs and 16GB per CPU)'),
         click.option(
-            '--timeout', type=int, default=48,
+            '--timeout', '-t', type=int, default=48,
             help="SLURM job timeout per trial when using submitit (hours)"),
     ]
     # Add options in reverse order to preserve correct order

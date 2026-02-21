@@ -3,6 +3,10 @@ from py2rely import cli_context
 import rich_click as click
 
 @click.command(context_settings=cli_context, name='sta', no_args_is_help=True)
+@click.option(
+    '-s', '--submitit', type=bool, required=False, default=False,
+    help='Use Submitit to Submit Jobs to SLURM Cluster'
+)
 @common.add_sta_options
 @common.add_submitit_options
 def average(
@@ -10,6 +14,7 @@ def average(
     reference_template: str,
     run_denovo_generation: bool, 
     run_class3d: bool, 
+    class_selection: str,
     extract3d: bool,
     manual_masking: bool,
     submitit: bool,
@@ -21,11 +26,12 @@ def average(
     """
     Run the Sub-Tomogram Averaging Pipeline with py2rely.
     """
+    cpu_list = list(map(int, cpu_constraint.split(',')))
     run_average(
         parameter, reference_template,
         run_denovo_generation, run_class3d, 
-        extract3d,manual_masking,
-        submitit, cpu_constraint, gpu_constraint, num_gpus, timeout
+        class_selection, extract3d, manual_masking,
+        submitit, cpu_list, gpu_constraint, num_gpus, timeout
     )
 
 def run_average(
@@ -33,10 +39,11 @@ def run_average(
     reference_template: str,
     run_denovo_generation: bool, 
     run_class3d: bool, 
+    class_selection: str,
     extract3d: bool,
     manual_masking: bool,
     submitit: bool,
-    cpu_constraint: str,
+    cpu_constraint: list,
     gpu_constraint: str,
     num_gpus: int,
     timeout: int
