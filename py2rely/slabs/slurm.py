@@ -219,7 +219,8 @@ py2rely slab class2d \\
 @click.option( "-ng", "--num-gpus", type=int, required=False, default=1,
               help="Number of GPUs for Processing" )
 @click.option( "-gc", "--gpu-constraint", required=False, default="h100",
-              type=submit_slurm.validate_gpu_constraint,
+              type=str,
+              callback=submit_slurm.validate_gpu_constraint,
               help="GPU Hardware to Reqest for Processing" )
 @click.option( "--min-class-job", type=int, required=False, default=1,
               help="The minimum class job number (starting point for bootstrapping)" )
