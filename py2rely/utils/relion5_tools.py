@@ -19,7 +19,6 @@ class Relion5Pipeline(PipelineHelper):
         Args:
             inProject: The project instance that manages the pipeline.
             use_submitit: If True, run_job delegates to submit_job (submitit).
-            executor: Submitit executor (required if use_submitit is True).
         """
         super().__init__(inProject, use_submitit=use_submitit)
 
