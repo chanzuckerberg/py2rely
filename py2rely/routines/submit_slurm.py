@@ -90,30 +90,111 @@ def validate_gpu_constraint(ctx, param, value):
     """Validate the GPU constraint, entry for click callback."""
     return check_gpus(value)
 
-def check_gpus(gpu_constraint):
-    import subprocess
+import subprocess
+import warnings
+from typing import Optional, Tuple, List, Set
 
-    # We don't need to check the gpu constraint if it is None.
-    # Assume it could be a non-slurm system.
-    if gpu_constraint is None:
-        return None
 
-    # Check the gpu constraint against the available GPUs on the SLURM system.
-    cmd = [
-        "sinfo",
-        "-p", "gpu",
-        "-o", "%f",
-        "-h",
-    ]
+def _slurm_gpu_features(partition: str = "gpu") -> Set[str]:
+    """
+    Return the set of Slurm node feature flags available in the given partition.
+    Uses `sinfo -o %f` which prints the feature string for nodes/partitions.
+    """
+    cmd = ["sinfo", "-p", partition, "-o", "%f", "-h"]
     out = subprocess.check_output(cmd, text=True)
-    features = set()
+
+    features: Set[str] = set()
     for line in out.splitlines():
         for feat in line.split(","):
             feat = feat.strip()
             if feat:
                 features.add(feat)
+    return features
 
-    if gpu_constraint not in features:
-        raise ValueError(f"GPU constraint '{gpu_constraint}' not found in available options: {features}")
 
-    return gpu_constraint
+def _parse_constraint(expr: str) -> Tuple[List[str], Optional[str]]:
+    """
+    Parse a constraint expression.
+    - If it contains '|', treat that as the joiner (OR-style).
+    - Else if it contains ',', treat that as the joiner.
+    - Else single token.
+    Returns (tokens, joiner) where joiner is '|' or ',' or None.
+    """
+    expr = (expr or "").strip()
+    if not expr:
+        return ([], None)
+
+    if "|" in expr:
+        joiner = "|"
+        tokens = [t.strip() for t in expr.split("|")]
+    elif "," in expr:
+        joiner = ","
+        tokens = [t.strip() for t in expr.split(",")]
+    else:
+        joiner = None
+        tokens = [expr]
+
+    # normalize: drop empties, preserve order, de-dupe while preserving order
+    seen = set()
+    cleaned = []
+    for t in tokens:
+        if not t:
+            continue
+        if t not in seen:
+            seen.add(t)
+            cleaned.append(t)
+
+    return cleaned, joiner
+
+
+def check_gpus(
+    gpu_constraint: Optional[str],
+    *,
+    partition: str = "gpu",
+    warn: bool = True,
+) -> Optional[str]:
+    """
+    Validate / filter a GPU constraint expression against Slurm feature flags.
+
+    Examples:
+      - None                    -> None
+      - "a100"                  -> "a100" (if valid)
+      - "h100|a100|h200"        -> "h100|a100" (filters invalid)
+      - "h100,a100,h200"        -> "h100,a100" (filters invalid)
+
+    Behavior:
+      - If at least one token is valid: returns filtered expression.
+      - If zero tokens are valid: raises ValueError.
+      - Warns (optional) about invalid tokens that were dropped.
+    """
+    # Ignore if no constraint is provided.
+    if gpu_constraint is None:
+        return None
+
+    tokens, joiner = _parse_constraint(gpu_constraint)
+    if not tokens:
+        return None  # treat empty/whitespace like None
+
+    available = _slurm_gpu_features(partition=partition)
+
+    valid = [t for t in tokens if t in available]
+    invalid = [t for t in tokens if t not in available]
+
+    if invalid and warn:
+        warnings.warn(
+            f"\nIgnoring unknown GPU constraint(s): {invalid}.\n"
+            f"Available feature flags include: {sorted(available)}",
+            stacklevel=2,
+        )
+
+    if not valid:
+        raise ValueError(
+            f"\nNo valid GPU constraints found in '{gpu_constraint}'\n. "
+            f"Available feature flags include: {sorted(available)}"
+        )
+
+    # Recompose with the same joiner style the user provided
+    if joiner is None:
+        return valid[0]  # single entry
+    return joiner.join(valid)
+

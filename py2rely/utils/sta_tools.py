@@ -80,9 +80,13 @@ class PipelineHelper:
         # Default Submitit parameters
         self.num_gpus = 4
         self.ntasks = self.num_gpus + 1
-        self.gpu_constraint = "a100"
+        self.gpu_constraint = None
         self.ncpus, self.mem_per_cpu = 4, 16
-        self.submitit_ignore_jobs = ['post_process','mask_create','select']
+        self.submitit_ignore_jobs = (
+            select_job.RelionSelectOnValue, 
+            maskcreate_job.RelionMaskCreate,
+            PostprocessJob
+        )
 
     def set_compute_constraints(self, cpu_constraint: List[int], gpu_constraint: Tuple[str, int], ngpus: int, timeout: int):
         """
@@ -112,6 +116,8 @@ class PipelineHelper:
         # Warn if no GPU constraint specified
         if self.gpu_constraint is None:
             print('No GPU Constraint Specified. Proceeding Without One...')
+        else:
+            print(f'Submiting GPU Jobs on {self.gpu_constraint} Queues...')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -235,7 +241,7 @@ class PipelineHelper:
 
         self.outputDirectories = self.read_json(json_fname) 
         history_fname = json_fname.replace('.json', '_history.json')
-        self.historyDirectories = self.read_json(history_fname)     
+        self.historyDirectories = self.read_json(history_fname) 
 
     def read_json(self, json_fname: str):
         """
@@ -321,8 +327,8 @@ class PipelineHelper:
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
             return 'Already Completed' 
 
-        # TODO: if the job is post-processing, mask create and select then be ran the master process.
-        if self.use_submitit:
+        # If the job is post-processing, mask create or select - run on the master process.
+        if self.use_submitit and not isinstance(job, self.submitit_ignore_jobs):
             result = self.submit_job( job, jobTag )
         else:
             # We only need the result for local runs
@@ -366,7 +372,7 @@ class PipelineHelper:
             slurm_use_srun=False,
             cpus_per_task=self.ncpus,  
             slurm_additional_parameters={
-                    "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                "mem": f"{self.mem_per_cpu * self.ncpus}G",
                 },
         )
         # Add GPU Constraints if Needed
@@ -378,7 +384,7 @@ class PipelineHelper:
             )
             if self.gpu_constraint:
                 executor.update_parameters(
-                    slurm_constraint=self.gpu_constraint,
+                    slurm_constraint=f"{self.gpu_constraint}",
                 )
 
         # Get the Relion Module if Its Defined in Env Folder
