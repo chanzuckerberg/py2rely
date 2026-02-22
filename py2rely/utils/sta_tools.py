@@ -874,9 +874,9 @@ class PipelineHelper:
                 self.write_mrc(filtered_vol, 'filtered_vol.mrc', voxel_size)
 
             # return np.std(filtered_vol)
-            return np.percentile(filtered_vol.flatten(), 98.5)
+            return float(np.percentile(filtered_vol.flatten(), 98.5))
         else:        
-            return np.std(vol)
+            return float(np.std(vol))
 
     def get_half_fsc(self, post_process_path: str, target_fsc: float = 0.5):
         """
@@ -899,4 +899,4 @@ class PipelineHelper:
 
         # Get the resolution at the closest index
         closest_resolution = resolutions[closest_index]
-        return closest_resolution
+        return float(closest_resolution)

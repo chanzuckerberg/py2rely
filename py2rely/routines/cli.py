@@ -7,7 +7,6 @@ from py2rely.routines.refine import refine3d, refine3d_slurm
 from py2rely.routines.class3d import class3d, class3d_slurm
 from py2rely.routines.select import select, select_slurm
 from py2rely.routines.post_process import post_process
-from py2rely.routines.report import box_sizes
 import rich_click as click
 
 @click.group()
@@ -23,7 +22,6 @@ routines.add_command(mask_post_process)
 routines.add_command(post_process)
 routines.add_command(extract_subtomo)
 routines.add_command(select)
-routines.add_command(box_sizes)
 
 @click.group(name="routines")
 def routines_slurm():

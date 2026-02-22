@@ -12,10 +12,10 @@ def auto_mask_create(utils, low_pass):
 
     # Configure mask creation
     utils.mask_create_job.joboptions['fn_in'].value = utils.reconstruct_particle_job.output_dir + 'merged.mrc'
-    utils.mask_create_job.joboptions['lowpass_filter'].value = low_pass
     ini_mask = utils.get_reconstruction_std(utils.reconstruct_particle_job.output_dir + 'merged.mrc', low_pass)
-    utils.mask_create_job.joboptions['extend_inimask'].value = 3
     utils.mask_create_job.joboptions['inimask_threshold'].value = ini_mask
+    utils.mask_create_job.joboptions['lowpass_filter'].value = low_pass
+    utils.mask_create_job.joboptions['extend_inimask'].value = 3
     utils.mask_create_job.joboptions['nr_threads'].value = 16
 
     # Iterate from 10 - > 50 with step of 10
