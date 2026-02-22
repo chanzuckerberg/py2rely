@@ -321,16 +321,26 @@ def run_relion5_pipeline(
 
     # Check the provided parameter file to see if run-denovo generation parameters are available.
 
+    if run_denovo_generation:
+        print("Generating Initial Model with Denovo Reconstruction")
+        init_model_command = "--run-denovo-generation True"
+    elif reference_template:
+        print(f"Generating Initial Model with Reference Template: {reference_template}")
+        init_model_command = "--reference-template {reference_template}"
+    else:
+        print("Generating Initial Model with Particle Reconstruction")
+        init_model_command = "--run-reconstruct-particle True"
+
     command = f"""
 py2rely pipelines sta \\
     --parameter {parameter} \\
-    --run-denovo-generation {run_denovo_generation} \\
-    --submitit True --cpu-constraint {cpu_constraint} --timeout {timeout} --num-gpus {num_gpus} \\
+    {init_model_command} \\
+    --submitit True --timeout {timeout} --cpu-constraint {cpu_constraint} \\
+    --num-gpus {num_gpus} \\
     """
 
-    # Only add reference template if it is provided
-    if reference_template is not None:
-        command += f"--reference-template {reference_template}"
+    if gpu_constraint is not None:
+        command += f" --gpu-constraint {gpu_constraint}"
 
     # Add other optional parameters
     if run_class3d:

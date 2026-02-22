@@ -53,7 +53,7 @@ def add_submitit_options(func):
             callback=validate_even_gpus),
         click.option(
             '--gpu-constraint', '-gc', type=str, default=None,
-            help='GPU Constraint for Slurm Job',
+            help='GPU architecture constraint for the Slurm job. Provide a single architecture (e.g. a100) or multiple options( e.g. "a100|h100"). Defaults is no constraint.',
             callback=validate_gpu_constraint),
         click.option(
             '--cpu-constraint', '-cc', type=str, default='4,16',

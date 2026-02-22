@@ -1,5 +1,6 @@
+from typing import Optional, Tuple, List, Set
 from py2rely.config import get_load_commands
-from typing import Optional
+import subprocess, warnings
 import rich_click as click
 
 def create_shellsubmit(
@@ -51,11 +52,12 @@ def create_shellsubmit(
 {relion_load}
 {command}
 """
-
     with open(shell_name, 'w') as file:
         file.write(shell_script_content)
 
     print(f"\nShell script {shell_name} created successfully.\n")
+
+##############################################################################
 
 def validate_even_gpus(ctx, param, value):
     if value % 2 != 0:
@@ -86,14 +88,11 @@ def add_compute_options(func):
         func = option(func)
     return func
 
+##############################################################################
+
 def validate_gpu_constraint(ctx, param, value):
     """Validate the GPU constraint, entry for click callback."""
     return check_gpus(value)
-
-import subprocess
-import warnings
-from typing import Optional, Tuple, List, Set
-
 
 def _slurm_gpu_features(partition: str = "gpu") -> Set[str]:
     """

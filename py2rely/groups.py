@@ -67,11 +67,11 @@ click.rich_click.OPTION_GROUPS = {
         {
             "name": "Pipeline",
             "options": ["--parameter", "--reference-template", "--run-denovo-generation", 
-                        "--extract3D", "--run-class3D", "--manual-masking"],
+                        "--extract3D", "--run-class3D", "--class-selection", "--manual-masking"],
         },
         {
             "name": "Compute and Submitit Resources",
-            "options": ["--num-days", "--num-gpus", "--gpu-constraint", "--submitit", "--cpu-constraint", "--timeout"],
+            "options": ["--num-days", "--num-gpus", "--gpu-constraint",  "--cpu-constraint", "--timeout"],
         }
     ],
     "py2rely prepare template": [

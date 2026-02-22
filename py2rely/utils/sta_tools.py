@@ -367,7 +367,7 @@ class PipelineHelper:
         use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
         executor.update_parameters(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
-            timeout_min=self.timeout,
+            timeout_min=self.timeout_min,
             tasks_per_node=1,
             slurm_use_srun=False,
             cpus_per_task=self.ncpus,  
