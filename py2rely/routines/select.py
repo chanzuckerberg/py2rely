@@ -27,7 +27,7 @@ def select_options(func):
         func = option(func)
     return func
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @select_options
 def select(
     parameter: str,

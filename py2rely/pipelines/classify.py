@@ -59,7 +59,7 @@ class TheClassifier:
         self.utils.mask_create_job.joboptions['lowpass_filter'].value = self.low_pass
         self.utils.run_mask_create(self.utils.tomo_refine3D_job, self.utils.tomo_class3D_job)
 
-    def run(self, particles: str, reference: str, mask: str = None):
+    def run(self, particles: str, reference: str, mask: str = None, select_method: str = 'auto'):
         # Only Create Mask if None was Provided
         if mask is None:
             self._create_mask(reference)
@@ -77,11 +77,17 @@ class TheClassifier:
 
         print(f'[AutoClass3D] Best Class: {best_class} with Estimated Resolution: {current_res:.2f} Angstroms')
 
-        # Start off By running the selection job
-        self.utils.tomo_select_job.joboptions['fn_data'].value = maxIter
-        self.utils.tomo_select_job.joboptions['select_minval'].value = best_class
-        self.utils.tomo_select_job.joboptions['select_maxval'].value = best_class
-        self.utils.run_subset_select()
+        # Exit if Manual Selection Method is Triggered and Select Job is Not Completed
+        exit_select = True if select_method == 'manual' else False
+        if not self.utils.check_if_job_already_completed(self.utils.tomo_select_job, 'select') and exit_select:
+            print('[Class3D] Manual Selection Method Triggered. Exiting for Manual Selection.')
+            print('Please select the best classes with "py2rely routines select"')
+            exit()
+        else: # Run Auto Selection Job
+            self.utils.tomo_select_job.joboptions['fn_data'].value = maxIter
+            self.utils.tomo_select_job.joboptions['select_minval'].value = best_class
+            self.utils.tomo_select_job.joboptions['select_maxval'].value = best_class
+            self.utils.run_subset_select()
 
         # Set Up Refinement Job
         current_particles = self.utils.tomo_select_job.output_dir + 'particles.star'

@@ -17,13 +17,13 @@ def routines():
     " py2rely - The Python Execution of Sub-Tomogram Refinement"
     pass
 
-routines.add_command(config_cli())
 routines.add_command(prepare)
 routines.add_command(subroutines)
 routines.add_command(export)
 routines.add_command(converters)
 routines.add_command(pipelines)
 routines.add_command(slab)
+routines.add_command(config_cli())
 
 @click.group(context_settings=cli_context)
 def slurm_routines():

@@ -18,6 +18,9 @@ Before installing py2rely, ensure you have:
     `py2rely` supports submitting processing jobs through SLURM on HPC clusters.
     All commands can also be run **locally** via the CLI or Python API without SLURM.
 
+!!! info "Submitit for pipeline execution on SLURM"
+    On SLURM clusters you can run the full STA pipeline with **Submitit**: use `py2rely pipelines sta --submitit True` so each Relion step is submitted and managed automatically. Before first use, run `py2rely config` to set **python_load** and **relion_load** (e.g. `module load relion/5.0`) so compute nodes get the correct environment. See [Running on HPC with Submitit](../user-guide/running-on-hpc-with-submitit.md) for details and examples.
+
 ## Basic Installation
 
 ### Step 1: Create a Conda Environment

@@ -133,7 +133,10 @@ def run_average(
         # Classification Job
         if run_class3d and binFactor == 0:
             classifier = TheClassifier.from_utils(utils)
-            particles = classifier.run(particles, utils.tomo_refine3D_job.output_dir + 'run_class001.mrc')
+            particles = classifier.run(
+                particles, utils.tomo_refine3D_job.output_dir + 'run_class001.mrc', 
+                select_method=class_selection
+            )
             
         #########################################################################################
 
