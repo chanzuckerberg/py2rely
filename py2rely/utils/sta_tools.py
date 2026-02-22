@@ -95,13 +95,13 @@ class PipelineHelper:
             cpu_constraint: The number of CPUs and memory per CPU (e.g., [4,16] for 4 CPUs and 16GB per CPU).
             gpu_constraint: The GPU constraint for the job. (e.g., "a100").
             ngpus: The number of GPUs to be used.
-            timeout: The timeout for the job in minutes.
+            timeout: The timeout for the job in hours.
         """
         from py2rely.routines.submit_slurm import check_gpus
 
-        # Timeout  - convert to hours
-        self.timeout = timeout 
-        self.timeout = timeout * 60 # in minutes for slurm / submitit
+        # Timeout: keep hours for local execution, derive minutes for Slurm/submitit
+        self.timeout = timeout  # hours (used by local execution/_execute_job)
+        self.timeout_min = timeout * 60  # minutes (used as timeout_min for Slurm/submitit)
 
         # GPU Constraints
         self.num_gpus = ngpus
