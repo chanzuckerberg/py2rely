@@ -4,9 +4,12 @@ import { fetchJob, fetchFiles } from '../api/http.js'
 import LogViewer from './LogViewer.jsx'
 import ResultsViewer from './ResultsViewer.jsx'
 import Volume3DViewer from './Volume3DViewer.jsx'
+import Slice2DViewer from './Slice2DViewer.jsx'
+import AnalysisPanel from './AnalysisPanel.jsx'
 
-const TABS = ['Params', 'Log', 'Results', '3D Map']
-const HAS_3D_TYPES = new Set(['Refine3D', 'Class3D', 'PostProcess', 'Reconstruct', 'MaskCreate'])
+const TABS = ['Params', 'Analysis', 'Log', 'Outputs', '3D Map', '2D Slices']
+const HAS_3D_TYPES      = new Set(['Refine3D', 'Class3D', 'PostProcess', 'Reconstruct', 'MaskCreate'])
+const HAS_ANALYSIS_TYPES = new Set(['Refine3D', 'Class3D', 'PostProcess', 'CtfFind', 'Polish', 'CtfRefine'])
 
 function ParamsTable({ job, theme }) {
   if (!job) return null
@@ -76,9 +79,19 @@ export default function DetailPanel({ nodeId, pipeline, wsMessage }) {
     )
   }
 
-  const typeColor   = TYPE_COLOR[node?.type]    ?? theme.textMuted
-  const statusColor = STATUS_COLOR[node?.status] ?? theme.textMuted
-  const show3D      = HAS_3D_TYPES.has(node?.type) && node?.has_3d
+  const typeColor    = TYPE_COLOR[node?.type]    ?? theme.textMuted
+  const statusColor  = STATUS_COLOR[node?.status] ?? theme.textMuted
+  const show3D       = HAS_3D_TYPES.has(node?.type) && node?.has_3d
+  const showAnalysis = HAS_ANALYSIS_TYPES.has(node?.type)
+
+  // overlayPath for MaskCreate: the input map (fn_in parameter)
+  const overlayPath = node?.type === 'MaskCreate' ? job?.parameters?.fn_in : undefined
+
+  const visibleTabs = TABS.filter(t => {
+    if (t === '3D Map' || t === '2D Slices') return show3D
+    if (t === 'Analysis') return showAnalysis
+    return true
+  })
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', height: '100%', background: theme.surface }}>
@@ -97,7 +110,7 @@ export default function DetailPanel({ nodeId, pipeline, wsMessage }) {
 
       {/* Tab bar */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${theme.border}`, flexShrink: 0 }}>
-        {TABS.filter(t => t !== '3D Map' || show3D).map(t => (
+        {visibleTabs.map(t => (
           <button
             key={t}
             onClick={() => setTab(t)}
@@ -120,11 +133,20 @@ export default function DetailPanel({ nodeId, pipeline, wsMessage }) {
           ? <div style={{ padding: 16, color: theme.textMuted, fontSize: 12 }}>Loading…</div>
           : (
             <>
-              {tab === 'Params'  && <ParamsTable job={job} theme={theme} />}
-              {tab === 'Log'     && <LogViewer jobId={nodeId} jobStatus={node?.status} wsMessage={wsMessage} />}
-              {tab === 'Results' && <ResultsViewer job={job} files={files} />}
-              {tab === '3D Map'  && (
+              {tab === 'Params'   && <ParamsTable job={job} theme={theme} />}
+              {tab === 'Log'      && <LogViewer jobId={nodeId} jobStatus={node?.status} wsMessage={wsMessage} />}
+              {tab === 'Outputs'  && <ResultsViewer job={job} files={files} />}
+              {tab === 'Analysis' && <AnalysisPanel job={job} nodeId={nodeId} />}
+              {tab === '3D Map'   && (
                 <Volume3DViewer
+                  jobId={nodeId}
+                  jobType={node?.type}
+                  files={files}
+                  overlayPath={overlayPath}
+                />
+              )}
+              {tab === '2D Slices' && (
+                <Slice2DViewer
                   jobId={nodeId}
                   jobType={node?.type}
                   files={files}

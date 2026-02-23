@@ -10,6 +10,9 @@ import DetailPanel from './components/DetailPanel.jsx'
 const SPLIT_KEY    = 'relionui-split'
 const DEFAULT_SPLIT = 55   // % of right panel height for DAG canvas
 
+const SIDEBAR_KEY     = 'relionui-sidebar-width'
+const DEFAULT_SIDEBAR = 240
+
 export default function App() {
   const [themeName,  setThemeName]  = useState(() => localStorage.getItem('theme') ?? 'dark')
   const theme = themes[themeName]
@@ -20,13 +23,20 @@ export default function App() {
   const [wsMessage,  setWsMessage]  = useState(null)
   const [error,      setError]      = useState(null)
 
-  // Draggable split state (% of right panel for DAG)
+  // Draggable vertical split state (% of right panel for DAG)
   const [splitPct, setSplitPct] = useState(() => {
     const saved = parseFloat(localStorage.getItem(SPLIT_KEY))
     return isNaN(saved) ? DEFAULT_SPLIT : saved
   })
   const splitRef   = useRef(null)   // right-panel container
   const draggingRef = useRef(false)
+
+  // Draggable sidebar width
+  const [sidebarWidth, setSidebarWidth] = useState(() => {
+    const saved = parseInt(localStorage.getItem(SIDEBAR_KEY))
+    return isNaN(saved) ? DEFAULT_SIDEBAR : saved
+  })
+  const sidebarDraggingRef = useRef(false)
 
   const loadPipeline = useCallback(async () => {
     try {
@@ -79,6 +89,31 @@ export default function App() {
     window.addEventListener('mouseup', onUp)
   }, [])
 
+  // ── Draggable sidebar ────────────────────────────────────────────────────
+  const onSidebarDividerMouseDown = useCallback(e => {
+    e.preventDefault()
+    sidebarDraggingRef.current = true
+
+    const onMove = mv => {
+      if (!sidebarDraggingRef.current) return
+      const w = Math.max(160, Math.min(400, mv.clientX))
+      setSidebarWidth(w)
+    }
+
+    const onUp = () => {
+      sidebarDraggingRef.current = false
+      setSidebarWidth(prev => {
+        localStorage.setItem(SIDEBAR_KEY, prev)
+        return prev
+      })
+      window.removeEventListener('mousemove', onMove)
+      window.removeEventListener('mouseup', onUp)
+    }
+
+    window.addEventListener('mousemove', onMove)
+    window.addEventListener('mouseup', onUp)
+  }, [])
+
   const toggleTheme = () => {
     const next = themeName === 'dark' ? 'light' : 'dark'
     setThemeName(next)
@@ -100,6 +135,21 @@ export default function App() {
             pipeline={pipeline}
             selectedId={selectedId}
             onSelect={setSelectedId}
+            width={sidebarWidth}
+          />
+
+          {/* Sidebar drag handle */}
+          <div
+            onMouseDown={onSidebarDividerMouseDown}
+            style={{
+              width: 5,
+              background: theme.border,
+              cursor: 'col-resize',
+              flexShrink: 0,
+              transition: 'background 0.15s',
+            }}
+            onMouseEnter={e => e.currentTarget.style.background = theme.accent}
+            onMouseLeave={e => e.currentTarget.style.background = theme.border}
           />
 
           {/* Right panel: DAG (top) + divider + detail (bottom) */}

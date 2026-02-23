@@ -4,7 +4,7 @@ import { useTheme } from '../theme.js'
 import { fileUrl, fetchMapInfo } from '../api/http.js'
 
 // Pick the most informative MRC file for a given job type
-function pickBestMap(files, jobType) {
+export function pickBestMap(files, jobType) {
   const mrc = files?.filter(f => f.endsWith('.mrc')) ?? []
   if (!mrc.length) return null
 
@@ -41,52 +41,85 @@ const COLORS = {
   green:  '#10b981',
 }
 
-const VIEWS = ['3D', 'XY', 'XZ', 'YZ']
-const AXIS  = { XY: 'z', XZ: 'y', YZ: 'x' }
+// Draw a bounding box as 12 cylinder edges using NGL.Shape.
+// Corners are placed at the volume's actual world coordinates (origin to origin+extent).
+export function addBoundingBox(stage, mapInfo) {
+  if (!stage || !mapInfo) return null
+  const { nx, ny, nz, voxel_size, originX = 0, originY = 0, originZ = 0 } = mapInfo
+  const lx = nx * voxel_size
+  const ly = ny * voxel_size
+  const lz = nz * voxel_size
+  const ox = originX, oy = originY, oz = originZ
+  const corners = [
+    [ox,    oy,    oz   ], [ox+lx, oy,    oz   ],
+    [ox+lx, oy+ly, oz   ], [ox,    oy+ly, oz   ],
+    [ox,    oy,    oz+lz], [ox+lx, oy,    oz+lz],
+    [ox+lx, oy+ly, oz+lz], [ox,    oy+ly, oz+lz],
+  ]
+  const edges = [[0,1],[1,2],[2,3],[3,0],[4,5],[5,6],[6,7],[7,4],[0,4],[1,5],[2,6],[3,7]]
+  const shape = new NGL.Shape('bbox')
+  edges.forEach(([a, b]) => shape.addCylinder(corners[a], corners[b], [1, 1, 1], 0.5))
+  const comp = stage.addComponentFromObject(shape)
+  comp.addRepresentation('buffer')
+  return comp
+}
 
-export default function Volume3DViewer({ jobId, jobType, files }) {
-  const theme        = useRef(null)   // avoid re-running NGL effect on theme toggle
-  theme.current = useTheme()
+export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
   const T = useTheme()
 
-  const containerRef = useRef(null)
-  const stageRef     = useRef(null)
-  const compRef      = useRef(null)
+  const containerRef   = useRef(null)
+  const stageRef       = useRef(null)
+  const compRef        = useRef(null)
+  const boxCompRef     = useRef(null)
+  const overlayCompRef = useRef(null)
 
-  // Live refs so view-switch effect reads current values without stale closure
-  const contourRef   = useRef(0.5)
-  const colorRef     = useRef('purple')
-  const invertRef    = useRef(false)
+  // Live refs for NGL callbacks (avoid stale closures)
+  const contourRef          = useRef(0.5)
+  const colorRef            = useRef('purple')
+  const invertRef           = useRef(false)
+  const wireframeRef        = useRef(false)
+  const opacityRef          = useRef(1.0)
+  const overlayOpacityRef   = useRef(0.5)
+  const overlayWireframeRef = useRef(false)
+  const overlayContourRef   = useRef(0.5)
 
-  const [contour,      setContour]      = useState(0.5)
-  const [color,        setColor]        = useState('purple')
-  const [viewMode,     setViewMode]     = useState('3D')
-  const [invert,       setInvert]       = useState(false)
-  const [selectedFile, setSelectedFile] = useState(null)
-  const [mapInfo,      setMapInfo]      = useState(null)
-  const [status,       setStatus]       = useState('idle')  // idle | loading | ready | error
+  const [contour,          setContour]          = useState(0.5)
+  const [color,            setColor]            = useState('purple')
+  const [invert,           setInvert]           = useState(false)
+  const [wireframe,        setWireframe]        = useState(false)
+  const [opacity,          setOpacity]          = useState(1.0)
+  const [showBox,          setShowBox]          = useState(true)
+  const [overlayOpacity,   setOverlayOpacity]   = useState(0.5)
+  const [overlayWireframe, setOverlayWireframe] = useState(false)
+  const [selectedFile,     setSelectedFile]     = useState(null)
+  const [mapInfo,          setMapInfo]          = useState(null)
+  const [status,           setStatus]           = useState('idle')
 
-  // Keep live refs in sync with state
-  contourRef.current = contour
-  colorRef.current   = color
-  invertRef.current  = invert
+  // Keep live refs in sync
+  contourRef.current          = contour
+  colorRef.current            = color
+  invertRef.current           = invert
+  wireframeRef.current        = wireframe
+  opacityRef.current          = opacity
+  overlayOpacityRef.current   = overlayOpacity
+  overlayWireframeRef.current = overlayWireframe
 
-  // Fixed wide range — contour is always an absolute density value
   const sliderMin  = 0.001
   const sliderMax  = 10.0
   const sliderStep = 0.001
-  // σ label next to the value: how many RMS units the current contour represents
   const sigmaLabel = mapInfo && mapInfo.rms > 0
     ? ` (${(contour / mapInfo.rms).toFixed(1)}σ)`
     : ''
 
-  // Pick best file when the job changes
+  // Pick best file when job changes; reset view controls
   useEffect(() => {
     setSelectedFile(pickBestMap(files, jobType))
-    setViewMode('3D')
+    setShowBox(true)
+    setWireframe(false)
+    setOpacity(1.0)
   }, [files, jobType])
 
-  // Fetch MRC header info and use it to set a data-driven initial contour
+  // Fetch primary map header and set data-driven initial contour
   useEffect(() => {
     if (!selectedFile || !jobId) { setMapInfo(null); return }
     fetchMapInfo(`${jobId}/${selectedFile}`).then(info => {
@@ -99,11 +132,11 @@ export default function Volume3DViewer({ jobId, jobType, files }) {
     }).catch(() => setMapInfo(null))
   }, [selectedFile, jobId])
 
-  // Mount NGL stage — only re-runs when the file or theme background changes
+  // ── Stage lifecycle: created once, destroyed only on unmount or theme change ──
+  // Keeping the stage alive across file switches avoids stacking orphaned WebGL
+  // canvases (NGL.dispose() does NOT remove its canvas from the DOM).
   useEffect(() => {
-    if (!containerRef.current || !selectedFile || !jobId) return
-
-    setStatus('loading')
+    if (!containerRef.current) return
 
     const stage = new NGL.Stage(containerRef.current, { backgroundColor: T.bg })
     stageRef.current = stage
@@ -111,72 +144,128 @@ export default function Volume3DViewer({ jobId, jobType, files }) {
     const ro = new ResizeObserver(() => stage.handleResize())
     ro.observe(containerRef.current)
 
-    const url = fileUrl(`${jobId}/${selectedFile}`)
-    stage.loadFile(url, { ext: 'mrc' })
+    return () => {
+      ro.disconnect()
+      stage.dispose()
+      stageRef.current       = null
+      compRef.current        = null
+      boxCompRef.current     = null
+      overlayCompRef.current = null
+    }
+  }, [T.bg]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── File loading: reuses the existing stage, no stage recreaton ───────────
+  useEffect(() => {
+    const stage = stageRef.current
+    if (!stage || !selectedFile || !jobId) return
+
+    let cancelled = false
+
+    // Clear previous components without destroying the stage or its canvas
+    stage.removeAllComponents()
+    compRef.current        = null
+    boxCompRef.current     = null
+    overlayCompRef.current = null
+    setStatus('loading')
+
+    stage.loadFile(fileUrl(`${jobId}/${selectedFile}`), { ext: 'mrc' })
       .then(comp => {
+        if (cancelled) return
         compRef.current = comp
         comp.addRepresentation('surface', {
           contour:     true,
           isolevel:    invertRef.current ? -contourRef.current : contourRef.current,
           colorScheme: 'uniform',
           color:       COLORS[colorRef.current],
-          opacity:     1.0,
+          opacity:     opacityRef.current,
+          wireframe:   wireframeRef.current,
           opaqueBack:  false,
         })
         comp.autoView()
+
+        // Load overlay if provided (e.g. input map for MaskCreate)
+        if (overlayPath) {
+          stage.loadFile(fileUrl(overlayPath), { ext: 'mrc' })
+            .then(oComp => {
+              if (cancelled) return
+              overlayCompRef.current = oComp
+              fetchMapInfo(overlayPath).then(info => {
+                if (cancelled) return
+                const iso = info?.rms > 0 ? parseFloat((info.rms * 2).toPrecision(3)) : 0.5
+                overlayContourRef.current = iso
+                oComp.addRepresentation('surface', {
+                  contour:     true,
+                  isolevel:    iso,
+                  colorScheme: 'uniform',
+                  color:       COLORS['gold'],
+                  opacity:     overlayOpacityRef.current,
+                  wireframe:   overlayWireframeRef.current,
+                  opaqueBack:  false,
+                })
+              }).catch(() => {
+                if (cancelled) return
+                oComp.addRepresentation('surface', {
+                  contour: true, isolevel: 0.5,
+                  colorScheme: 'uniform', color: COLORS['gold'],
+                  opacity: overlayOpacityRef.current,
+                  wireframe: overlayWireframeRef.current,
+                  opaqueBack: false,
+                })
+              })
+            })
+            .catch(err => { if (!cancelled) console.warn('NGL overlay load error', err) })
+        }
+
         setStatus('ready')
       })
       .catch(err => {
+        if (cancelled) return
         console.error('NGL load error', err)
         setStatus('error')
       })
 
-    return () => {
-      ro.disconnect()
-      stage.dispose()
-      stageRef.current = null
-      compRef.current  = null
-    }
-  }, [selectedFile, jobId, T.bg])
+    return () => { cancelled = true }
+  }, [selectedFile, jobId, T.bg]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Contour + invert: update without remounting
+  // Contour + invert + wireframe + opacity → update surface without remount
   useEffect(() => {
-    if (viewMode !== '3D' || !compRef.current?.reprList[0]) return
+    if (!compRef.current?.reprList[0]) return
     compRef.current.reprList[0].setParameters({
-      isolevel: invert ? -contour : contour,
+      isolevel:  invert ? -contour : contour,
+      wireframe,
+      opacity,
     })
-  }, [contour, invert, viewMode])
+  }, [contour, invert, wireframe, opacity])
 
-  // Color: update without remounting
+  // Color
   useEffect(() => {
     if (!compRef.current?.reprList[0]) return
     compRef.current.reprList[0].setParameters({ color: COLORS[color] })
   }, [color])
 
-  // View mode: swap representation type
+  // Bounding box toggle — status in deps ensures it fires once stage is ready
   useEffect(() => {
-    const comp  = compRef.current
     const stage = stageRef.current
-    if (!comp || !stage) return
-
-    comp.removeAllRepresentations()
-
-    if (viewMode === '3D') {
-      comp.addRepresentation('surface', {
-        contour:     true,
-        isolevel:    invertRef.current ? -contourRef.current : contourRef.current,
-        colorScheme: 'uniform',
-        color:       COLORS[colorRef.current],
-        opacity:     1.0,
-      })
+    if (!stage) return
+    if (showBox) {
+      if (boxCompRef.current) stage.removeComponent(boxCompRef.current)
+      boxCompRef.current = addBoundingBox(stage, mapInfo)
     } else {
-      comp.addRepresentation('slice', {
-        axis:        AXIS[viewMode],
-        colorScheme: 'density',
-      })
+      if (boxCompRef.current) {
+        stage.removeComponent(boxCompRef.current)
+        boxCompRef.current = null
+      }
     }
-    comp.autoView()
-  }, [viewMode])
+  }, [showBox, mapInfo, status])
+
+  // Overlay opacity + wireframe
+  useEffect(() => {
+    if (!overlayCompRef.current?.reprList[0]) return
+    overlayCompRef.current.reprList[0].setParameters({
+      opacity:   overlayOpacity,
+      wireframe: overlayWireframe,
+    })
+  }, [overlayOpacity, overlayWireframe])
 
   // ── UI helpers ───────────────────────────────────────────────────────────
   const mrcFiles = files?.filter(f => f.endsWith('.mrc')) ?? []
@@ -245,15 +334,23 @@ export default function Volume3DViewer({ jobId, jobType, files }) {
           ))}
         </div>
 
-        {/* View mode */}
-        <div style={{ display: 'flex', gap: 3 }}>
-          {VIEWS.map(v => (
-            <button key={v} onClick={() => setViewMode(v)} style={btnStyle(viewMode === v)}>{v}</button>
-          ))}
+        {/* Surface controls */}
+        <button onClick={() => setInvert(v => !v)} style={btnStyle(invert)}>invert</button>
+        <button onClick={() => setWireframe(v => !v)} style={btnStyle(wireframe)}>
+          {wireframe ? 'wire' : 'solid'}
+        </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+          <span style={{ fontSize: 11, color: T.textMuted }}>α</span>
+          <input
+            type="range" min={0} max={1} step={0.05}
+            value={opacity}
+            onChange={e => setOpacity(parseFloat(e.target.value))}
+            style={{ width: 60 }}
+          />
         </div>
 
-        {/* Invert */}
-        <button onClick={() => setInvert(v => !v)} style={btnStyle(invert)}>invert</button>
+        {/* Bounding box toggle */}
+        <button onClick={() => setShowBox(v => !v)} style={btnStyle(showBox)}>box</button>
 
         {/* Map info */}
         {mapInfo && (
@@ -262,6 +359,32 @@ export default function Volume3DViewer({ jobId, jobType, files }) {
           </span>
         )}
       </div>
+
+      {/* ── Overlay controls (MaskCreate dual-volume) ── */}
+      {overlayPath && (
+        <div style={{
+          display: 'flex', alignItems: 'center', gap: 10,
+          padding: '5px 14px', borderBottom: `1px solid ${T.border}`,
+          background: T.surface, flexShrink: 0, flexWrap: 'wrap',
+        }}>
+          <span style={{ fontSize: 11, color: T.textMuted, fontWeight: 600 }}>Overlay map:</span>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 5 }}>
+            <span style={{ fontSize: 11, color: T.textMuted }}>α</span>
+            <input
+              type="range" min={0} max={1} step={0.05}
+              value={overlayOpacity}
+              onChange={e => setOverlayOpacity(parseFloat(e.target.value))}
+              style={{ width: 70 }}
+            />
+            <span style={{ fontSize: 11, fontFamily: 'monospace', color: T.text }}>
+              {overlayOpacity.toFixed(2)}
+            </span>
+          </div>
+          <button onClick={() => setOverlayWireframe(v => !v)} style={btnStyle(overlayWireframe)}>
+            {overlayWireframe ? 'wire' : 'solid'}
+          </button>
+        </div>
+      )}
 
       {/* ── NGL viewport ── */}
       <div style={{ flex: 1, position: 'relative', overflow: 'hidden' }}>

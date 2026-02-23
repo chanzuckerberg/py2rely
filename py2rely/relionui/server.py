@@ -18,6 +18,7 @@ from py2rely.relionui.models import FileList, JobDetail, PipelineGraph
 from py2rely.relionui.parser import (
     get_command_history,
     get_job_type,
+    parse_analysis,
     parse_job_detail,
     parse_pipeline,
 )
@@ -107,6 +108,7 @@ async def get_map_info(filepath: str) -> dict:  # type: ignore[type-arg]
         with mrcfile.open(str(file_path), mode="r", permissive=True) as mrc:
             rms  = float(mrc.header.rms)  if float(mrc.header.rms)  > 0 else 1.0
             dmax = float(mrc.header.dmax) if float(mrc.header.dmax) > 0 else rms * 6
+            origin = mrc.header.origin
             return {
                 "nx":         int(mrc.header.nx),
                 "ny":         int(mrc.header.ny),
@@ -115,6 +117,9 @@ async def get_map_info(filepath: str) -> dict:  # type: ignore[type-arg]
                 "rms":        rms,
                 "dmin":       float(mrc.header.dmin),
                 "dmax":       dmax,
+                "originX":    float(origin.x),
+                "originY":    float(origin.y),
+                "originZ":    float(origin.z),
             }
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
@@ -151,6 +156,15 @@ async def serve_file(filepath: str) -> FileResponse:
     if not file_path.is_file():
         raise HTTPException(status_code=404, detail=f"File not found: {filepath}")
     return FileResponse(str(file_path))
+
+
+@app.get("/api/analysis/{job_id:path}")
+async def get_analysis(job_id: str) -> dict:  # type: ignore[type-arg]
+    """Return job-type-specific analysis data (FSC curves, convergence, CTF scatter, etc.)."""
+    try:
+        return parse_analysis(PROJECT_DIR, job_id)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
 
 
 # Must come after the more-specific /api/* routes so the greedy path

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useTheme, TYPE_COLOR, STATUS_COLOR } from '../theme.js'
 
-export default function Sidebar({ pipeline, selectedId, onSelect }) {
+export default function Sidebar({ pipeline, selectedId, onSelect, width = 240 }) {
   const theme = useTheme()
   const [filter, setFilter] = useState('')
 
@@ -12,7 +12,7 @@ export default function Sidebar({ pipeline, selectedId, onSelect }) {
 
   return (
     <div style={{
-      width: 240,
+      width,
       display: 'flex',
       flexDirection: 'column',
       background: theme.surface,
