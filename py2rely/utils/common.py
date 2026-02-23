@@ -16,11 +16,11 @@ def add_sta_options(func):
             help="Provided Template for Preliminary Refinment (Optional)" ),
         click.option(
             "-dg","--run-denovo-generation",type=bool,
-            required=False, default=False,
+            required=False, default=False, metavar="BOOL",
             help="Generate Initial Reconstruction with Denovo" ),
         click.option(
-            "--run-class3D",type=bool,
-            required=False, default=False,
+            "-rc3d","--run-class3D",type=bool, 
+            required=False, default=False, metavar="BOOL",
             help="Run 3D-Classification Job After Refinement" ),
         click.option(
             '--class-selection', '-cs', 
@@ -29,11 +29,11 @@ def add_sta_options(func):
             help="Method for Selecting Classes After 3D Classification" ),
         click.option(
             "--extract3D","-e3d",type=bool,
-            required=False, default=False,
+            required=False, default=False, metavar="BOOL",
             help="Extract 3D Particles Before Initial Model Generation" ),
         click.option(
             "--manual-masking", "-mm",type=bool,
-            required=False, default=False,
+            required=False, default=False, metavar="BOOL",
             help="Apply Manual Masking After First Refinement Job" ),
     ]
     # Add options in reverse order to preserve correct order

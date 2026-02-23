@@ -85,8 +85,8 @@ class TheClassifier:
             exit()
         else: # Run Auto Selection Job
             self.utils.tomo_select_job.joboptions['fn_data'].value = maxIter
-            self.utils.tomo_select_job.joboptions['select_minval'].value = best_class
-            self.utils.tomo_select_job.joboptions['select_maxval'].value = best_class
+            self.utils.tomo_select_job.joboptions['select_minval'].value = float(best_class)
+            self.utils.tomo_select_job.joboptions['select_maxval'].value = float(best_class)
             self.utils.run_subset_select()
 
         # Set Up Refinement Job
