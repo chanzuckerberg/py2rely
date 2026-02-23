@@ -1,3 +1,4 @@
+from py2rely.config import get_load_commands
 from py2rely.routines import submit_slurm
 from py2rely import cli_context
 import rich_click as click
@@ -271,7 +272,9 @@ def create_shellsubmit(
     slurm_mem = f'#SBATCH --mem-per-cpu=16G'
     slurm_cpu = f'#SBATCH --cpus-per-task=6'
 
-    env_setup = submit_slurm.get_env_setup_script(include_relion=load_relion)
+    # Get module load commands from config
+    python_load, relion_load = get_load_commands()
+    env_setup = f"{python_load}\n\n{relion_load}" if load_relion else f"{python_load}"
 
     shell_script_content = f"""#!/bin/bash
 
