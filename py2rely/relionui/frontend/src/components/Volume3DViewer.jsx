@@ -173,7 +173,6 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
         if (cancelled) return
         compRef.current = comp
         comp.addRepresentation('surface', {
-          contour:     true,
           isolevel:    invertRef.current ? -contourRef.current : contourRef.current,
           colorScheme: 'uniform',
           color:       COLORS[colorRef.current],
@@ -194,7 +193,6 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
                 const iso = info?.rms > 0 ? parseFloat((info.rms * 2).toPrecision(3)) : 0.5
                 overlayContourRef.current = iso
                 oComp.addRepresentation('surface', {
-                  contour:     true,
                   isolevel:    iso,
                   colorScheme: 'uniform',
                   color:       COLORS['gold'],
@@ -205,7 +203,7 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
               }).catch(() => {
                 if (cancelled) return
                 oComp.addRepresentation('surface', {
-                  contour: true, isolevel: 0.5,
+                  isolevel: 0.5,
                   colorScheme: 'uniform', color: COLORS['gold'],
                   opacity: overlayOpacityRef.current,
                   wireframe: overlayWireframeRef.current,
