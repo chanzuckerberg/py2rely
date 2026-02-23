@@ -29,6 +29,12 @@ license = { file = "LICENSE" }
 [project.optional-dependencies]
 web = ["gradio", "pytz"]
 gui = ["PyQt5", "pyqtgraph"]
+relionui = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.29.0",
+    "watchdog>=4.0.0",
+    "websockets>=12.0",
+]
 
 [project.scripts]
 py2rely = "py2rely.main:routines"
@@ -36,6 +42,13 @@ py2rely-slurm = "py2rely.main:slurm_routines"
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["py2rely"]
+include = [
+    "py2rely/**/*.py",
+    "py2rely/relionui/frontend/dist/**",
+]
 
 [tool.black]
 line-length = 120

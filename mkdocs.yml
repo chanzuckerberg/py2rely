@@ -58,5 +58,6 @@ nav:
     - 2D Slab Classification: user-guide/2d-slab-classification.md
     - 3D Sub-tomogram Averaging: user-guide/3d-subtomogram-averaging.md
     - STA on HPC: user-guide/running-on-hpc-with-submitit.md
+    - Web UI: user-guide/pipeline-ui.md
   - 📖 API Reference:
     - Overview: api-reference/overview.md
