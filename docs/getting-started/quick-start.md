@@ -199,6 +199,18 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
         --reference-template initial_model.mrc
     ```
     
+    To run the same pipeline on a **SLURM cluster** with Submitit (jobs submitted and waited on automatically), run once `py2rely config` to set Python and Relion load commands, then:
+    
+    ```bash
+    py2rely pipelines sta \
+        --parameter sta_parameters.json \
+        --reference-template initial_model.mrc \
+        --submitit True --num-gpus 4 --gpu-constraint "a100|h100" \
+        --cpu-constraint "8,32 --timeout 72
+    ```
+    
+    See [Running on HPC with Submitit](../user-guide/running-on-hpc-with-submitit.md) for details.
+
     !!! tip "Flexible pipeline execution"
         The STA pipeline can be run in multiple modes depending on what information you already have.
 
@@ -252,19 +264,37 @@ Get up and running with py2rely in minutes! This guide shows the minimal command
 
     === "Auto 3D Classification"
 
-        Add classification step after refinement, `py2rely` estimates the best class map and proceeds with following pipeline.
+        Add classification step after refinement at the highest binning (lowest resolution), `py2rely` estimates the best class map and proceeds with following pipeline. This is only for particle cleaning, for high-resolution focused classification we recommend manual intervention. The number of classes can be specified in the `py2rely prepare relion5-parameters` step with the `--nclasses` flag.
         
         ```bash
         py2rely pipelines sta \
             --parameter sta_parameters.json \
-            --run-class3D True
+            --run-class3D True --class-selection auto
         ```
-        
-        !!! info "3D Classification"
-            - Identifies different particle states
-            - Helps separate conformations
-            - Useful for heterogeneous samples
-            - Adds significant compute time
+
+        !!! warning "Auto-Class Selection"
+            Auto class selection only works for cases where two classes are selected for Class3D. In cases where multi-classification is desired, use `--class-selection manual` so the pipeline stops after the Class3D job.
+            
+            Use `py2rely routines select` to manually pick which classes to keep and combine their particles into a single STAR file. To keep particles from more than one class, pass a comma-separated list to `--keep-classes` (e.g. `--keep-classes 1,2,3`).
+
+            ??? note "📋 `py2rely routines select` Parameters"
+                | Parameter | Short | Description | Default |
+                |-----------|-------|-------------|---------|
+                | `--parameter` | `-p` | Path to pipeline parameter JSON file | `sta_parameters.json` *(required)* |
+                | `--class-job` | `-cj` | Class3D job directory name (e.g. job001) | `job001` |
+                | `--keep-classes` | `-kc` | Comma-separated class numbers to keep | `1,2,3` |
+                | `--best-class` | `-bc` | Class number to use as reference for refinement | `1` |
+                | `--run-refinement` | `-rr` | Run 3D refinement after selection | `False` |
+                | `--mask-path` | `-mp` | Optional path to mask for refinement | — |
+
+                !!! example "Example"
+                    ```bash
+                    py2rely routines select \
+                        --parameter sta_parameters.json \
+                        --class-job job001 \
+                        --keep-classes 1,2,3 \
+                        --best-class 1
+                    ```
 
     !!! success "What Happens Next"
         The pipeline automatically:

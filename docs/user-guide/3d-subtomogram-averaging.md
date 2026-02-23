@@ -4,13 +4,18 @@ A comprehensive guide to running automated sub-tomogram averaging with py2rely a
 
 ## Overview
 
-The 3D sub-tomogram averaging (STA) workflow in py2rely automates the entire process from particle extraction to high-resolution reconstruction. The pipeline handles:
+The 3D sub-tomogram averaging (STA) workflow in py2rely automates the entire process from particle extraction to high-resolution reconstruction. 
+The pipeline handles:
 
 - ✅ Pseudo sub-tomogram extraction
 - ✅ Initial model generation (de novo or from template)
 - ✅ 3D classification (optional)
 - ✅ CTF refinement and Bayesian polishing
 - ✅ Post-processing and resolution estimation
+
+This page describes how to run the STA pipeline **on a local workstation or server**, where jobs are executed directly on the available CPU/GPU resources. If you are running on a **SLURM-based HPC system**, see: 👉 **[Running STA Pipelines on HPC](running-on-hpc-with-submitit.md)**
+
+---
 
 ## Workflow Steps
 
@@ -102,6 +107,8 @@ The overall STA pipeline is composed of a series of steps that are ran sequentia
     - Creates a mask around the particle
     - Post-processes to estimate resolution
 
+    To run on a **SLURM cluster**, add `--submitit True`; each Relion step is then submitted via [Submitit](running-on-hpc-with-submitit.md). Set up once with `py2rely config` for Python and Relion load commands.
+
 
     ??? note "📋 `py2rely pipelines sta` Parameters"
 
@@ -111,6 +118,11 @@ The overall STA pipeline is composed of a series of steps that are ran sequentia
         | `--reference-template` | `-rt` | Reference template for initial refinement (optional) | - |
         | `--run-denovo-generation` | `-dg` | Generate initial model without template | `False` |
         | `--run-class3D` | | Run 3D classification after refinement | `False` |
+        | `--submitit` | `-s` | Submit jobs to SLURM via Submitit | `False` |
+        | `--num-gpus` | `-ng` | GPUs per job (even number) when using Submitit | `4` |
+        | `--gpu-constraint` | `-gc` | GPU type(s); multiple allowed (e.g. a100, h100) | none |
+        | `--cpu-constraint` | `-cc` | `"ncpus,mem_gb"` per job | `4,16` |
+        | `--timeout` | `-t` | Job time limit (hours) when using Submitit | `48` |
 
 #### Initial Model Options
 
@@ -211,6 +223,41 @@ After initial refinement at a coarse resolution, you can optionally run 3D class
     - ✨ **Improving resolution** - Focus refinement on homogeneous particles
     - 🎯 **Identifying your target** - Distinguish protein of interest from contaminants
 
+Run Class3D by setting `--run-class3D True` when starting the STA pipeline. The number of classes is set in `py2rely prepare relion5-parameters` with the `--nclasses` flag. You can let py2rely pick the best class automatically or stop after classification and choose classes yourself with `py2rely routines select`.
+
+**Automatic class selection** (pipeline continues without stopping):
+
+```bash
+py2rely pipelines sta \
+    --parameter sta_parameters.json \
+    --reference-template reference.mrc \
+    --run-class3D True \
+    --class-selection auto
+```
+
+!!! warning "Auto-Class Selection"
+    Auto class selection only works when two classes are used in Class3D. For more than two classes, use `--class-selection manual` so the pipeline stops after the Class3D job.
+
+    Then use `py2rely routines select` to pick which classes to keep and combine their particles into a single STAR file. To keep particles from more than one class, pass a comma-separated list to `--keep-classes` (e.g. `--keep-classes 1,2,3`).
+
+    ??? note "📋 `py2rely routines select` Parameters"
+        | Parameter | Short | Description | Default |
+        |-----------|-------|-------------|---------|
+        | `--parameter` | `-p` | Path to pipeline parameter JSON file | `sta_parameters.json` *(required)* |
+        | `--class-job` | `-cj` | Class3D job directory name (e.g. job001) | `job001` |
+        | `--keep-classes` | `-kc` | Comma-separated class numbers to keep | `1,2,3` |
+        | `--best-class` | `-bc` | Class number to use as reference for refinement | `1` |
+        | `--run-refinement` | `-rr` | Run 3D refinement after selection | `False` |
+        | `--mask-path` | `-mp` | Optional path to mask for refinement | — |
+
+        !!! example "Example"
+            ```bash
+            py2rely routines select \
+                --parameter sta_parameters.json \
+                --class-job job001 \
+                --keep-classes 1,2,3 \
+                --best-class 1
+            ```
 
 
 ## Example: Complete Workflow
@@ -253,6 +300,7 @@ py2rely export star2copick \
 
 ## Next Steps
 
+- Learn about [Running STA Pipelines on HPC](running-on-hpc-with-submitit.md) for efficient utilization of compute resources.
 - Learn about [2D slab classification](../2d-slab-classification.md) for alternative workflows
 - Explore [data import options](../importing-data.md) for different data sources
 - Check the [API reference](../../api-reference/overview.md) for advanced usage

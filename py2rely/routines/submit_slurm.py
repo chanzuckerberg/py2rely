@@ -1,30 +1,7 @@
+from typing import Optional, Tuple, List, Set
+from py2rely.config import get_load_commands
+import subprocess, warnings
 import rich_click as click
-
-def get_load_relion_command():
-    load_relion_command = """
-# Read the GPU names into an array
-IFS=$'\\n' read -r -d '' -a gpu_names <<< "$(nvidia-smi --query-gpu=name --format=csv,noheader)"
-
-# Access the first GPU name
-first_gpu_name="${gpu_names[0]}"
-
-# Figure Out which Relion Module to Load
-echo "Detected GPU: $first_gpu_name"
-if [ "$first_gpu_name" = "NVIDIA A100-SXM4-80GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80    
-elif [ "$first_gpu_name" = "NVIDIA A100-SXM4-40GB" ]; then
-    echo "Loading relion/CU80"
-    module load relion/ver5.0-12cf15de-CU80
-elif [ "$first_gpu_name" = "NVIDIA RTX A6000" ]; then
-    echo "Loading relion/CU86"
-    module load relion/ver5.0-12cf15de-CU86
-else
-    echo "Loading relion/CU90"
-    module load relion/ver5.0-12cf15de-CU90 
-fi"""
-
-    return load_relion_command
 
 def create_shellsubmit(
     job_name, 
@@ -32,54 +9,55 @@ def create_shellsubmit(
     shell_name,
     command,
     total_time = '12:00:00',
-    num_gpus = 1, 
-    gpu_constraint = 'h100', 
+    num_gpus = 1, gpu_constraint = None, 
     additional_commands = ''):
+    """
+    Create a shell script to submit a SLURM job.
+    Args:
+        job_name: The name of the job.
+        output_file: The output file for the job.
+        shell_name: The name of the shell script to create.
+        command: The command to run in the job.
+        total_time: The total time for the job.
+        num_gpus: The number of GPUs to use for the job.
+        gpu_constraint: The GPU constraint for the job.
+        additional_commands: Additional commands to add to the shell script.
+    """
 
-    # Convert GPU constraint to lowercase
-    available_gpus = {'H200': 'h200', 'H100': 'h100', 'A100': 'a100', 'A6000': 'a6000'}
-    all_gpus = ['h200', 'h100', 'a100', 'a6000', 'H200', 'H100', 'A100', 'A6000']
-    if gpu_constraint in available_gpus:
-        gpu_constraint = available_gpus[gpu_constraint]
-    elif gpu_constraint not in all_gpus:
-        raise ValueError(f"Invalid GPU constraint: {gpu_constraint}. Available constraints are: {all_gpus}")
+    # Validate GPU constraint and set SLURM directives
+    gpu_constraint = check_gpus(gpu_constraint)
 
+    # Determine the SLURM directives for the GPU constraint.
     if num_gpus > 0 and gpu_constraint is not None:
         slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
     elif num_gpus > 0 and gpu_constraint is None:
-        gpu_constraint = 'a100'
-        print('Setting GPU constraint to default of A100')
-        slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
+        slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={num_gpus}\n#SBATCH --ntasks={num_gpus+1}'
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 
-    
-    # {log_compute_utilization()}
+    python_load, relion_load = get_load_commands(prompt_if_missing=True)
+
     shell_script_content = f"""#!/bin/bash
 
 {slurm_gpus}
 #SBATCH --nodes=1
 #SBATCH --time={total_time}
-#SBATCH --cpus-per-task=8
-#SBATCH --mem-per-cpu=16G
+#SBATCH --cpus-per-task=4
+#SBATCH --mem-per-cpu=8G
 #SBATCH --job-name={job_name}
 #SBATCH --output={output_file}
 {additional_commands}
+{python_load}
 
-ml anaconda 
-conda activate /hpc/projects/group.czii/conda_environments/pyrely
-
-{get_load_relion_command()}
-
+{relion_load}
 {command}
-
 """
-# {complete_log_compute_utilization()}
-
     with open(shell_name, 'w') as file:
         file.write(shell_script_content)
 
     print(f"\nShell script {shell_name} created successfully.\n")
+
+##############################################################################
 
 def validate_even_gpus(ctx, param, value):
     if value % 2 != 0:
@@ -99,58 +77,123 @@ def parse_int_list(ctx, param, value):
 def add_compute_options(func):
     """Decorator to add common compute options to a Click command."""
     options = [
-        click.option("--num-gpus",type=int,required=False,default=4,
-                    help="Number of GPUs to Use for Refinement",
+        click.option("-ng", "--num-gpus",type=int,required=False,default=4,
+                    help="Number of GPUs to Use for Processing",
                     callback=validate_even_gpus),
-        click.option("--gpu-constraint",required=False,default="h100",
+        click.option("-gc", "--gpu-constraint",required=False,default="h100",
                     help="GPU Constraint for Slurm Job",
-                    type=click.Choice(["h200", "h100", "a100", "a6000"], case_sensitive=False))
+                    callback=validate_gpu_constraint)
     ]
     for option in reversed(options):  # Add options in reverse order to preserve correct order
         func = option(func)
     return func
 
-def log_compute_utilization():
+##############################################################################
 
-    command = f"""# Set up logging file
-LOGFILE="relion_utilization.log"
-echo "Timestamp, CPU Usage (%), Memory Usage (MB), GPU Utilization (%), GPU Memory Usage (MB)" > $LOGFILE
+def validate_gpu_constraint(ctx, param, value):
+    """Validate the GPU constraint, entry for click callback."""
+    return check_gpus(value)
 
-# Start resource monitoring in the background
-{{
-    while true; do
-        TIMESTAMP=$(date +"%Y-%m-%d %H:%M:%S")
+def _slurm_gpu_features(partition: str = "gpu") -> Set[str]:
+    """
+    Return the set of Slurm node feature flags available in the given partition.
+    Uses `sinfo -o %f` which prints the feature string for nodes/partitions.
+    """
+    cmd = ["sinfo", "-p", partition, "-o", "%f", "-h"]
+    out = subprocess.check_output(cmd, text=True)
 
-        # CPU Usage (already averaged across all cores)
-        CPU_USAGE=$(mpstat 1 1 | awk '/Average:/ {{print 100 - $NF}}')
-        
-        # Memory Usage (total system memory used)
-        MEM_USAGE=$(free -m | awk '/Mem:/ {{print $3}}')
+    features: Set[str] = set()
+    for line in out.splitlines():
+        for feat in line.split(","):
+            feat = feat.strip()
+            if feat:
+                features.add(feat)
+    return features
 
-        # Get GPU Utilization and GPU Memory Usage (report averages instead of sum)
-        GPU_STATS=$(nvidia-smi --query-gpu=utilization.gpu,memory.used --format=csv,noheader,nounits | awk -F ', ' '{{g_util+=$1; g_mem+=$2; count+=1}} END {{print g_util/count", "g_mem/count}}')
 
-        # Ensure that if no GPU data is returned, default to 0 values
-        if [[ -z "$GPU_STATS" ]]; then
-            GPU_STATS="0, 0"
-        fi
+def _parse_constraint(expr: str) -> Tuple[List[str], Optional[str]]:
+    """
+    Parse a constraint expression.
+    - If it contains '|', treat that as the joiner (OR-style).
+    - Else if it contains ',', treat that as the joiner.
+    - Else single token.
+    Returns (tokens, joiner) where joiner is '|' or ',' or None.
+    """
+    expr = (expr or "").strip()
+    if not expr:
+        return ([], None)
 
-        # Write to log file
-        echo "$TIMESTAMP, $CPU_USAGE, $MEM_USAGE, $GPU_STATS" >> $LOGFILE
-        
-        sleep 60  # Wait (in seconds)
-    done
-}} &  # Run in the background
-"""
+    if "|" in expr:
+        joiner = "|"
+        tokens = [t.strip() for t in expr.split("|")]
+    elif "," in expr:
+        joiner = ","
+        tokens = [t.strip() for t in expr.split(",")]
+    else:
+        joiner = None
+        tokens = [expr]
 
-    return command
+    # normalize: drop empties, preserve order, de-dupe while preserving order
+    seen = set()
+    cleaned = []
+    for t in tokens:
+        if not t:
+            continue
+        if t not in seen:
+            seen.add(t)
+            cleaned.append(t)
 
-def complete_log_compute_utilization():
-    return """# Stop logging after job completion
-pkill -P $$  # Kills the background logging process
-"""
+    return cleaned, joiner
 
-def validate_num_gpus(ctx, param, value):
-    if value is not None and (value < 1 or value > 4):
-        raise click.BadParameter("Number of GPUs must be between 1 and 4.")
-    return value  
+
+def check_gpus(
+    gpu_constraint: Optional[str],
+    *,
+    partition: str = "gpu",
+    warn: bool = True,
+) -> Optional[str]:
+    """
+    Validate / filter a GPU constraint expression against Slurm feature flags.
+
+    Examples:
+      - None                    -> None
+      - "a100"                  -> "a100" (if valid)
+      - "h100|a100|h200"        -> "h100|a100" (filters invalid)
+      - "h100,a100,h200"        -> "h100,a100" (filters invalid)
+
+    Behavior:
+      - If at least one token is valid: returns filtered expression.
+      - If zero tokens are valid: raises ValueError.
+      - Warns (optional) about invalid tokens that were dropped.
+    """
+    # Ignore if no constraint is provided.
+    if gpu_constraint is None:
+        return None
+
+    tokens, joiner = _parse_constraint(gpu_constraint)
+    if not tokens:
+        return None  # treat empty/whitespace like None
+
+    available = _slurm_gpu_features(partition=partition)
+
+    valid = [t for t in tokens if t in available]
+    invalid = [t for t in tokens if t not in available]
+
+    if invalid and warn:
+        warnings.warn(
+            f"\nIgnoring unknown GPU constraint(s): {invalid}.\n"
+            f"Available feature flags include: {sorted(available)}",
+            stacklevel=2,
+        )
+
+    if not valid:
+        raise ValueError(
+            f"\nNo valid GPU constraints found in '{gpu_constraint}'\n. "
+            f"Available feature flags include: {sorted(available)}"
+        )
+
+    # Recompose with the same joiner style the user provided
+    if joiner is None:
+        return valid[0]  # single entry
+    return joiner.join(valid)
+

@@ -1,15 +1,19 @@
-from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
+from pipeliner.jobs.relion import select_job, maskcreate_job
+from py2rely.utils.progress import get_console
+from py2rely.config import get_load_commands
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
-from scipy import ndimage
-import subprocess, os
+import subprocess, os, submitit
+from rich.syntax import Syntax
+from rich.table import Table
+from rich.panel import Panel
 import numpy as np
 import warnings
 
 # Define Custom Postprocess Job to Avoid Future Warnings
 from pipeliner.job_options import JobOptionValidationResult
 from pipeliner.jobs.relion.postprocess_job import PostprocessJob
-from typing import List
+from typing import List, Tuple
 
 class CustomPostprocessJob(PostprocessJob):
     """
@@ -17,6 +21,7 @@ class CustomPostprocessJob(PostprocessJob):
     """
     def additional_joboption_validation(self) -> List[JobOptionValidationResult]:
         return []
+
 ##############################################################################
 
 # Suppress all future warnings
@@ -27,18 +32,23 @@ class PipelineHelper:
     A helper class for managing and running a Relion-based pipeline in a cryo-EM project.
     """    
 
-    def __init__(self, inProject, requireRelion = True):
+    def __init__(self, inProject, requireRelion=True, use_submitit=False):
         """
         Initialize the PipelineHelper with the given project.
 
         Args:
             inProject: The project instance that manages the pipeline.
+            requireRelion: If True, check that RELION is available.
+            use_submitit: If True, run_job will delegate to submit_job and run the job via submitit.
         """
 
+        # Check if RELION is Available
         if requireRelion:
             self.check_if_relion_is_available()
 
+        # Assing Input Variables 
         self.myProject = inProject
+        self.use_submitit = use_submitit
 
         # Define sampling angles and box sizes for various stages of the pipeline.
         self.sampling = ['30 degrees', '15 degrees', '7.5 degrees', '3.7 degrees', '1.8 degrees', '0.9 degrees',\
@@ -64,6 +74,51 @@ class PipelineHelper:
         self.post_process_job = None
         self.pseudo_subtomo_job = None
 
+        # Default timeout is 14 days
+        self.timeout = 14 * 24
+
+        # Default Submitit parameters
+        self.num_gpus = 4
+        self.ntasks = self.num_gpus + 1
+        self.gpu_constraint = None
+        self.ncpus, self.mem_per_cpu = 4, 16
+        self.submitit_ignore_jobs = (
+            select_job.RelionSelectOnValue, 
+            maskcreate_job.RelionMaskCreate,
+            PostprocessJob
+        )
+
+    def set_compute_constraints(self, cpu_constraint: List[int], gpu_constraint: Tuple[str, int], ngpus: int, timeout: int):
+        """
+        Set the compute constraints for the pipeline.
+        Args:
+            cpu_constraint: The number of CPUs and memory per CPU (e.g., [4,16] for 4 CPUs and 16GB per CPU).
+            gpu_constraint: The GPU constraint for the job. (e.g., "a100").
+            ngpus: The number of GPUs to be used.
+            timeout: The timeout for the job in hours.
+        """
+        from py2rely.routines.submit_slurm import check_gpus
+
+        # Timeout: keep hours for local execution, derive minutes for Slurm/submitit
+        self.timeout = timeout  # hours (used by local execution/_execute_job)
+        self.timeout_min = timeout * 60  # minutes (used as timeout_min for Slurm/submitit)
+
+        # GPU Constraints
+        self.num_gpus = ngpus
+        self.ntasks = self.num_gpus + 1
+        self.gpu_constraint = gpu_constraint
+        # CPU Constraints
+        self.ncpus, self.mem_per_cpu = cpu_constraint
+
+        # Validate GPU Constraint
+        check_gpus(self.gpu_constraint)
+
+        # Warn if no GPU constraint specified
+        if self.gpu_constraint is None:
+            print('No GPU Constraint Specified. Proceeding Without One...')
+        else:
+            print(f'Submiting GPU Jobs on {self.gpu_constraint} Queues...')
+
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
         Pretty-print pipeline parameters using Rich and optionally save them to JSON.
@@ -73,11 +128,6 @@ class PipelineHelper:
             header: Optional header name under which parameters will be saved in JSON.
             **kwargs: Arbitrary parameters. If 'file_name' is given, parameters are also saved.
         """
-        import os
-        from py2rely.utils.progress import get_console
-        from rich.syntax import Syntax
-        from rich.table import Table
-        from rich.panel import Panel
 
         console = get_console()
         file_name = kwargs.pop("file_name", None)
@@ -191,7 +241,7 @@ class PipelineHelper:
 
         self.outputDirectories = self.read_json(json_fname) 
         history_fname = json_fname.replace('.json', '_history.json')
-        self.historyDirectories = self.read_json(history_fname)     
+        self.historyDirectories = self.read_json(history_fname) 
 
     def read_json(self, json_fname: str):
         """
@@ -202,7 +252,6 @@ class PipelineHelper:
         Returns:
             dict: Parsed JSON data.
         """
-
         try:
             readFile = open(json_fname)
             outData = json.load(readFile)
@@ -259,6 +308,9 @@ class PipelineHelper:
         """
         Run a job and handle its completion status.
 
+        If use_submitit is True and executor is set, delegates to submit_job
+        so the job runs via submitit on the cluster.
+
         Args:
             job: A pipeline job object.
             jobName: Name of the job.
@@ -268,66 +320,137 @@ class PipelineHelper:
 
         Returns:
             str: The result of the job execution.
-        """        
+        """
 
-        # Set Timeout to XX hours
-        nDays = 14
-        nHours = nDays * 24
-
-        # Assume We Are Re-Running a Job if JobIter is not None
-        if not self.check_if_job_already_completed(job,jobName) or jobIter:
-
-            # Run Import Tomograms Job
-            print(f'\n[{jobTag}] Starting Job...')
-
-            # Run Import Job
-            self.myProject.run_job(job)
-
-            # Wait up to 24 hours for the job to finish
-            result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
-
-            # Print Results
-            print('[{}] Job Complete!'.format(jobTag))
-            print('[{}] Job Result :: '.format(jobTag) + result)
-
-            # Exit If Job Fails
-            if result == 'Failed' and exitOnFail: 
-                print(f'{jobTag} Failed!...\n'); exit()
-
-            # Ensure the binning key exists before assigning the job output directory
-            bin_key = f'bin{self.binning}'
-            if bin_key not in self.outputDirectories:
-                self.outputDirectories[bin_key] = {}
-
-            # Save Job Name to Output Directory (Main Pipeline)
-            self.outputDirectories[bin_key][jobName] = job.output_dir
-
-            # Log All the Repititions for Each Process
-            if bin_key not in self.historyDirectories:
-                self.historyDirectories[bin_key] = {}
-            if jobName not in self.historyDirectories[bin_key]:
-                self.historyDirectories[bin_key][jobName] = {}
-                # Assume this is the first iteration for this job at this resolution
-                jobIter = 'iter1'
-            elif jobIter is None: # Failback to automatic iteration numbering
-                # Determine the next iteration number
-                current_iters = sorted(self.historyDirectories[bin_key][jobName].keys())
-                last_iter = current_iters[-1]
-                last_iter_num = int(last_iter.replace('iter', ''))
-                jobIter = f'iter{last_iter_num + 1}'
-
-            self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
-
-            # Save the new output directory
-            self.save_new_output_directory()     
-
-            if keepClasses is not None: 
-                self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)                 
-        else: 
+        # Check if Job Already Completed
+        if self.check_if_job_already_completed(job, jobName) and not jobIter:
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-            result = 'Already Completed'
+            return 'Already Completed' 
+
+        # If the job is post-processing, mask create or select - run on the master process.
+        if self.use_submitit and not isinstance(job, self.submitit_ignore_jobs):
+            result = self.submit_job( job, jobTag )
+        else:
+            # We only need the result for local runs
+            result = self._execute_job(job, jobTag, self.timeout )[0]
+
+        # Print Results
+        print(f'[{jobTag}] Job Complete!')
+        print(f'[{jobTag}] Job Result :: {result}')
+
+        # Exit If Job Fails
+        if result == 'Failed' and exitOnFail: 
+            print(f'{jobTag} Failed!...\n'); exit()
+
+        self._post_job_completion( job, jobName, jobIter, keepClasses)
+        return result
+
+    def submit_job(self, job, jobTag: str):
+        """
+        Submit job to submitit: run on cluster, then do bookkeeping here.
+        Same contract as run_job.
+        """
+
+        # Verbose Output
+        print(f'\n[{jobTag}] Submitting job via submitit...')
+        
+        # Estimate the output directory for submitit to write too
+        log_dir = os.path.join(job.OUT_DIR, 'submitit_logs') # todo
+        os.makedirs(log_dir, exist_ok=True)
+        executor = submitit.AutoExecutor(folder=log_dir)
+    
+        # Adjust MPI Command if Present
+        if 'mpi_command' in job.joboptions:
+            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n {self.ntasks}'
+
+        # Update Executor Parameters
+        use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
+        executor.update_parameters(
+            slurm_partition = 'gpu' if use_gpu else 'cpu',
+            timeout_min=self.timeout_min,
+            tasks_per_node=1,
+            slurm_use_srun=False,
+            cpus_per_task=self.ncpus,  
+            slurm_additional_parameters={
+                "mem": f"{self.mem_per_cpu * self.ncpus}G",
+                },
+        )
+        # Add GPU Constraints if Needed
+        if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
+            executor.update_parameters(
+                slurm_additional_parameters={
+                    "gpus": f"{self.num_gpus}",
+                },
+            )
+            if self.gpu_constraint:
+                executor.update_parameters(
+                    slurm_constraint=f"{self.gpu_constraint}",
+                )
+
+        # Get the Relion Module if Its Defined in Env Folder
+        relion_setup = get_load_commands(prompt_if_missing=False)[1]
+        if len(relion_setup) > 0:
+            executor.update_parameters( slurm_setup = [relion_setup] )
+
+        # Submit the Job and Wait for Result
+        submitted = executor.submit(self._execute_job, job, jobTag, self.timeout)
+        result, out_dir = submitted.result()
+        job.output_dir = out_dir
         
         return result
+
+    def _execute_job(self, job, jobTag: str, nHours: int):
+        """
+        Execute a single job (run + wait). No bookkeeping.
+        Returns:
+            result - Results provided by the CCPEM-pipeliner.
+        """
+
+        print(f'\n[{jobTag}] Starting Job...')
+        self.myProject.run_job(job)
+        result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
+        return result, job.output_dir
+
+    def _post_job_completion(self, job, jobName, jobIter, keepClasses):
+        """
+        Post-job completion processing.
+
+        Args:
+            job: A pipeline job object.
+            jobName: Name of the job.
+            jobIter: Iteration identifier for the job.
+            keepClasses: List of classes to keep after classification.
+        """
+
+        # Ensure the binning key exists before assigning the job output directory
+        bin_key = f'bin{self.binning}'
+        if bin_key not in self.outputDirectories:
+            self.outputDirectories[bin_key] = {}
+
+        # Save Job Name to Output Directory (Main Pipeline)
+        self.outputDirectories[bin_key][jobName] = job.output_dir
+
+        # Log All the Repititions for Each Process
+        if bin_key not in self.historyDirectories:
+            self.historyDirectories[bin_key] = {}
+        if jobName not in self.historyDirectories[bin_key]:
+            self.historyDirectories[bin_key][jobName] = {}
+            # Assume this is the first iteration for this job at this resolution
+            jobIter = 'iter1'
+        elif jobIter is None: # Failback to automatic iteration numbering
+            # Determine the next iteration number
+            current_iters = sorted(self.historyDirectories[bin_key][jobName].keys())
+            last_iter = current_iters[-1]
+            last_iter_num = int(last_iter.replace('iter', ''))
+            jobIter = f'iter{last_iter_num + 1}'
+
+        self.historyDirectories[bin_key][jobName][jobIter] = job.output_dir                
+
+        # Save the new output directory
+        self.save_new_output_directory()     
+
+        if keepClasses is not None: 
+            self.custom_select(self.find_final_iteration(), keepClasses=keepClasses)    
 
     def get_resolution(self, job, 
                       job_name: str = None):
@@ -594,9 +717,8 @@ class PipelineHelper:
         """
         Initialize the post-processing job with default settings.
         """        
-        # self.post_process_job = postprocess_job.PostprocessJob()
         self.post_process_job = CustomPostprocessJob()
-        self.post_process_job.joboptions['angpix'].value = -1
+        self.post_process_job.joboptions['angpix'].value = None
         self.post_process_job.joboptions['do_auto_bfac'].value = 'no'
 
         # Initialize Current Resolution as 1 micron
@@ -643,10 +765,6 @@ class PipelineHelper:
             lp = self.mask_create_job.joboptions['lowpass_filter'].value
             value = self.get_reconstruction_std(path, lp)
             self.mask_create_job.joboptions['inimask_threshold'].value = str(value)
-            # with  mrcfile.open(self.mask_create_job.joboptions['fn_in'].value) as file:
-            #     contour_val = np.percentile( file.data.flatten(), 98)
-            #     print(f'autoContour: {contour_val}')
-            #     self.mask_create_job.joboptions['inimask_threshold'].value = str(contour_val)
 
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
@@ -756,9 +874,9 @@ class PipelineHelper:
                 self.write_mrc(filtered_vol, 'filtered_vol.mrc', voxel_size)
 
             # return np.std(filtered_vol)
-            return np.percentile(filtered_vol.flatten(), 98.5)
+            return float(np.percentile(filtered_vol.flatten(), 98.5))
         else:        
-            return np.std(vol)
+            return float(np.std(vol))
 
     def get_half_fsc(self, post_process_path: str, target_fsc: float = 0.5):
         """
@@ -781,26 +899,4 @@ class PipelineHelper:
 
         # Get the resolution at the closest index
         closest_resolution = resolutions[closest_index]
-        return closest_resolution
-
-
-
-    # # Find the Subgroup That Reflects 'binX/process/iterY' In The OutputDirectories Tree
-    # def return_job_iter(self, binKey, jobName):
-
-    #     # Check if the binKey and jobName exist in the outputDirectories
-    #     if binKey in self.outputDirectories and jobName in self.outputDirectories[binKey]:
-    #         # If jobName is a string (e.g., 'job002'), set it as the first iteration
-    #         if isinstance(self.outputDirectories[binKey][jobName], str):
-    #             # Assign the current job to 'iter1'
-    #             self.outputDirectories[binKey][jobName + '_history'] = {'iter1': self.outputDirectories[binKey][jobName]}
-    #             return 'iter2'
-            
-    #         # If jobName is already a dictionary, find the next iteration
-    #         current_iters = sorted(self.outputDirectories[binKey][jobName].keys())
-    #         last_iter = current_iters[-1]
-    #         last_iter_num = int(last_iter.replace('iter', ''))
-    #         return f'iter{last_iter_num + 1}'
-    #     else:
-    #         # If the jobName or binKey doesn't exist, return None
-    #         return None
+        return float(closest_resolution)

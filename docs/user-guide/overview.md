@@ -48,6 +48,12 @@ Process validated particles through the complete sub-tomogram averaging pipeline
 
 ---
 
+🖥️ [Running on HPC with Submitit](running-on-hpc-with-submitit.md) - Cluster execution with Submitit
+
+Run the STA pipeline on a SLURM cluster with `--submitit True` so each Relion step is submitted and waited on automatically. Configure Python and Relion load commands with `py2rely config`; optional GPU/CPU and timeout options are documented in the guide.
+
+---
+
 ### Recommended Workflow
 
 **For new or uncertain particle picks:**

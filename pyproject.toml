@@ -13,6 +13,7 @@ dependencies = [
     "mrcfile",
     "starfile",
     "pydantic",
+    "submitit",
     "rich-click",
     "zarr-particle-tools",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",

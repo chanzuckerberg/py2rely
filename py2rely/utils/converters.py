@@ -1,3 +1,4 @@
+from py2rely.config import config_cli
 from py2rely import cli_context
 import rich_click as click
 

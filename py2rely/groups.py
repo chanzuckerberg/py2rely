@@ -66,11 +66,12 @@ click.rich_click.OPTION_GROUPS = {
     "py2rely prepare relion5-pipeline": [
         {
             "name": "Pipeline",
-            "options": ["--parameter", "--reference-template", "--run-denovo-generation", "--extract3D", "--run-class3D", "--manual-masking"],
+            "options": ["--parameter", "--reference-template", "--run-denovo-generation", 
+                        "--extract3D", "--run-class3D", "--class-selection", "--manual-masking"],
         },
         {
-            "name": "Compute Resources",
-            "options": ["--num-days", "--num-gpus", "--gpu-constraint"],
+            "name": "Compute and Submitit Resources",
+            "options": ["--num-days", "--num-gpus", "--gpu-constraint",  "--cpu-constraint", "--timeout"],
         }
     ],
     "py2rely prepare template": [
@@ -85,6 +86,20 @@ click.rich_click.OPTION_GROUPS = {
         {
             "name": "Output",
             "options": ["--output", "--output-voxel-size", "--box-size"],
+        }
+    ],
+    "py2rely pipelines sta": [
+        {
+            "name": "Pipeline Options",
+            "options": ["--parameter", "--manual-masking", "--extract3D", "--run-class3D", "--class-selection"],
+        },
+        {
+            "name": "Initial Model Generation",
+            "options": ["--run-denovo-generation", "--reference-template"],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],
         }
     ],
     "py2rely slab class2d": [

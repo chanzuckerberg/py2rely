@@ -12,14 +12,15 @@ class Relion5Pipeline(PipelineHelper):
     initializing and running various jobs in a Relion5 cryo-ET pipeline.
     """    
 
-    def __init__(self, inProject: str):
+    def __init__(self, inProject: str, use_submitit: bool = False):
         """
         Initialize the Relion5Pipeline with the given project.
 
         Args:
             inProject: The project instance that manages the pipeline.
-        """        
-        super().__init__(inProject)
+            use_submitit: If True, run_job delegates to submit_job (submitit).
+        """
+        super().__init__(inProject, use_submitit=use_submitit)
 
         # Initialize Jobs
         self.tomo_reconstruct_job = None

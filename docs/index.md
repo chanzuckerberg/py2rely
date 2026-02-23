@@ -15,6 +15,7 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 - [Importing Data](user-guide/importing-data.md) - Data import from various sources
 - [3D Sub-tomogram Averaging](user-guide/3d-subtomogram-averaging.md) - Complete STA pipeline guide
 - [2D Slab Classification](user-guide/2d-slab-classification.md) - 2D class averaging workflow
+- [Running on HPC with Submitit](user-guide/running-on-hpc-with-submitit.md) - Submit STA jobs to SLURM via Submitit
 
 ### Reference
 - [API Reference](api-reference/overview.md) - Detailed API documentation
@@ -24,7 +25,7 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 - ⚙️ **Automated job preparation**: One-command setup of RELION STA workflows
 - 🔄 **Copick integration**: Seamless import of particle coordinates
 - 🧭 **Tilt series-aware**: Direct input from AreTomo processing pipelines
-- 🚀 **SLURM-native execution**: Jobs launched and managed on HPC environments
+- 🚀 **SLURM-native execution**: Run the full STA pipeline with Submitit or generate `sbatch` scripts via `py2rely-slurm`
 - 🧠 **Validation-ready**: Quickly test particle picking algorithms
 
 ## 🎯 Workflows
