@@ -355,7 +355,7 @@ class PipelineHelper:
         print(f'\n[{jobTag}] Submitting job via submitit...')
         
         # Estimate the output directory for submitit to write too
-        log_dir = os.path.join(job.OUT_DIR, 'submitit_logs') # todo
+        log_dir = os.path.join(job.OUT_DIR, 'submitit_logs')
         os.makedirs(log_dir, exist_ok=True)
         executor = submitit.AutoExecutor(folder=log_dir)
     
@@ -371,10 +371,9 @@ class PipelineHelper:
             tasks_per_node=1,
             slurm_use_srun=False,
             cpus_per_task=self.ncpus,  
-            slurm_additional_parameters={
-                "mem": f"{self.mem_per_cpu * self.ncpus}G",
-                },
+            mem_per_cpu=f"{self.mem_per_cpu}G",
         )
+
         # Add GPU Constraints if Needed
         if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
             executor.update_parameters(

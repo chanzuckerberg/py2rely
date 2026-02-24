@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import asyncio
 import json
+import tarfile
+import urllib.request
 import webbrowser
 from contextlib import asynccontextmanager
 from pathlib import Path
@@ -200,12 +202,37 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 
 
 # ---------------------------------------------------------------------------
-# Static frontend (served after npm run build)
+# Frontend distribution
 # ---------------------------------------------------------------------------
 
 _DIST = Path(__file__).parent / "frontend" / "dist"
-if _DIST.exists():
-    app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
+
+# URL to the pre-built frontend tarball on GitHub Releases.
+# The tarball should contain a top-level dist/ folder
+# (created with: cd py2rely/dashboard/frontend && tar czf dashboard-dist.tar.gz dist/)
+_DIST_URL = "https://github.com/OWNER/py2rely/releases/latest/download/dashboard-dist.tar.gz"
+
+
+def _ensure_frontend() -> None:
+    """Download and extract the pre-built frontend into the package directory if missing."""
+    if _DIST.exists():
+        return
+    print("[py2rely-dashboard] Frontend assets not found. Downloading...", flush=True)
+    _DIST.parent.mkdir(parents=True, exist_ok=True)
+    tmp = _DIST.parent / "_dashboard-dist.tar.gz"
+    try:
+        urllib.request.urlretrieve(_DIST_URL, tmp)
+        with tarfile.open(tmp) as tf:
+            tf.extractall(_DIST.parent)
+        print("[py2rely-dashboard] Frontend ready.", flush=True)
+    except Exception as exc:
+        raise SystemExit(
+            f"\n[py2rely-dashboard] Failed to download frontend assets: {exc}\n"
+            f"You can manually build them with:\n"
+            f"  cd py2rely/dashboard/frontend && npm run build\n"
+        ) from exc
+    finally:
+        tmp.unlink(missing_ok=True)
 
 
 # ---------------------------------------------------------------------------
@@ -222,6 +249,9 @@ def launch(
     global PROJECT_DIR, POLL_INTERVAL
     PROJECT_DIR = Path.cwd()
     POLL_INTERVAL = poll_interval
+
+    _ensure_frontend()
+    app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
 
     pipeline_star = PROJECT_DIR / "default_pipeline.star"
     if not pipeline_star.exists():

@@ -170,6 +170,5 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/node_modules
 
-# dashboard frontend — node_modules excluded, pre-built dist/ committed to repo
+# dashboard frontend — node_modules and dist excluded; dist is downloaded at runtime
 py2rely/dashboard/frontend/node_modules/
-!py2rely/dashboard/frontend/dist/
