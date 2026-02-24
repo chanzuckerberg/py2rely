@@ -29,7 +29,7 @@ license = { file = "LICENSE" }
 [project.optional-dependencies]
 web = ["gradio", "pytz"]
 gui = ["PyQt5", "pyqtgraph"]
-relionui = [
+dashboard = [
     "fastapi>=0.110.0",
     "uvicorn[standard]>=0.29.0",
     "watchdog>=4.0.0",
@@ -47,7 +47,7 @@ allow-direct-references = true
 packages = ["py2rely"]
 include = [
     "py2rely/**/*.py",
-    "py2rely/relionui/frontend/dist/**",
+    "py2rely/dashboard/frontend/dist/**",
 ]
 
 [tool.black]

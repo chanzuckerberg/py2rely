@@ -1,0 +1,80 @@
+{
+  "name": "ngl",
+  "version": "2.4.0",
+  "description": "Scalable molecular graphics for the web",
+  "main": "dist/ngl.umd.js",
+  "module": "dist/ngl.esm.js",
+  "types": "dist/declarations/ngl.d.ts",
+  "scripts": {
+    "lint": "npm run lint-src && npm run lint-test && npm run lint-script",
+    "lint-src": "#standard \"src/**/*.js\"",
+    "lint-test": "#standard --env mocha \"test/**/*.js\"",
+    "lint-script": "#standard --global stage --global NGL \"examples/scripts/**/*.js\"",
+    "dts": "tsc -d --declarationDir \"dist/declarations\" --emitDeclarationOnly --skipLibCheck",
+    "prebuild": "npm run lint",
+    "build": "npm run dts && rollup -c",
+    "postbuild": "node ./scripts/makeScriptsList.js",
+    "test": "vitest --globals",
+    "preversion": "npm test",
+    "version": "npm run build-min && git add -A dist",
+    "postversion": "git push && git push --tags",
+    "prepublishOnly": "npm test",
+    "devpublish": "npm publish --tag next",
+    "doc": "typedoc --includes doc/usage/ --media doc/usage/ --out build/docs/ ./src/ngl.ts",
+    "watch": "rollup -c -w",
+    "deploy": "./scripts/deploy.sh prerelease",
+    "gallery": "./scripts/gallery.sh",
+    "prerelease": "./scripts/release.sh prerelease",
+    "build-min": "npm run lint && npm run dts && rollup -c rollup.config.dist.js"
+  },
+  "homepage": "https://github.com/arose/ngl#readme",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/arose/ngl.git"
+  },
+  "bugs": {
+    "url": "https://github.com/arose/ngl/issues"
+  },
+  "files": [
+    "dist"
+  ],
+  "author": "Alexander Rose <alexander.rose@weirdbyte.de>",
+  "contributors": [],
+  "license": "MIT",
+  "keywords": [
+    "molecular graphics",
+    "molecular structure",
+    "chemical structure",
+    "science"
+  ],
+  "devDependencies": {
+    "@babel/preset-env": "^7.23.3",
+    "@rollup/plugin-commonjs": "^17.1.0",
+    "@rollup/plugin-json": "^4.1.0",
+    "@rollup/plugin-node-resolve": "^11.1.1",
+    "@rollup/plugin-terser": "^0.4.3",
+    "@rollup/plugin-typescript": "^8.1.1",
+    "@types/chroma-js": "^1.3.5",
+    "@types/jest": "^27.5.1",
+    "@types/offscreencanvas": "^2019.6.4",
+    "@types/signals": "1.0.1",
+    "@types/sprintf-js": "^1.1.2",
+    "@types/three": "^0.158.2",
+    "@yushijinhun/three-minifier-rollup": "^0.3.1",
+    "babel-plugin-array-includes": "^2.0.3",
+    "jsdom": "^24.0.0",
+    "rollup": "^2.38.5",
+    "standard": "^11.0.1",
+    "tslib": "^2.3.1",
+    "typedoc": "^0.22.15",
+    "typescript": "^4.5.4",
+    "vitest": "^1.5.2"
+  },
+  "dependencies": {
+    "chroma-js": "^1.3.7",
+    "molstar": "^4.1.0",
+    "signals": "^1.0.0",
+    "sprintf-js": "^1.1.2",
+    "three": "^0.158.0"
+  }
+}

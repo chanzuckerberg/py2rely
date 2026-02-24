@@ -10,7 +10,7 @@ from py2rely.pipelines.cli import pipelines
 from py2rely.routines.export import export
 from py2rely.prepare.cli import prepare
 from py2rely.slabs.cli import slab, slab_slurm
-from py2rely.relionui.cli import ui
+from py2rely.dashboard.cli import ui
 
 
 @click.group(context_settings=cli_context)
