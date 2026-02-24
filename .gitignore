@@ -170,6 +170,6 @@ cython_debug/
 #  option (not recommended) you can uncomment the following to ignore the entire idea folder.
 #.idea/node_modules
 
-# relionui frontend — node_modules excluded, pre-built dist/ committed to repo
-py2rely/relionui/frontend/node_modules/
-!py2rely/relionui/frontend/dist/
+# dashboard frontend — node_modules excluded, pre-built dist/ committed to repo
+py2rely/dashboard/frontend/node_modules/
+!py2rely/dashboard/frontend/dist/
