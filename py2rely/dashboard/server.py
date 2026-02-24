@@ -210,7 +210,7 @@ _DIST = Path(__file__).parent / "frontend" / "dist"
 # URL to the pre-built frontend tarball on GitHub Releases.
 # The tarball should contain a top-level dist/ folder
 # (created with: cd py2rely/dashboard/frontend && tar czf dashboard-dist.tar.gz dist/)
-_DIST_URL = "https://github.com/chanzuckerberg/py2rely/releases/latest/download/dashboard-dist.tar.gz"
+_DIST_URL = "https://github.com/chanzuckerberg/py2rely/releases/download/v0.0.0/dashboard-dist.tar.gz"
 
 
 def _ensure_frontend() -> None:
