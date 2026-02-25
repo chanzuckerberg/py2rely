@@ -24,7 +24,11 @@ Once the environment is created, activate it:
 `conda activate pyRely`
 
 Then install the code with:
-`pip install -e .`
+```bash
+git clone https://github.com/chanzuckerberg/py2rely.git
+cd py2rely
+pip install -e .
+````
 
 ### Basic Usage
 `py2rely` provides a clean, scriptable command-line interface. Run the following command to view all the available sub-commands:
