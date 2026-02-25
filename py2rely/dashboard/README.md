@@ -42,15 +42,16 @@ automatically.
 | `--no-browser` | off | Do not auto-open the browser |
 | `--poll-interval` | `5` | Seconds between pipeline polls when filesystem watching is unavailable |
 
-Example — serve on a remote node and tunnel to your laptop:
+### SSH Tunneling HPC Example — serve on a remote node and tunnel to your laptop:
 
 ```bash
-# On the HPC node
-py2rely ui --host 0.0.0.0 --port 3000 --no-browser
-
 # On your laptop
 ssh -L 3000:localhost:3000 user@hpc-node
-# Then open http://localhost:3000
+
+# On the HPC node, navigate to the relion working directory.
+py2rely ui --port 3000 --no-browser
+
+# Then open http://localhost:3000 with a browser on your laptop.
 ```
 
 ---

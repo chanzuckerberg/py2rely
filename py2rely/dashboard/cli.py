@@ -10,7 +10,7 @@ from py2rely import cli_context
 
 
 @click.command(name="ui", context_settings=cli_context)
-@click.option("--port", type=int, default=3000, show_default=True, help="Port to serve on.")
+@click.option("-p", "--port", type=int, default=3000, show_default=True, help="Port to serve on.")
 @click.option(
     "--host",
     type=str,
@@ -18,7 +18,7 @@ from py2rely import cli_context
     show_default=True,
     help="Host to bind to. Use 0.0.0.0 to expose on all interfaces.",
 )
-@click.option("--no-browser", is_flag=True, default=False, help="Do not automatically open the browser on startup.")
+@click.option("-nb", "--no-browser", is_flag=True, default=False, help="Do not automatically open the browser on startup.")
 @click.option(
     "--poll-interval",
     type=int,
