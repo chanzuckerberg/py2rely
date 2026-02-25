@@ -32,7 +32,7 @@ py2rely ui
 The server starts on port **3000** and opens your browser automatically:
 
 ```
-[relion-ui] Running at http://127.0.0.1:3000
+[py2rely-dashboard] Running at http://127.0.0.1:3000
 ```
 
 !!! tip "No `default_pipeline.star` found?"
