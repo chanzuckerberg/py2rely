@@ -4,6 +4,7 @@ import {
   ResponsiveContainer, LineChart, Line,
   XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine,
 } from 'recharts'
+import { AngularDistHeatmap } from './Class3DAnalysis.jsx'
 
 function SummaryBox({ summary, T }) {
   if (!summary || !Object.keys(summary).length) return null
@@ -81,71 +82,82 @@ export default function Refine3DAnalysis({ data }) {
 
   return (
     <div style={{ padding: 16, overflowY: 'auto', height: '100%' }}>
-      <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
 
-        <SummaryBox summary={data.summary} T={T} />
+        {/* Row 1: Summary + Resolution Convergence */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          <SummaryBox summary={data.summary} T={T} />
 
-        {/* Convergence plot */}
-        {data.convergence?.length > 0 && (
-          <div style={panelStyle}>
-            <div style={titleStyle}>Resolution Convergence</div>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={data.convergence} margin={{ top: 4, right: 8, bottom: 16, left: 4 }}>
-                <CartesianGrid {...gridProps} />
-                <XAxis
-                  dataKey="iter" {...axisProps}
-                  label={{ value: 'Iteration', position: 'insideBottom', offset: -8, style: { fontSize: 10, fill: T.textMuted } }}
-                />
-                <YAxis
-                  {...axisProps}
-                  label={{ value: 'Å', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: T.textMuted } }}
-                />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={v => [`${Number(v).toFixed(2)} Å`, 'Resolution']}
-                />
-                <Line type="monotone" dataKey="resolution" stroke={T.accent} dot={{ r: 3, fill: T.accent }} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
-
-        {/* FSC curve */}
-        {data.fsc?.length > 0 && (
-          <div style={panelStyle} ref={chartRef}>
-            <div style={{ ...titleStyle, display: 'flex', alignItems: 'center' }}>
-              <span>Gold-Standard FSC</span>
-              {maxA !== 100 && (
-                <button onClick={() => setMaxA(100)} style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 3, cursor: 'pointer', background: 'none', border: `1px solid ${T.border}`, color: T.textMuted }}>
-                  Reset zoom
-                </button>
-              )}
+          {data.convergence?.length > 0 && (
+            <div style={panelStyle}>
+              <div style={titleStyle}>Resolution Convergence</div>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={data.convergence} margin={{ top: 4, right: 8, bottom: 16, left: 4 }}>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis
+                    dataKey="iter" {...axisProps}
+                    label={{ value: 'Iteration', position: 'insideBottom', offset: -8, style: { fontSize: 10, fill: T.textMuted } }}
+                  />
+                  <YAxis
+                    {...axisProps}
+                    label={{ value: 'Å', angle: -90, position: 'insideLeft', style: { fontSize: 10, fill: T.textMuted } }}
+                  />
+                  <Tooltip
+                    {...tooltipStyle}
+                    formatter={v => [`${Number(v).toFixed(2)} Å`, 'Resolution']}
+                  />
+                  <Line type="monotone" dataKey="resolution" stroke={T.accent} dot={{ r: 3, fill: T.accent }} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
             </div>
-            <ResponsiveContainer width="100%" height={180}>
-              <LineChart data={data.fsc} margin={{ top: 4, right: 8, bottom: 16, left: 4 }}>
-                <CartesianGrid {...gridProps} />
-                <XAxis
-                  dataKey="resolution_a"
-                  reversed type="number"
-                  domain={[nyquist, maxA]}
-                  allowDataOverflow
-                  {...axisProps}
-                  label={{ value: 'Resolution (Å)', position: 'insideBottom', offset: -8, style: { fontSize: 10, fill: T.textMuted } }}
-                />
-                <YAxis domain={[0, 1]} {...axisProps} />
-                <ReferenceLine y={0.143} stroke="#ef4444" strokeDasharray="4 4"
-                  label={{ value: '0.143', fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }}
-                />
-                <Tooltip
-                  {...tooltipStyle}
-                  formatter={v => [Number(v).toFixed(3), 'FSC']}
-                  labelFormatter={v => `${v} Å`}
-                />
-                <Line type="monotone" dataKey="fsc" stroke={T.accent} dot={false} strokeWidth={2} />
-              </LineChart>
-            </ResponsiveContainer>
-          </div>
-        )}
+          )}
+        </div>
+
+        {/* Row 2: Gold-Standard FSC + Angular Distribution */}
+        <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap' }}>
+          {data.fsc?.length > 0 && (
+            <div style={panelStyle} ref={chartRef}>
+              <div style={{ ...titleStyle, display: 'flex', alignItems: 'center' }}>
+                <span>Gold-Standard FSC</span>
+                {maxA !== 100 && (
+                  <button onClick={() => setMaxA(100)} style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 3, cursor: 'pointer', background: 'none', border: `1px solid ${T.border}`, color: T.textMuted }}>
+                    Reset zoom
+                  </button>
+                )}
+              </div>
+              <ResponsiveContainer width="100%" height={180}>
+                <LineChart data={data.fsc} margin={{ top: 4, right: 8, bottom: 16, left: 4 }}>
+                  <CartesianGrid {...gridProps} />
+                  <XAxis
+                    dataKey="resolution_a"
+                    reversed type="number"
+                    domain={[nyquist, maxA]}
+                    allowDataOverflow
+                    {...axisProps}
+                    label={{ value: 'Resolution (Å)', position: 'insideBottom', offset: -8, style: { fontSize: 10, fill: T.textMuted } }}
+                  />
+                  <YAxis domain={[0, 1]} {...axisProps} />
+                  <ReferenceLine y={0.143} stroke="#ef4444" strokeDasharray="4 4"
+                    label={{ value: '0.143', fill: '#ef4444', fontSize: 9, position: 'insideTopRight' }}
+                  />
+                  <Tooltip
+                    {...tooltipStyle}
+                    formatter={v => [Number(v).toFixed(3), 'FSC']}
+                    labelFormatter={v => `${v} Å`}
+                  />
+                  <Line type="monotone" dataKey="fsc" stroke={T.accent} dot={false} strokeWidth={2} />
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+          )}
+
+          {data.angular_dist && (
+            <div style={{ background: T.surface2, borderRadius: 8, padding: 12, border: `1px solid ${T.border}`, flex: '0 0 auto' }}>
+              <div style={titleStyle}>Angular Distribution (Rot × Tilt)</div>
+              <AngularDistHeatmap grid={data.angular_dist} />
+            </div>
+          )}
+        </div>
 
       </div>
     </div>

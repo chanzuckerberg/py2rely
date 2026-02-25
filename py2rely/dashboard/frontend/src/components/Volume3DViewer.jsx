@@ -119,7 +119,8 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
     setSelectedFile(pickBestMap(files, jobType))
     setShowBox(true)
     setWireframe(false)
-    setOpacity(1.0)
+    setOpacity(jobType === 'MaskCreate' ? 0.8 : 1.0)
+    setOverlayOpacity(jobType === 'MaskCreate' ? 1.0 : 0.5)
   }, [files, jobType])
 
   // Fetch primary map header and set data-driven initial contour

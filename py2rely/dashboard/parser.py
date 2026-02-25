@@ -362,7 +362,22 @@ def _parse_refine3d_analysis(job_dir: Path) -> dict:  # type: ignore[type-arg]
             pass
 
     fsc.sort(key=lambda x: x["resolution_a"], reverse=True)
-    return {"type": "Refine3D", "convergence": convergence, "fsc": fsc, "summary": summary}
+
+    angular_dist = None
+    data_files = sorted(job_dir.glob("run_it*_data.star"))
+    if data_files:
+        try:
+            d = starfile.read(str(data_files[-1]))
+            particles: pd.DataFrame = d.get("particles", pd.DataFrame())
+            if not particles.empty and "rlnAngleRot" in particles.columns:
+                rot  = particles["rlnAngleRot"].values.astype(float) % 360
+                tilt = np.clip(particles["rlnAngleTilt"].values.astype(float), 0, 180)
+                hist, _, _ = np.histogram2d(rot, tilt, bins=[36, 18], range=[[0, 360], [0, 180]])
+                angular_dist = hist.tolist()
+        except Exception:
+            pass
+
+    return {"type": "Refine3D", "convergence": convergence, "fsc": fsc, "summary": summary, "angular_dist": angular_dist}
 
 
 def _parse_class3d_analysis(job_dir: Path) -> dict:  # type: ignore[type-arg]

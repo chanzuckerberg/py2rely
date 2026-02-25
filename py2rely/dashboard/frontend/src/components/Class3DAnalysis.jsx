@@ -14,7 +14,7 @@ function classColor(i) {
 }
 
 // Angular distribution heatmap using SVG
-function AngularDistHeatmap({ grid }) {
+export function AngularDistHeatmap({ grid }) {
   const T = useTheme()
   if (!grid) return (
     <div style={{ fontSize: 11, color: T.textMuted, padding: 8 }}>
