@@ -69,8 +69,7 @@ def _detect_status(job_dir: Path, star_status: str) -> str:
     if (job_dir / "PIPELINER_JOB_EXIT_SUCCESS").exists():
         return "finished"
     if (job_dir / "RELION_JOB_EXIT_SUCCESS").exists():
-        # RELION finished but pipeliner hasn't written its sentinel yet — treat as running.
-        return "running"
+        return "finished"
     return _STAR_STATUS_MAP.get(star_status, "queued")
 
 
@@ -265,15 +264,19 @@ def get_job_type(project_dir: Path, job_id: str) -> str:
 
 
 def get_command_history(project_dir: Path, job_id: str) -> list[str]:
-    """Return the command history from .CCPEM_pipeliner_jobinfo."""
-    info_file = project_dir / job_id / ".CCPEM_pipeliner_jobinfo"
-    if not info_file.exists():
+    """Return the command from the job's note.txt file."""
+    note_file = project_dir / job_id / "note.txt"
+    if not note_file.exists():
         return []
     try:
-        data = json.loads(info_file.read_text())
-        return data.get("command_history", [])
+        lines = note_file.read_text().splitlines()
+        for i, line in enumerate(lines):
+            if "with the following command:" in line and i + 1 < len(lines):
+                cmd = lines[i + 1].strip()
+                return [cmd] if cmd else []
     except Exception:
-        return []
+        pass
+    return []
 
 
 # ---------------------------------------------------------------------------

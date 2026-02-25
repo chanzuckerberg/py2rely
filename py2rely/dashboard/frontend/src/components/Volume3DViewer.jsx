@@ -359,6 +359,26 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
         {/* Bounding box toggle */}
         <button onClick={() => setShowBox(v => !v)} style={btnStyle(showBox)}>box</button>
 
+        {/* Export PNG */}
+        <button
+          onClick={() => {
+            if (!stageRef.current) return
+            stageRef.current.makeImage({ factor: 2, antialias: true, transparent: false })
+              .then(blob => {
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${(selectedFile ?? 'volume').replace('.mrc', '')}.png`
+                a.click()
+                URL.revokeObjectURL(url)
+              })
+          }}
+          style={btnStyle(false)}
+          disabled={status !== 'ready'}
+        >
+          save png
+        </button>
+
         {/* Map info */}
         {mapInfo && (
           <span style={{ fontSize: 10, color: T.textMuted, marginLeft: 'auto', fontFamily: 'monospace' }}>

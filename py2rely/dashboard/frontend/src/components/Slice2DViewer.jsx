@@ -29,6 +29,8 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
   const minValRef = useRef(null)
   const maxValRef = useRef(null)
 
+  const colorScaleRef = useRef('Greys')
+
   const [selectedFile, setSelectedFile] = useState(null)
   const [mapInfo,      setMapInfo]      = useState(null)
   const [dim,          setDim]          = useState('z')
@@ -37,11 +39,13 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
   const [maxVal,       setMaxVal]       = useState(null)
   const [showBox,      setShowBox]      = useState(true)      // on by default
   const [status,       setStatus]       = useState('idle')
+  const [colorScale,   setColorScale]   = useState('Greys')
 
-  dimRef.current    = dim
-  posRef.current    = pos
-  minValRef.current = minVal
-  maxValRef.current = maxVal
+  dimRef.current        = dim
+  posRef.current        = pos
+  minValRef.current     = minVal
+  maxValRef.current     = maxVal
+  colorScaleRef.current = colorScale
 
   // Pick best file on job change, reset controls
   useEffect(() => {
@@ -109,9 +113,10 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
         comp.addRepresentation('slice', {
           dimension:   dimRef.current,
           colorScheme: 'density',
+          colorScale:  colorScaleRef.current,
           position:    toNglPos(posRef.current),
           ...(minValRef.current !== null && maxValRef.current !== null
-            ? { colorDomain: [minValRef.current, maxValRef.current] }
+            ? { colorDomain: [maxValRef.current, minValRef.current] }
             : {}),
         })
         comp.autoView()
@@ -134,13 +139,14 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
     comp.addRepresentation('slice', {
       dimension:   dim,
       colorScheme: 'density',
+      colorScale,
       position:    toNglPos(posRef.current),
       ...(minVal !== null && maxVal !== null
-        ? { colorDomain: [minVal, maxVal] }
+        ? { colorDomain: [maxVal, minVal] }
         : {}),
     })
     if (dimChanged) comp.autoView()
-  }, [dim, minVal, maxVal]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [dim, minVal, maxVal, colorScale]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Slice position: live update via setParameters ────────────────────────
   // NGL position is 1–100 (percent of voxels); position has rebuild:true so
@@ -259,8 +265,41 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
           </span>
         </div>
 
+        {/* Colormap selector */}
+        <select
+          value={colorScale}
+          onChange={e => setColorScale(e.target.value)}
+          style={{ fontSize: 11, background: T.surface2, border: `1px solid ${T.border}`,
+                   borderRadius: 4, color: T.text, padding: '3px 6px' }}
+        >
+          {[['Greys','Greys'],['Viridis','Viridis'],['Blues','Blues'],
+            ['Reds','Reds'],['Oranges','Oranges'],['RdBu','RdBu']].map(([label, val]) => (
+            <option key={val} value={val}>{label}</option>
+          ))}
+        </select>
+
         {/* Bounding box toggle */}
         <button onClick={() => setShowBox(v => !v)} style={btnStyle(showBox)}>box</button>
+
+        {/* Export PNG */}
+        <button
+          onClick={() => {
+            if (!stageRef.current) return
+            stageRef.current.makeImage({ factor: 2, antialias: true, transparent: false })
+              .then(blob => {
+                const url = URL.createObjectURL(blob)
+                const a = document.createElement('a')
+                a.href = url
+                a.download = `${(selectedFile ?? 'slice').replace('.mrc', '')}.png`
+                a.click()
+                URL.revokeObjectURL(url)
+              })
+          }}
+          style={btnStyle(false)}
+          disabled={status !== 'ready'}
+        >
+          save png
+        </button>
 
         {/* Map info */}
         {mapInfo && (
