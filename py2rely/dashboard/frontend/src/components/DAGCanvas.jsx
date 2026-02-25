@@ -100,7 +100,7 @@ export default function DAGCanvas({ pipeline, selectedId, onSelect }) {
   // Zoom handler (non-passive so we can preventDefault)
   const onWheel = useCallback(e => {
     e.preventDefault()
-    setZoom(z => Math.max(0.15, Math.min(3, z * (e.deltaY < 0 ? 1.1 : 0.9))))
+    setZoom(z => Math.max(0.25, Math.min(2, z * (e.deltaY < 0 ? 1.1 : 0.9))))
   }, [])
 
   useEffect(() => {
@@ -108,7 +108,7 @@ export default function DAGCanvas({ pipeline, selectedId, onSelect }) {
     if (!el) return
     el.addEventListener('wheel', onWheel, { passive: false })
     return () => el.removeEventListener('wheel', onWheel)
-  }, [onWheel])
+  }, [onWheel, pipeline])
 
   // Edges connected to selected node (for highlighting)
   const highlighted = useMemo(() => {
@@ -139,9 +139,9 @@ export default function DAGCanvas({ pipeline, selectedId, onSelect }) {
     <div style={{ position: 'relative', width: '100%', height: '100%' }}>
     {/* Zoom controls */}
     <div style={{ position: 'absolute', bottom: 16, right: 16, zIndex: 10, display: 'flex', flexDirection: 'column', gap: 4 }}>
-      <div style={btnStyle} onClick={() => setZoom(z => Math.min(3, z * 1.25))}>+</div>
+      <div style={btnStyle} onClick={() => setZoom(z => Math.min(2, z * 1.25))}>+</div>
       <div style={{ ...btnStyle, fontSize: 10, fontFamily: 'monospace' }}>{Math.round(zoom * 100)}%</div>
-      <div style={btnStyle} onClick={() => setZoom(z => Math.max(0.15, z * 0.8))}>−</div>
+      <div style={btnStyle} onClick={() => setZoom(z => Math.max(0.25, z * 0.8))}>−</div>
     </div>
     <svg
       ref={svgRef}
@@ -216,6 +216,14 @@ export default function DAGCanvas({ pipeline, selectedId, onSelect }) {
               <text x={12} y={34} fontSize={10} fontFamily="sans-serif" fill={typeColor}>
                 {node.type}
               </text>
+
+              {/* Resolution right-aligned on same row as type label */}
+              {node.resolution != null && (
+                <text x={NODE_W - 20} y={34} fontSize={9} fontFamily="monospace"
+                      fill={theme.textMuted} textAnchor="end">
+                  {node.resolution.toFixed(1)} Å
+                </text>
+              )}
             </g>
           )
         })}

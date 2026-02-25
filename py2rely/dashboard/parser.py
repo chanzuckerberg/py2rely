@@ -45,10 +45,12 @@ _TYPE_LABEL_MAP: dict[str, str] = {
     "relion.framealigntomo": "Polish",
     "relion.localres": "LocalRes",
     "relion.maskcreate": "MaskCreate",
+    "relion.initialmodel.tomo": "InitialModel",
     "relion.reconstructparticletomo": "Reconstruct",
 }
 
 _BINFACTOR_TYPES = {"Extract", "Reconstruct"}
+_RESOLUTION_TYPES = {"PostProcess", "Refine3D", "Class3D"}
 
 _STAR_STATUS_MAP: dict[str, str] = {
     "Succeeded": "finished",
@@ -88,6 +90,46 @@ def _read_binfactor(job_dir: Path) -> Optional[str]:
         return str(row.iloc[0]["rlnJobOptionValue"]).strip()
     except Exception:
         return None
+
+
+def _read_resolution(job_dir: Path, disp_type: str) -> Optional[float]:
+    """Read the best final resolution from job output star files."""
+    try:
+        if disp_type == "PostProcess":
+            pp = job_dir / "postprocess.star"
+            if not pp.exists():
+                return None
+            d = starfile.read(str(pp))
+            gen = d.get("general", {})
+            if isinstance(gen, pd.DataFrame):
+                gen = gen.iloc[0].to_dict() if not gen.empty else {}
+            val = float(gen.get("rlnFinalResolution", 0))
+            return round(val, 2) if val > 0 else None
+
+        elif disp_type == "Refine3D":
+            files = sorted(job_dir.glob("run_it*_half1_model.star"))
+            if not files:
+                return None
+            d = starfile.read(str(files[-1]))
+            gen = d.get("model_general", {})
+            if isinstance(gen, pd.DataFrame):
+                gen = gen.iloc[0].to_dict() if not gen.empty else {}
+            val = float(gen.get("rlnCurrentResolution", 0))
+            return round(val, 2) if val > 0 and math.isfinite(val) else None
+
+        elif disp_type == "Class3D":
+            files = sorted(job_dir.glob("run_it*_model.star"))
+            if not files:
+                return None
+            d = starfile.read(str(files[-1]))
+            mc: pd.DataFrame = d.get("model_classes", pd.DataFrame())
+            if isinstance(mc, pd.DataFrame) and not mc.empty and "rlnEstimatedResolution" in mc.columns:
+                vals = [float(r) for r in mc["rlnEstimatedResolution"]
+                        if math.isfinite(float(r)) and float(r) > 0]
+                return round(min(vals), 2) if vals else None
+    except Exception:
+        return None
+    return None
 
 
 def _get_timestamp(job_dir: Path) -> Optional[str]:
@@ -146,6 +188,7 @@ def parse_pipeline(project_dir: Path) -> PipelineGraph:
             disp_type = _display_type(type_label)
             job_dir = project_dir / job_id
 
+            resolution = _read_resolution(job_dir, disp_type) if disp_type in _RESOLUTION_TYPES else None
             job_nodes.append(
                 JobNode(
                     id=job_id,
@@ -156,6 +199,7 @@ def parse_pipeline(project_dir: Path) -> PipelineGraph:
                     has_results=job_id in jobs_with_results,
                     has_3d=job_id in jobs_with_3d,
                     binfactor=_read_binfactor(job_dir) if disp_type in _BINFACTOR_TYPES else None,
+                    resolution=resolution,
                 )
             )
 

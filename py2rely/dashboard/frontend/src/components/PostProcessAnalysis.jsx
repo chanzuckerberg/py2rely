@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useTheme } from '../theme.js'
 import {
   ResponsiveContainer, LineChart, Line,
@@ -52,6 +52,22 @@ export default function PostProcessAnalysis({ data }) {
     labelStyle: { color: T.textMuted },
   }
 
+  const nyquist = data.fsc?.length ? Math.min(...data.fsc.map(d => d.resolution_a)) : 1
+  const [maxA, setMaxA] = useState(100)
+  const chartRef = useRef(null)
+  useEffect(() => {
+    const onWheel = e => {
+      const el = chartRef.current
+      if (!el) return
+      const { left, right, top, bottom } = el.getBoundingClientRect()
+      if (e.clientX < left || e.clientX > right || e.clientY < top || e.clientY > bottom) return
+      e.preventDefault()
+      setMaxA(prev => Math.max(5, Math.min(100, prev * (e.deltaY < 0 ? 0.9 : 1.1))))
+    }
+    document.addEventListener('wheel', onWheel, { passive: false })
+    return () => document.removeEventListener('wheel', onWheel)
+  }, [])
+
   if (!data.fsc?.length) {
     return (
       <div style={{ padding: 16, color: T.textMuted, fontSize: 12 }}>
@@ -67,15 +83,23 @@ export default function PostProcessAnalysis({ data }) {
         <SummaryBox summary={data.summary} T={T} />
 
         {/* FSC curve */}
-        <div style={panelStyle}>
-          <div style={titleStyle}>Post-Processing FSC</div>
+        <div style={panelStyle} ref={chartRef}>
+          <div style={{ ...titleStyle, display: 'flex', alignItems: 'center' }}>
+            <span>Post-Processing FSC</span>
+            {maxA !== 100 && (
+              <button onClick={() => setMaxA(100)} style={{ marginLeft: 'auto', fontSize: 9, padding: '1px 6px', borderRadius: 3, cursor: 'pointer', background: 'none', border: `1px solid ${T.border}`, color: T.textMuted }}>
+                Reset zoom
+              </button>
+            )}
+          </div>
           <ResponsiveContainer width="100%" height={240}>
             <LineChart data={data.fsc} margin={{ top: 4, right: 16, bottom: 20, left: 4 }}>
               <CartesianGrid {...gridProps} />
               <XAxis
                 dataKey="resolution_a"
                 reversed type="number"
-                domain={['dataMax', 'dataMin']}
+                domain={[nyquist, maxA]}
+                allowDataOverflow
                 {...axisProps}
                 label={{ value: 'Resolution (Å)', position: 'insideBottom', offset: -10, style: { fontSize: 10, fill: T.textMuted } }}
               />

@@ -16,6 +16,7 @@ class JobNode(BaseModel):
     has_results: bool
     has_3d: bool
     binfactor: Optional[str] = None  # only set for Extract / Reconstruct jobs
+    resolution: Optional[float] = None  # only set for PostProcess / Refine3D / Class3D
 
 
 class Edge(BaseModel):

@@ -8,7 +8,7 @@ import Slice2DViewer from './Slice2DViewer.jsx'
 import AnalysisPanel from './AnalysisPanel.jsx'
 
 const TABS = ['Params', 'Analysis', 'Log', 'Outputs', '3D Map', '2D Slices']
-const HAS_3D_TYPES      = new Set(['Refine3D', 'Class3D', 'PostProcess', 'Reconstruct', 'MaskCreate'])
+const HAS_3D_TYPES      = new Set(['Refine3D', 'Class3D', 'PostProcess', 'Reconstruct', 'MaskCreate', 'InitialModel'])
 const HAS_ANALYSIS_TYPES = new Set(['Refine3D', 'Class3D', 'PostProcess', 'CtfFind', 'Polish', 'CtfRefine'])
 
 function ParamsTable({ job, theme }) {

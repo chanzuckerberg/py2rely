@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useState, useRef, useEffect } from 'react'
 import { useTheme } from '../theme.js'
 import {
   ResponsiveContainer, AreaChart, Area,
@@ -123,6 +123,22 @@ export default function Class3DAnalysis({ data }) {
     })
   }
 
+  const fscNyquist = fscData.length ? Math.min(...fscData.map(d => d.resolution_a)) : 1
+  const [fscMaxA, setFscMaxA] = useState(100)
+  const fscChartRef = useRef(null)
+  useEffect(() => {
+    const onWheel = e => {
+      const el = fscChartRef.current
+      if (!el) return
+      const { left, right, top, bottom } = el.getBoundingClientRect()
+      if (e.clientX < left || e.clientX > right || e.clientY < top || e.clientY > bottom) return
+      e.preventDefault()
+      setFscMaxA(prev => Math.max(5, Math.min(100, prev * (e.deltaY < 0 ? 0.9 : 1.1))))
+    }
+    document.addEventListener('wheel', onWheel, { passive: false })
+    return () => document.removeEventListener('wheel', onWheel)
+  }, [])
+
   const panelStyle = {
     background: T.surface2, borderRadius: 8, padding: 12,
     border: `1px solid ${T.border}`,
@@ -178,10 +194,16 @@ export default function Class3DAnalysis({ data }) {
           )}
 
           {/* Per-class FSC */}
-          {fscData.length > 0 && (
-            <div style={{ ...panelStyle, flex: '1 1 280px', minWidth: 0 }}>
+          {fscData.length > 0 && (() => {
+            return (
+            <div style={{ ...panelStyle, flex: '1 1 280px', minWidth: 0 }} ref={fscChartRef}>
               <div style={{ ...titleStyle, display: 'flex', alignItems: 'center', gap: 6, flexWrap: 'wrap' }}>
                 <span>FSC per Class</span>
+                {fscMaxA !== 100 && (
+                  <button onClick={() => setFscMaxA(100)} style={{ fontSize: 9, padding: '1px 6px', borderRadius: 3, cursor: 'pointer', background: 'none', border: `1px solid ${T.border}`, color: T.textMuted }}>
+                    Reset zoom
+                  </button>
+                )}
                 <div style={{ display: 'flex', gap: 4, marginLeft: 'auto' }}>
                   {Array.from({ length: nClasses }, (_, i) => (
                     <button
@@ -205,7 +227,8 @@ export default function Class3DAnalysis({ data }) {
                   <XAxis
                     dataKey="resolution_a"
                     reversed type="number"
-                    domain={['dataMax', 'dataMin']}
+                    domain={[fscNyquist, fscMaxA]}
+                    allowDataOverflow
                     {...axisProps}
                     label={{ value: 'Resolution (Å)', position: 'insideBottom', offset: -8, style: { fontSize: 10, fill: T.textMuted } }}
                   />
@@ -233,7 +256,8 @@ export default function Class3DAnalysis({ data }) {
                 </LineChart>
               </ResponsiveContainer>
             </div>
-          )}
+            )
+          })()}
         </div>
 
         {/* Row 2: Angular distribution + Stats table */}

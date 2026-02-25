@@ -57,16 +57,9 @@ ssh -L 3000:localhost:3000 user@hpc-node
 
 ## What you can see
 
-| Tab | Available for |
-|-----|---------------|
-| **Params** | All job types — parameters used to run the job |
-| **Analysis** | Refine3D, Class3D, PostProcess, CtfFind, Polish, CtfRefine — scientific plots and summary statistics |
-| **Log** | All job types — live-streaming run log |
-| **Outputs** | All job types — file browser for job outputs |
-| **3D Map** | Refine3D, Class3D, PostProcess, Reconstruct, MaskCreate — interactive isosurface viewer |
-| **2D Slices** | Same as above — orthogonal slice viewer with brightness/contrast controls |
+![dashboard](../../docs/assets/dashboard.png)
 
-The pipeline DAG in the left sidebar updates automatically as jobs start and finish.
+The dashboard provides a scrollable list of all ran jobs alongside a visualisation of the pipeline node structure. Clicking any job opens a detail panel with job-type-specific analysis tabs — showing relevant plots such as FSC curves and convergence statistics — as well as the ability to render output density maps interactively in 3D.
 
 ---
 
@@ -99,3 +92,43 @@ shipped to other users without requiring them to install Node.js.
 > **Why PYTHONPATH?** If you have py2rely installed in your environment (via `pip install
 > -e .`), Python will use that installed copy's `dist/`. Setting `PYTHONPATH` forces it
 > to use your local source tree — including any freshly built frontend — instead.
+
+---
+
+## Architecture
+
+```
+py2rely/dashboard/
+├── cli.py                          # `py2rely ui` entry point — options, lazy-loads server
+├── server.py                       # FastAPI app — REST + WebSocket, serves frontend dist/
+├── parser.py                       # Parses RELION project (jobs, edges, params, star files)
+├── models.py                       # Pydantic response models (JobNode, Pipeline, etc.)
+├── watcher.py                      # Watchdog handler — pushes pipeline updates over WebSocket
+└── frontend/
+    ├── index.html
+    ├── vite.config.js
+    ├── dist/                       # Pre-built bundle (committed — no Node.js required)
+    └── src/
+        ├── main.jsx                # React entry point
+        ├── App.jsx                 # Root component — layout, WebSocket subscription
+        ├── theme.js                # Colour tokens and STATUS_COLOR / TYPE_COLOR maps
+        ├── api/
+        │   ├── http.js             # Fetch wrappers for REST endpoints
+        │   └── socket.js           # WebSocket client
+        └── components/
+            ├── Topbar.jsx          # Header bar
+            ├── Sidebar.jsx         # Job list with status badges
+            ├── DAGCanvas.jsx       # SVG pipeline DAG — pan/zoom, node selection
+            ├── DetailPanel.jsx     # Tabbed detail view — Params / Analysis / Log / Outputs / 3D / 2D
+            ├── LogViewer.jsx       # Live-streaming job log
+            ├── ResultsViewer.jsx   # Output file browser
+            ├── Volume3DViewer.jsx  # Interactive 3D isosurface viewer (NGL)
+            ├── Slice2DViewer.jsx   # Orthogonal 2D slice viewer
+            ├── AnalysisPanel.jsx   # Dispatches to job-type-specific analysis component
+            ├── Refine3DAnalysis.jsx    # Resolution convergence + gold-standard FSC
+            ├── Class3DAnalysis.jsx     # Class distribution, per-class FSC, angular distribution
+            ├── PostProcessAnalysis.jsx # Post-processing FSC (corrected / unmasked / phase-rand)
+            ├── CtfFindAnalysis.jsx     # CTF defocus and fit diagnostics
+            ├── CtfRefineAnalysis.jsx   # Per-tilt CTF refinement plots
+            └── PolishAnalysis.jsx      # Particle polishing diagnostics
+```
