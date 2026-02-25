@@ -5,7 +5,8 @@ import { fileUrl, fetchMapInfo } from '../api/http.js'
 
 // Pick the most informative MRC file for a given job type
 export function pickBestMap(files, jobType) {
-  const mrc = files?.filter(f => f.endsWith('.mrc')) ?? []
+  let mrc = files?.filter(f => f.endsWith('.mrc')) ?? []
+  if (jobType === 'InitialModel') mrc = mrc.filter(f => !f.includes('moment'))
   if (!mrc.length) return null
 
   const priorities = {
@@ -20,7 +21,7 @@ export function pickBestMap(files, jobType) {
   }
 
   // Class3D / Class2D: highest-iteration class001
-  if (jobType === 'Class3D' || jobType === 'Class2D') {
+  if (jobType === 'Class3D' || jobType === 'Class2D' || jobType === 'InitialModel') {
     const cls = mrc.filter(f => /run_it\d+_class001\.mrc$/.test(f))
     if (cls.length) {
       return cls.sort((a, b) => {
@@ -275,7 +276,8 @@ export default function Volume3DViewer({ jobId, jobType, files, overlayPath }) {
   }, [overlayContour])
 
   // ── UI helpers ───────────────────────────────────────────────────────────
-  const mrcFiles = files?.filter(f => f.endsWith('.mrc')) ?? []
+  const mrcFiles = (files?.filter(f => f.endsWith('.mrc')) ?? [])
+    .filter(f => jobType !== 'InitialModel' || !f.includes('moment'))
 
   if (!mrcFiles.length) {
     return (

@@ -173,7 +173,8 @@ export default function Slice2DViewer({ jobId, jobType, files }) {
   }, [showBox, mapInfo, status])
 
   // ── UI ───────────────────────────────────────────────────────────────────
-  const mrcFiles = files?.filter(f => f.endsWith('.mrc')) ?? []
+  const mrcFiles = (files?.filter(f => f.endsWith('.mrc')) ?? [])
+    .filter(f => jobType !== 'InitialModel' || !f.includes('moment'))
   if (!mrcFiles.length) {
     return (
       <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', color: T.textMuted, fontSize: 13 }}>
