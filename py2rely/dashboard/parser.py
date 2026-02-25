@@ -50,7 +50,7 @@ _TYPE_LABEL_MAP: dict[str, str] = {
 }
 
 _BINFACTOR_TYPES = {"Extract", "Reconstruct"}
-_RESOLUTION_TYPES = {"PostProcess", "Refine3D", "Class3D"}
+_RESOLUTION_TYPES = {"PostProcess", "Refine3D", "Class3D", "InitialModel"}
 
 _STAR_STATUS_MAP: dict[str, str] = {
     "Succeeded": "finished",
@@ -271,7 +271,7 @@ def get_command_history(project_dir: Path, job_id: str) -> list[str]:
     try:
         lines = note_file.read_text().splitlines()
         for i, line in enumerate(lines):
-            if "with the following command:" in line and i + 1 < len(lines):
+            if "with the following command" in line and i + 1 < len(lines):
                 cmd = lines[i + 1].strip()
                 return [cmd] if cmd else []
     except Exception:
@@ -291,6 +291,7 @@ def parse_analysis(project_dir: Path, job_id: str) -> dict:  # type: ignore[type
     dispatchers = {
         "Refine3D":    _parse_refine3d_analysis,
         "Class3D":     _parse_class3d_analysis,
+        "InitialModel": _parse_class3d_analysis,
         "PostProcess": _parse_postprocess_analysis,
         "CtfFind":     _parse_ctffind_analysis,
         "Polish":      _parse_polish_analysis,

@@ -42,6 +42,7 @@ export default function AnalysisPanel({ job, nodeId }) {
   switch (job?.type) {
     case 'Refine3D':    return <Refine3DAnalysis    data={data} />
     case 'Class3D':     return <Class3DAnalysis     data={data} />
+    case 'InitialModel': return <Class3DAnalysis    data={data} />
     case 'PostProcess': return <PostProcessAnalysis data={data} />
     case 'CtfFind':     return <CtfFindAnalysis     data={data} />
     case 'Polish':      return <PolishAnalysis      data={data} />
