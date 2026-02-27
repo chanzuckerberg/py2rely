@@ -1,26 +1,16 @@
-from pipeliner.jobs.relion import select_job, maskcreate_job
+from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
+from py2rely.utils.custom_jobs import CustomPostprocessJob
 from py2rely.utils.progress import get_console
 from py2rely.config import get_load_commands
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
 import subprocess, os, submitit
 from rich.syntax import Syntax
+from typing import Tuple, List
 from rich.table import Table
 from rich.panel import Panel
 import numpy as np
 import warnings
-
-# Define Custom Postprocess Job to Avoid Future Warnings
-from pipeliner.job_options import JobOptionValidationResult
-from pipeliner.jobs.relion.postprocess_job import PostprocessJob
-from typing import List, Tuple
-
-class CustomPostprocessJob(PostprocessJob):
-    """
-    Custom Post Processing Job to Supress the Requirement for Auto Sharpening
-    """
-    def additional_joboption_validation(self) -> List[JobOptionValidationResult]:
-        return []
 
 ##############################################################################
 
@@ -85,7 +75,7 @@ class PipelineHelper:
         self.submitit_ignore_jobs = (
             select_job.RelionSelectOnValue, 
             maskcreate_job.RelionMaskCreate,
-            PostprocessJob
+            postprocess_job.PostprocessJob
         )
 
     def set_compute_constraints(self, cpu_constraint: List[int], gpu_constraint: Tuple[str, int], ngpus: int, timeout: int):
@@ -732,7 +722,7 @@ class PipelineHelper:
         # If Completed Post Process Already Exists, Start Logging New Iterations if rerunPostProcess is True. 
         if rerunPostProcess: postProcessJobIter = self.return_job_iter(f'bin{self.binning}', 'post_process')
         else:                postProcessJobIter = None
-        # self.post_process_job.joboptions['autob_lowres'].value = self.binning * self.params['resolutions']['angpix'] * 3
+        # Run the post-processing job
         self.run_job(self.post_process_job, 'post_process', 'Post Process', jobIter = postProcessJobIter)  
 
     # Mask Creation Job
