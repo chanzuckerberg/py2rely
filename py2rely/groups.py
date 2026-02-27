@@ -9,6 +9,16 @@ click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 # }
 
 click.rich_click.OPTION_GROUPS = {
+    "py2rely ui": [
+        {
+            "name": "Server",
+            "options": ["--port", "--host", "--no-browser"],
+        },
+        {
+            "name": "Monitoring",
+            "options": ["--poll-interval"],
+        },
+    ],
     "py2rely prepare particles": [
         {
             "name": "I/O",
