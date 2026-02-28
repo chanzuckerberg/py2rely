@@ -5,7 +5,7 @@ build-backend = "hatchling.build"
 [project]
 name = "py2rely"
 requires-python = ">=3.9"
-version = "0.1.0"  
+version = "0.6.0"  
 dependencies = [
     "scipy",
     "gradio",
