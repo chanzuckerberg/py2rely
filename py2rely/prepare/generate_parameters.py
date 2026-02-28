@@ -326,7 +326,7 @@ def run_relion5_pipeline(
         init_model_command = "--run-denovo-generation True"
     elif reference_template:
         print(f"Generating Initial Model with Reference Template: {reference_template}")
-        init_model_command = "--reference-template {reference_template}"
+        init_model_command = f"--reference-template {reference_template}"
     else:
         print("Generating Initial Model with Particle Reconstruction")
         init_model_command = "--run-reconstruct-particle True"
