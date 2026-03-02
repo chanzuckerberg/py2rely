@@ -27,7 +27,8 @@ from py2rely import cli_context
     metavar="SECONDS",
     help="Seconds between status polls when filesystem watching is unavailable.",
 )
-def ui(port: int, host: str, no_browser: bool, poll_interval: int) -> None:
+@click.option("-s", "--sync", is_flag=True, default=False, help="Force sync frontend assets from GitHub Releases.")
+def ui(port: int, host: str, no_browser: bool, poll_interval: int, sync: bool) -> None:
     """Browser-based pipeline visualizer and job monitor for RELION projects."""
     try:
         import fastapi  # noqa: F401
@@ -45,4 +46,4 @@ def ui(port: int, host: str, no_browser: bool, poll_interval: int) -> None:
 
     from py2rely.dashboard.server import launch
 
-    launch(host=host, port=port, open_browser=not no_browser, poll_interval=poll_interval)
+    launch(host=host, port=port, open_browser=not no_browser, poll_interval=poll_interval, sync=sync)

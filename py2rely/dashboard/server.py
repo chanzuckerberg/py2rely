@@ -206,24 +206,76 @@ async def websocket_endpoint(websocket: WebSocket) -> None:
 # ---------------------------------------------------------------------------
 
 _DIST = Path(__file__).parent / "frontend" / "dist"
-
-# URL to the pre-built frontend tarball on GitHub Releases.
-# The tarball should contain a top-level dist/ folder
-# (created with: cd py2rely/dashboard/frontend && tar czf dashboard-dist.tar.gz dist/)
-_DIST_URL = "https://github.com/chanzuckerberg/py2rely/releases/download/v0.0.0/dashboard-dist.tar.gz"
+_NODE_MODULES = Path(__file__).parent / "frontend" / "node_modules"
+_GITHUB_API = "https://api.github.com/repos/chanzuckerberg/py2rely/releases/latest"
+_VERSION_FILE = _DIST / ".dashboard-version"
 
 
-def _ensure_frontend() -> None:
-    """Download and extract the pre-built frontend into the package directory if missing."""
-    if _DIST.exists():
+def _dist_url(tag: str) -> str:
+    return f"https://github.com/chanzuckerberg/py2rely/releases/download/{tag}/dashboard-dist.tar.gz"
+
+
+def _latest_release_info() -> tuple[str, str] | None:
+    """Return (tag_name, asset_updated_at) for the latest release, or None if unreachable."""
+    try:
+        req = urllib.request.Request(_GITHUB_API, headers={"Accept": "application/vnd.github+json"})
+        with urllib.request.urlopen(req, timeout=3) as resp:
+            data = json.loads(resp.read())
+        tag = data.get("tag_name")
+        asset = next(
+            (a for a in data.get("assets", []) if a["name"] == "dashboard-dist.tar.gz"),
+            None,
+        )
+        if tag and asset:
+            return tag, asset["updated_at"]
+        return None
+    except Exception:
+        return None
+
+
+def _ensure_frontend(sync: bool = False) -> None:
+    """Download the pre-built frontend if missing or the release asset has been updated.
+
+    Skipped automatically when node_modules is present (local dev build), unless
+    sync=True is passed explicitly via ``py2rely ui --sync``.
+    """
+    info = _latest_release_info()
+    latest_tag = info[0] if info else None
+    latest_ts = info[1] if info else None
+
+    installed_ts = _VERSION_FILE.read_text().strip() if _VERSION_FILE.exists() else None
+
+    if _NODE_MODULES.exists() and not sync:
+        if latest_ts and latest_ts != installed_ts:
+            print(
+                "[py2rely-dashboard] A newer frontend build is available on GitHub. "
+                "Run 'py2rely ui --sync' to update.",
+                flush=True,
+            )
         return
-    print("[py2rely-dashboard] Frontend assets not found. Downloading...", flush=True)
+
+    needs_update = not _DIST.exists() or (
+        latest_ts is not None and latest_ts != installed_ts
+    )
+
+    if not needs_update:
+        return
+
+    tag = latest_tag or "v0.0.0"
+
+    if _DIST.exists() and latest_ts and latest_ts != installed_ts:
+        print("[py2rely-dashboard] New frontend build available — updating …", flush=True)
+    else:
+        print("[py2rely-dashboard] Downloading frontend assets …", flush=True)
+
     _DIST.parent.mkdir(parents=True, exist_ok=True)
     tmp = _DIST.parent / "_dashboard-dist.tar.gz"
     try:
-        urllib.request.urlretrieve(_DIST_URL, tmp)
+        urllib.request.urlretrieve(_dist_url(tag), tmp)
         with tarfile.open(tmp) as tf:
             tf.extractall(_DIST.parent)
+        if latest_ts:
+            _VERSION_FILE.write_text(latest_ts)
         print("[py2rely-dashboard] Frontend ready.", flush=True)
     except Exception as exc:
         raise SystemExit(
@@ -245,12 +297,13 @@ def launch(
     port: int = 3000,
     open_browser: bool = True,
     poll_interval: int = 5,
+    sync: bool = False,
 ) -> None:
     global PROJECT_DIR, POLL_INTERVAL
     PROJECT_DIR = Path.cwd()
     POLL_INTERVAL = poll_interval
 
-    _ensure_frontend()
+    _ensure_frontend(sync=sync)
     app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
 
     pipeline_star = PROJECT_DIR / "default_pipeline.star"
