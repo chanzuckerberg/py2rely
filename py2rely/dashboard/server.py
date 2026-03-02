@@ -261,7 +261,7 @@ def _ensure_frontend(sync: bool = False) -> None:
     if not needs_update:
         return
 
-    tag = latest_tag or "v0.0.0"
+    tag = latest_tag or "0.1.0"
 
     if _DIST.exists() and latest_ts and latest_ts != installed_ts:
         print("[py2rely-dashboard] New frontend build available — updating …", flush=True)
