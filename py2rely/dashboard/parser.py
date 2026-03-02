@@ -12,6 +12,7 @@ from __future__ import annotations
 import json
 import math
 import re
+from collections import defaultdict
 from pathlib import Path
 from typing import Optional
 
@@ -148,6 +149,8 @@ def _display_type(type_label: str) -> str:
     return type_label.split(".")[-1].title()
 
 
+
+
 def parse_pipeline(project_dir: Path) -> PipelineGraph:
     """Read default_pipeline.star and return a fully resolved PipelineGraph."""
     data: dict[str, pd.DataFrame] = starfile.read(str(project_dir / "default_pipeline.star"))
@@ -202,9 +205,7 @@ def parse_pipeline(project_dir: Path) -> PipelineGraph:
                 )
             )
 
-    # Build job→job edges via shared file intermediaries.
-    # output_edges: job → file;  input_edges: file → job
-    # Edge exists when file produced by job A is consumed by job B.
+    # Build file → producer map from output_edges (job → file).
     file_to_producer: dict[str, str] = {}
     if not output_edges.empty:
         for _, row in output_edges.iterrows():
@@ -212,17 +213,43 @@ def parse_pipeline(project_dir: Path) -> PipelineGraph:
                 row["rlnPipeLineEdgeProcess"]
             )
 
-    edges: list[Edge] = []
-    seen: set[tuple[str, str]] = set()
-    if not input_edges.empty:
-        for _, row in input_edges.iterrows():
-            consumer = _strip_slash(row["rlnPipeLineEdgeProcess"])
-            producer = file_to_producer.get(row["rlnPipeLineEdgeFromNode"])
-            if producer and producer != consumer:
-                key = (producer, consumer)
-                if key not in seen:
-                    seen.add(key)
-                    edges.append(Edge(source=producer, target=consumer))
+    # Derive each job's inputs from its job.star parameters.
+    # Each non-empty param value that matches a known pipeline file path
+    # identifies the producing job.  This reflects the most recent run of
+    # the job and avoids stale historical edges in the pipeline STAR file.
+    job_inputs: dict[str, set[str]] = defaultdict(set)
+    for node in job_nodes:
+        job_star = project_dir / node.id / "job.star"
+        if not job_star.exists():
+            continue
+        try:
+            d = starfile.read(str(job_star))
+            params: pd.DataFrame = d.get("joboptions_values", pd.DataFrame())
+            if params.empty:
+                continue
+            for _, row in params.iterrows():
+                val = str(row["rlnJobOptionValue"]).strip()
+                producer = file_to_producer.get(val)
+                if producer and producer != node.id:
+                    job_inputs[node.id].add(producer)
+        except Exception:
+            pass
+
+    # Reverse map: outputs derived from inputs
+    job_outputs: dict[str, set[str]] = defaultdict(set)
+    for consumer, producers in job_inputs.items():
+        for producer in producers:
+            job_outputs[producer].add(consumer)
+
+    for node in job_nodes:
+        node.inputs  = sorted(job_inputs.get(node.id,  set()))
+        node.outputs = sorted(job_outputs.get(node.id, set()))
+
+    edges = [
+        Edge(source=producer, target=consumer)
+        for consumer, producers in sorted(job_inputs.items())
+        for producer in sorted(producers)
+    ]
 
     return PipelineGraph(project_dir=str(project_dir), nodes=job_nodes, edges=edges)
 
