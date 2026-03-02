@@ -10,6 +10,7 @@ from py2rely.pipelines.cli import pipelines
 from py2rely.routines.export import export
 from py2rely.prepare.cli import prepare
 from py2rely.slabs.cli import slab, slab_slurm
+from py2rely.dashboard.cli import ui
 
 
 @click.group(context_settings=cli_context)
@@ -24,6 +25,7 @@ routines.add_command(converters)
 routines.add_command(pipelines)
 routines.add_command(slab)
 routines.add_command(config_cli())
+routines.add_command(ui)
 
 @click.group(context_settings=cli_context)
 def slurm_routines():
