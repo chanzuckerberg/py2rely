@@ -276,7 +276,7 @@ def _ensure_frontend(sync: bool = False) -> None:
             tf.extractall(_DIST.parent)
         if latest_ts:
             _VERSION_FILE.write_text(latest_ts)
-        print("[py2rely-dashboard] Frontend ready.", flush=True)
+        print("[py2rely-dashboard] Frontend ready. Please refresh the page to see the updated interface...", flush=True)
     except Exception as exc:
         raise SystemExit(
             f"\n[py2rely-dashboard] Failed to download frontend assets: {exc}\n"

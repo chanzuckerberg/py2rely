@@ -197,10 +197,27 @@ export default function DAGCanvas({ pipeline, selectedId, onSelect }) {
     onSelect(null)
   }, [onSelect])
 
-  // Zoom handler (non-passive so we can preventDefault)
+  // Zoom/pan handler (non-passive so we can preventDefault)
+  const TRACKPAD_SENSITIVITY = 0.8
+  const PINCH_SENSITIVITY = 0.004
   const onWheel = useCallback(e => {
     e.preventDefault()
-    setZoom(z => Math.max(0.25, Math.min(2, z * (e.deltaY < 0 ? 1.1 : 0.9))))
+    // Pinch gesture (trackpad) — always zoom
+    if (e.ctrlKey) {
+      setZoom(z => Math.max(0.25, Math.min(2, z * (1 - e.deltaY * PINCH_SENSITIVITY))))
+      return
+    }
+    // Mouse wheel — zoom only
+    const isMouseWheel = e.deltaMode !== 0 || Math.abs(e.deltaY) >= 50
+    if (isMouseWheel) {
+      setZoom(z => Math.max(0.25, Math.min(2, z * (e.deltaY < 0 ? 1.1 : 0.9))))
+      return
+    }
+    // Trackpad two-finger scroll — pan (horizontal and vertical)
+    setPan(p => ({
+      x: p.x - e.deltaX * TRACKPAD_SENSITIVITY,
+      y: p.y - e.deltaY * TRACKPAD_SENSITIVITY,
+    }))
   }, [])
 
   useEffect(() => {
