@@ -239,7 +239,7 @@ def get_gpus_per_node(
         gpu_parts = gpu_field.split(":")
         if len(gpu_parts) >= 3:
             try:
-                counts.append(int(gpu_parts[2]))
+                counts.append(int(gpu_parts[2].split("(")[0]))
             except ValueError:
                 pass
 
