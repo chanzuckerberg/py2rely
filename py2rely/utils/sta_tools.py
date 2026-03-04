@@ -9,8 +9,10 @@ from rich.syntax import Syntax
 from typing import Tuple, List
 from rich.table import Table
 from rich.panel import Panel
+from pathlib import Path
 import numpy as np
 import warnings
+import time
 
 ##############################################################################
 
@@ -114,8 +116,8 @@ class PipelineHelper:
             self.gpu_nodes = 1
 
         # Compute CPU job resources independently of GPU task count.
-        # Size tasks to fill one node efficiently: floor(cpus_per_node / ncpus).
-        # This avoids --oversubscribe and keeps CPU jobs on a single node.
+        # Size tasks to fill one node: floor(cpus_per_node / ncpus) MPI ranks per node.
+        # cpus_per_task will be set to ncpus × cpu_ntasks so SLURM reserves the full budget.
         cpus_per_node = get_cpus_per_node()
         self.cpu_ntasks = cpus_per_node // self.ncpus
         self.cpu_nodes = 1
@@ -379,14 +381,13 @@ class PipelineHelper:
         if 'nr_mpi' in job.joboptions:
             job.joboptions['nr_mpi'].value = mpi_ranks
         if 'mpi_command' in job.joboptions:
-            mpi_flags = '--oversubscribe ' if use_gpu else ''
-            job.joboptions['mpi_command'].value = f'mpirun {mpi_flags}-n XXXmpinodesXXX'
+            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n XXXmpinodesXXX'
 
         # Update Executor Parameters.
         nodes = self.gpu_nodes if use_gpu else self.cpu_nodes
         executor.update_parameters(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
-            slurm_job_name=jobTag,
+            slurm_job_name=job.OUT_DIR,
             timeout_min=self.timeout_min,
             nodes=nodes,
             tasks_per_node=1,
@@ -412,11 +413,14 @@ class PipelineHelper:
         if len(relion_setup) > 0:
             executor.update_parameters( slurm_setup = [relion_setup] )
 
+        # Snapshot existing jobXXX subdirs before submission so we can detect the new one
+        existing_subdirs = set(Path(job.OUT_DIR).glob('job*'))
+
         # Submit the Job and Wait for Result
-        submitted = executor.submit(self._execute_job, job, jobTag, self.timeout)
-        result, out_dir = submitted.result()
-        job.output_dir = out_dir
-        
+        executor.submit(self._execute_job, job, jobTag, self.timeout)
+
+        # Get the result of the job from SLURM
+        result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
         return result
 
     def _execute_job(self, job, jobTag: str, nHours: int):
@@ -430,6 +434,46 @@ class PipelineHelper:
         self.myProject.run_job(job)
         result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
         return result, job.output_dir
+
+    def _get_slurm_result(self, job, existing=None) -> tuple:
+        """
+        Poll for a new jobXXX subdirectory in job.OUT_DIR, then poll sentinel files.
+
+        RELION creates a jobXXX subdirectory inside job.OUT_DIR once the SLURM job
+        starts. Sentinel files are written into that subdirectory on completion.
+        existing: set of Path objects already present before submission,
+        so we can detect the new directory rather than re-using a stale one.
+
+        Returns:
+            ('Succeeded' | 'Failed', path_to_job_subdir)
+        """
+        job_path = Path(job.OUT_DIR)
+        deadline = time.monotonic() + self.timeout_min * 60
+
+        # Phase 1: wait for a new jobXXX subdirectory to appear
+        job_subdir = None
+        while time.monotonic() < deadline:
+            new_subdirs = set(job_path.glob('job*')) - existing
+            if new_subdirs:
+                job_subdir = max(new_subdirs, key=lambda p: p.stat().st_mtime)
+                out_dir = str(job_subdir) + '/'
+                break
+            time.sleep(10)
+
+        if job_subdir is None:
+            print(f"[Warning] _get_slurm_result: no new job subdirectory appeared in {job_path}")
+            return "Failed", str(job_path)
+
+        # Phase 2: poll that subdirectory for sentinel files
+        while time.monotonic() < deadline:
+            if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists():
+                return "Failed", out_dir
+            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists() or (job_subdir / "RELION_JOB_EXIT_SUCCESS").exists():
+                return "Succeeded", out_dir
+            time.sleep(30)
+
+        print(f"[Warning] _get_slurm_result timed out after {self.timeout_min} min in {job_subdir}")
+        return "Failed", out_dir
 
     def _post_job_completion(self, job, jobName, jobIter, keepClasses):
         """
