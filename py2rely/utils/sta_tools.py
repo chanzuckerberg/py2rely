@@ -122,7 +122,7 @@ class PipelineHelper:
             print(f'Submiting GPU Jobs on {self.gpu_constraint} Queues...')
             print(f'  GPU nodes: {self.gpu_nodes} (≥{ngpus} GPUs)')
 
-        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs on {cpus_per_node}-CPU nodes)')
+        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs)')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """

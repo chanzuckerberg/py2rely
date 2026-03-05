@@ -351,7 +351,7 @@ def run_relion5_pipeline(
     if len(op_cmd) > 0: cmd.append(op_cmd) 
 
     # Compute options
-    gpu_submitit = f"--num-gpus {num_gpus} -gc {gpu_constraint}" if gpu_constraint else f"--num-gpus {num_gpus}"
+    gpu_submitit = f'--num-gpus {num_gpus} -gc "{gpu_constraint}"' if gpu_constraint else f"--num-gpus {num_gpus}"
     cmd.append(f"--submitit True --timeout {timeout} --cpu-constraint {cpu_constraint} {gpu_submitit}")
 
     command = " \\\n    ".join(cmd)
