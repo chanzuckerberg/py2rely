@@ -152,37 +152,19 @@ def get_load_commands(prompt_if_missing: bool = True) -> tuple[str, str]:
 
 
 def config_cli():
-    """CLI: py2rely config — show and/or update python_load and relion_load."""
+    """CLI: py2rely config — manage env load commands."""
     import rich_click as click
     from rich.console import Console
     from rich.table import Table
 
-    @click.command(name="config")
-    @click.option(
-        "--show-only",
-        is_flag=True,
-        help="Only show current config; do not prompt to update.",
-    )
-    def _config(show_only: bool):
-        """Show or update env load commands (python_load, relion_load). Enter = no module load."""
+    @click.group(name="config")
+    def _config():
+        """Manage py2rely env load commands (python_load, relion_load)."""
+
+    @_config.command(name="add")
+    def _add():
+        """Interactively set or update env load commands."""
         console = Console()
-        path = get_config_path()
-
-        if show_only:
-            if not path.exists():
-                console.print("[yellow]No config yet.[/yellow] Run [bold]py2rely config[/bold] to set.")
-                return
-            cfg = load_config()
-            table = Table(show_header=True, header_style="bold")
-            table.add_column("Key", style="cyan")
-            table.add_column("Value", style="white")
-            for k in CONFIG_KEYS:
-                table.add_row(k, (cfg.get(k) or "(none)")[:80])
-            console.print(f"Config: [dim]{path}[/dim]\n")
-            console.print(table)
-            return
-
-        # Ensure envs exists; prompt for each (multi-line; empty line to finish)
         get_config_dir().mkdir(parents=True, exist_ok=True)
         current = load_config()
 
@@ -211,6 +193,52 @@ def config_cli():
         table.add_column("Value", style="white")
         for k in CONFIG_KEYS:
             table.add_row(k, (config.get(k) or "(none)")[:80])
+        console.print(table)
+
+    @_config.command(name="import", no_args_is_help=True)
+    @click.argument("path", type=click.Path(exists=True, dir_okay=False, readable=True))
+    def _import(path: str):
+        """Import config from a JSON file, writing it to the py2rely envs directory."""
+        console = Console()
+        try:
+            with open(path) as f:
+                data = json.load(f)
+        except json.JSONDecodeError as e:
+            console.print(f"[red]Invalid JSON: {e}[/red]")
+            raise click.Abort()
+        except OSError as e:
+            console.print(f"[red]Could not read file: {e}[/red]")
+            raise click.Abort()
+
+        if not isinstance(data, dict):
+            console.print("[red]JSON file must contain an object (dict), not a list or scalar.[/red]")
+            raise click.Abort()
+
+        save_config(data)
+        dest = get_config_path()
+        console.print(f"[green]Config imported from[/green] [dim]{path}[/dim] → [dim]{dest}[/dim]\n")
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Key", style="cyan")
+        table.add_column("Value", style="white")
+        for k, v in data.items():
+            table.add_row(str(k), str(v or "(none)")[:80])
+        console.print(table)
+
+    @_config.command(name="print")
+    def _print():
+        """Display current config values."""
+        console = Console()
+        path = get_config_path()
+        if not path.exists():
+            console.print("[yellow]No config yet.[/yellow] Run [bold]py2rely config add[/bold] to set.")
+            return
+        cfg = load_config()
+        table = Table(show_header=True, header_style="bold")
+        table.add_column("Key", style="cyan")
+        table.add_column("Value", style="white")
+        for k in CONFIG_KEYS:
+            table.add_row(k, (cfg.get(k) or "(none)")[:80])
+        console.print(f"Config: [dim]{path}[/dim]\n")
         console.print(table)
 
     return _config
