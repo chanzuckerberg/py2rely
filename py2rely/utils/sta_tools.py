@@ -108,6 +108,7 @@ class PipelineHelper:
         # Uses min GPUs-per-node across matching nodes (conservative: ensures enough
         # nodes are requested even if Slurm allocates the sparsest GPU node type).
         self.gpu_nodes = get_node_count(self.gpu_constraint)
+        if self.gpu_nodes > self.num_gpus: self.gpu_nodes = self.num_gpus
 
         # Compute CPU job resources independently of GPU task count.
         # Size tasks to fill one node: floor(cpus_per_node / ncpus) MPI ranks per node.
