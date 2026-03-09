@@ -64,13 +64,3 @@ def run_threaded(
                     print(f"[Error]: Failed on {item}: {e}")
 
     return counts
-
-def warn_missing_run(ur: str, status: str, result: Any):
-    """
-    Warn about a missing run in the Copick root for a given session.
-    """
-    if status == "missing_run":
-        mysession = ur.split('_')[0]
-        myrun = '_'.join(ur.split('_')[1:])
-        suffix = ""
-        print(f'[Warning]: Run {myrun + suffix} not found in Copick root for session {mysession}. Skipping.')

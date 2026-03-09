@@ -170,9 +170,9 @@ def run_star2copick(
     particles_df = df['particles']
 
     # Check Possible Export Sessions
-    available_sessions = particles_df['rlnTomoName'].str.split('_').str[0].unique()
-    valid_sessions = [s for s in sessions if s in available_sessions]
-    missing_sessions = [s for s in sessions if s not in available_sessions]
+    available_sessions = particles_df['rlnTomoName'].unique()
+    valid_sessions = [s for s in sessions if any(run.startswith(s + '_') or run == s for run in available_sessions)]
+    missing_sessions = [s for s in sessions if s not in valid_sessions]
 
     # One lock per session/root to keep writes safe
     session_locks = {s: threading.Lock() for s in valid_sessions}    
@@ -202,13 +202,25 @@ def run_star2copick(
     # Constants for coordinate shift
     shift = np.array([dim_x / 2, dim_y / 2, dim_z / 2], dtype=np.float64) * float(pixel_size)
 
+    sorted_sessions = sorted(valid_sessions, key=len, reverse=True)
+
+    def warn_missing_run(ur: str, status: str, result):
+        if status == "missing_run":
+            mysession = next((s for s in sorted_sessions if ur.startswith(s + '_') or ur == s), ur)
+            myrun = ur[len(mysession) + 1:] if ur != mysession else ur
+            print(f'[Warning]: Run {myrun} not found in Copick root for session {mysession}. Skipping.')
+
     def process_one_run(unique_run: str):
-        # Extract session / run
-        mysession = unique_run.split('_')[0]
-        if mysession not in valid_sessions:
+        sorted_sessions = sorted(valid_sessions, key=len, reverse=True)
+        mysession = next((s for s in sorted_sessions 
+                        if unique_run.startswith(s + '_') or unique_run == s), None)
+        
+        # If the run doesn't belong to any valid session, skip it
+        if mysession is None:
             return ("skipped_session", unique_run)
 
-        myrun = '_'.join(unique_run.split('_')[1:])
+        # Strip the session prefix (+ underscore) to get the run name
+        myrun = unique_run[len(mysession) + 1:] if unique_run != mysession else unique_run
 
         rlnPoints = grouped[unique_run]
 
@@ -237,7 +249,7 @@ def run_star2copick(
         # ---- Write to CoPick (guarded) ----
         root = copick_roots[mysession]
         with session_locks[mysession]:
-            run = root.get_run(myrun + suffix)
+            run = root.get_run(myrun)
             if run is None:
                 return "missing_run"
 
@@ -267,7 +279,7 @@ def run_star2copick(
         max_workers=max_workers,
         description="Exporting Particles (threaded)",
         get_status=lambda r: r,      # result IS the status
-        on_status=map.warn_missing_run,
+        on_status=warn_missing_run,
     )
 
     print("[Info]: Done. Summary:", results)    
