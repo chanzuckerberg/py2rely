@@ -1,4 +1,4 @@
-from py2rely.routines.submit_slurm import check_gpus, get_node_count, get_cpus_per_node
+from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range, get_cpus_per_node
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 from py2rely.utils.custom_jobs import CustomPostprocessJob
 from py2rely.utils.progress import get_console
@@ -107,8 +107,7 @@ class PipelineHelper:
         # Compute nodes needed for GPU jobs.
         # Uses min GPUs-per-node across matching nodes (conservative: ensures enough
         # nodes are requested even if Slurm allocates the sparsest GPU node type).
-        self.gpu_nodes = get_node_count(self.gpu_constraint)
-        if self.gpu_nodes > self.num_gpus: self.gpu_nodes = self.num_gpus
+        self.gpu_nodes = get_gpu_node_range(ngpus, self.gpu_constraint)
 
         # Compute CPU job resources independently of GPU task count.
         # Size tasks to fill one node: floor(cpus_per_node / ncpus) MPI ranks per node.
@@ -118,12 +117,12 @@ class PipelineHelper:
 
         # Warn if no GPU constraint specified
         if self.gpu_constraint is None:
-            print('No GPU Constraint Specified. Proceeding Without One...')
+            print(f'\nNo GPU Constraint Specified. Proceeding Without One...')
         else:
-            print(f'Submiting GPU Jobs on {self.gpu_constraint} Queues...')
+            print(f'\nSubmiting GPU Jobs on {self.gpu_constraint} Queues...')
             print(f'  GPU nodes: {self.gpu_nodes} (≥{ngpus} GPUs)')
 
-        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs)')
+        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs)\n')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -383,24 +382,20 @@ class PipelineHelper:
             slurm_partition = 'gpu' if use_gpu else 'cpu',
             slurm_job_name=job.OUT_DIR,
             timeout_min=self.timeout_min,
-            nodes=nodes,
             tasks_per_node=1,
             slurm_use_srun=False,
             cpus_per_task=self.ncpus,
-            mem_per_cpu=f"{self.mem_per_cpu}G",
+            slurm_mem_per_cpu=f"{self.mem_per_cpu}G",
         )
 
-        # Add GPU Constraints if Needed
-        if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
-            executor.update_parameters(
-                slurm_additional_parameters={
-                    "gpus": f"{self.num_gpus}",
-                },
-            )
-            if self.gpu_constraint:
-                executor.update_parameters(
-                    slurm_constraint=f"{self.gpu_constraint}",
-                )
+        # Add GPU Queue and Constraints if Needed
+        additional_params = {'nodes': f'{self.gpu_nodes[0]}-{self.gpu_nodes[1]}'}
+        if use_gpu:
+            additional_params['gpus'] = f"{self.num_gpus}"
+        executor.update_parameters(
+            slurm_additional_parameters=additional_params,
+            slurm_constraint=self.gpu_constraint if self.gpu_constraint else None
+        )
 
         # Get the Relion Module if Its Defined in Env Folder
         relion_setup = get_load_commands(prompt_if_missing=False)[1]

@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, List, Set
 from py2rely.config import get_load_commands
-import subprocess, warnings, math
+import subprocess, warnings, math, re
 import rich_click as click
 
 def create_shellsubmit(
@@ -223,48 +223,40 @@ def get_cpus_per_node(partition: str = "cpu") -> int:
         raise ValueError(f"Could not determine CPU count per node in partition '{partition}'")
     return min(counts)
 
-def get_node_count(
-    gpu_constraint: Optional[str] = None,
-    partition: str = "gpu",
-) -> int:
-    """
-    Return the total number of nodes in the given partition whose feature flags
-    match at least one token in gpu_constraint.
+def get_gpu_node_range(total_gpus_wanted, gpu_types="h100|a100"):
+    cmd = ["sinfo", "-h", "-o", "%G|%D"]
+    res = subprocess.run(cmd, capture_output=True, text=True).stdout
+    
+    configs = []
+    # 1. Parse all matching configurations
+    for line in res.strip().split('\n'):
+        parts = line.split('|')
+        match = re.search(rf"gpu:({gpu_types}):(\d+)", parts[0])
+        if match:
+            configs.append({
+                "type": match.group(1),
+                "per_node": int(match.group(2)),
+                "count": int(parts[1])
+            })
 
-    Parses ``sinfo -p <partition> -o "%D\t%f" -h`` where ``%D`` is the node
-    count for each sinfo row and ``%f`` is the comma-separated feature list.
-    Sums across all matching rows.
-    """
-    cmd = ["sinfo", "-p", partition, "-o", "%D\t%f", "-h"]
-    out = subprocess.check_output(cmd, text=True)
+    valid_max_nodes = []
+    max_density = 0
 
-    constraint_tokens: Set[str] = set()
-    if gpu_constraint:
-        tokens, _ = _parse_constraint(gpu_constraint)
-        constraint_tokens = set(tokens)
+    # 2. Evaluate each GPU type individually
+    for conf in configs:
+        # Can this node type physically reach the total?
+        if (conf["per_node"] * conf["count"]) >= total_gpus_wanted:
+            # The most nodes we can use for THIS type is total_gpus_wanted (1 per node)
+            # BUT capped by the physical number of nodes of this type
+            type_max = min(total_gpus_wanted, conf["count"])
+            valid_max_nodes.append(type_max)
+            
+            # Keep track of best density for the min_nodes calculation
+            max_density = max(max_density, conf["per_node"])
 
-    counts: List[int] = []
-    for line in out.splitlines():
-        line = line.strip()
-        if not line:
-            continue
-        parts = line.split("\t")
-        try:
-            node_count = int(parts[0])
-        except ValueError:
-            continue
-        features = parts[1] if len(parts) > 1 else ""
+    if not valid_max_nodes:
+        return "No single GPU type can satisfy that total count."
 
-        if constraint_tokens:
-            node_features = {f.strip() for f in features.split(",")}
-            if not constraint_tokens.intersection(node_features):
-                continue
-
-        counts.append(node_count)
-
-    if not counts:
-        raise ValueError(
-            f"Could not find any nodes for constraint '{gpu_constraint}' "
-            f"in partition '{partition}'"
-        )
-    return max(counts)
+    min_nodes = (total_gpus_wanted + max_density - 1) // max_density
+    
+    return [min_nodes, max(valid_max_nodes)]
