@@ -329,31 +329,37 @@ def run_relion5_pipeline(
         init_model_command = f"--reference-template {reference_template}"
     else:
         print("Generating Initial Model with Particle Reconstruction")
-        init_model_command = "--run-reconstruct-particle True"
-
-    command = f"""
-py2rely pipelines sta \\
-    --parameter {parameter} \\
-    {init_model_command} \\
-    --submitit True --timeout {timeout} --cpu-constraint {cpu_constraint} \\
-    --num-gpus {num_gpus} \\
-    """
-
-    if gpu_constraint is not None:
-        command += f" --gpu-constraint {gpu_constraint}"
+        init_model_command = ""
 
     # Add other optional parameters
+    op_cmd = []
     if run_class3d:
-        command += f" --run-class3D True --class-selection {class_selection}"
+        op_cmd.append(f"--run-class3D True --class-selection {class_selection}")
     if extract3d:
-        command += " --extract3D True"
+        op_cmd.append("--extract3D True")
     if manual_masking:
-        command += " --manual-masking True"
+        op_cmd.append("--manual-masking True")
+    op_cmd = " ".join(op_cmd)
+
+    # Base Command
+    cmd = [
+        f"py2rely pipelines sta", f"--parameter {parameter}"
+    ]
+    if len(init_model_command) > 0: cmd.append(init_model_command) 
+
+    # Pipeline Optional Flags
+    if len(op_cmd) > 0: cmd.append(op_cmd) 
+
+    # Compute options
+    gpu_submitit = f'--num-gpus {num_gpus} -gc "{gpu_constraint}"' if gpu_constraint else f"--num-gpus {num_gpus}"
+    cmd.append(f"--submitit True --timeout {timeout} --cpu-constraint {cpu_constraint} {gpu_submitit}")
+
+    command = " \\\n    ".join(cmd)
 
     # Create the SLURM shell script
     my_slurm.create_shellsubmit(
-        job_name='relion5',
-        output_file="relion5_pipeline.out",
+        job_name='rln5',
+        output_file="rln5_pipeline.out",
         shell_name="pipeline.sh",
         command=command,
         num_gpus=0,
