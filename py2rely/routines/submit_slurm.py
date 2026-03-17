@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, List, Set
 from py2rely.config import get_load_commands
-import subprocess, warnings, math, re
+import subprocess, warnings, re
 import rich_click as click
 
 def create_shellsubmit(
