@@ -389,12 +389,14 @@ class PipelineHelper:
         )
 
         # Add GPU Queue and Constraints if Needed
-        additional_params = {'nodes': f'{self.gpu_nodes[0]}-{self.gpu_nodes[1]}'}
         if use_gpu:
+            additional_params = {'nodes': f'{self.gpu_nodes[0]}-{self.gpu_nodes[1]}'}
             additional_params['gpus'] = f"{self.num_gpus}"
+        else: 
+            additional_params = {'nodes': self.cpu_nodes}
         executor.update_parameters(
             slurm_additional_parameters=additional_params,
-            slurm_constraint=self.gpu_constraint if self.gpu_constraint else None
+            slurm_constraint=self.gpu_constraint if self.gpu_constraint and use_gpu else None
         )
 
         # Get the Relion Module if Its Defined in Env Folder
