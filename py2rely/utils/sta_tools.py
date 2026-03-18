@@ -1,3 +1,4 @@
+from py2rely import PARTICLE_BOX_SIZES
 from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range, get_cpus_per_node
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 from py2rely.utils.custom_jobs import CustomPostprocessJob
@@ -49,10 +50,7 @@ class PipelineHelper:
         # Extract numeric values from self.sampling and convert them to floats
         self.sampling_degrees = [float(angle.split()[0]) for angle in self.sampling]                         
 
-        self.boxSizes = [24, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 84, 96, 100, 104, 112, 120, 128,\
-                         132, 140, 168, 180, 192, 196, 208, 216, 220, 224, 256, 288, 300, 320, 352, 360,\
-                         384, 416, 440, 448, 480, 480, 512, 540, 560, 576, 588, 600, 630, 648, 672, 686, 700,\
-                         720, 756, 768, 784, 800, 840, 864, 896, 912, 960, 1008, 1024, 1080, 1120, 1152, 1152]
+        self.boxSizes = PARTICLE_BOX_SIZES
 
         # self.initialize_post_process()
 
