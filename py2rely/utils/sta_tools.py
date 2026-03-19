@@ -1,4 +1,3 @@
-from py2rely import PARTICLE_BOX_SIZES
 from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range, get_cpus_per_node
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 from py2rely.utils.custom_jobs import CustomPostprocessJob
@@ -6,6 +5,7 @@ from py2rely.utils.progress import get_console
 from py2rely.config import get_load_commands
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
+from py2rely import PARTICLE_BOX_SIZES
 import subprocess, os, submitit
 from rich.syntax import Syntax
 from typing import Tuple, List
@@ -100,7 +100,7 @@ class PipelineHelper:
         self.ncpus, self.mem_per_cpu = cpu_constraint
 
         # Validate GPU Constraint
-        check_gpus(self.gpu_constraint)
+        self.gpu_constraint = check_gpus(self.gpu_constraint)
 
         # Compute nodes needed for GPU jobs.
         # Uses min GPUs-per-node across matching nodes (conservative: ensures enough
