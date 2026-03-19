@@ -375,7 +375,6 @@ class PipelineHelper:
             job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n XXXmpinodesXXX'
 
         # Update Executor Parameters.
-        nodes = self.gpu_nodes if use_gpu else self.cpu_nodes
         executor.update_parameters(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
             slurm_job_name=job.OUT_DIR,

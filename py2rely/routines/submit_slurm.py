@@ -237,13 +237,15 @@ def get_gpu_node_range(total_gpus_wanted, gpu_types="h100|a100"):
     cmd = ["sinfo", "-h", "-o", "%G|%D"]
     res = subprocess.run(cmd, capture_output=True, text=True).stdout
 
-    gpu_types = _strip_brackets(gpu_types)
-    
     configs = []
-    # 1. Parse all matching configurations
     for line in res.strip().split('\n'):
         parts = line.split('|')
-        match = re.search(rf"gpu:({gpu_types}):(\d+)", parts[0])
+        if gpu_types is None:
+            match = re.search(r"gpu:(\w+):(\d+)", parts[0])
+        else:
+            gpu_pattern = _strip_brackets(gpu_types)
+            match = re.search(rf"gpu:({gpu_pattern}):(\d+)", parts[0])
+        
         if match:
             configs.append({
                 "type": match.group(1),
@@ -254,21 +256,14 @@ def get_gpu_node_range(total_gpus_wanted, gpu_types="h100|a100"):
     valid_max_nodes = []
     max_density = 0
 
-    # 2. Evaluate each GPU type individually
     for conf in configs:
-        # Can this node type physically reach the total?
         if (conf["per_node"] * conf["count"]) >= total_gpus_wanted:
-            # The most nodes we can use for THIS type is total_gpus_wanted (1 per node)
-            # BUT capped by the physical number of nodes of this type
             type_max = min(total_gpus_wanted, conf["count"])
             valid_max_nodes.append(type_max)
-            
-            # Keep track of best density for the min_nodes calculation
             max_density = max(max_density, conf["per_node"])
 
     if not valid_max_nodes:
-        return "No single GPU type can satisfy that total count."
+        raise ValueError("No single GPU type can satisfy that total count.")
 
     min_nodes = (total_gpus_wanted + max_density - 1) // max_density
-    
     return [min_nodes, max(valid_max_nodes)]
