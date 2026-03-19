@@ -1,16 +1,19 @@
+from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range, get_cpus_per_node
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 from py2rely.utils.custom_jobs import CustomPostprocessJob
 from py2rely.utils.progress import get_console
 from py2rely.config import get_load_commands
 import pipeliner.job_manager as job_manager
 import glob, starfile, json, re, mrcfile
+from py2rely import PARTICLE_BOX_SIZES
 import subprocess, os, submitit
 from rich.syntax import Syntax
 from typing import Tuple, List
 from rich.table import Table
 from rich.panel import Panel
+from pathlib import Path
+import warnings, time
 import numpy as np
-import warnings
 
 ##############################################################################
 
@@ -47,10 +50,7 @@ class PipelineHelper:
         # Extract numeric values from self.sampling and convert them to floats
         self.sampling_degrees = [float(angle.split()[0]) for angle in self.sampling]                         
 
-        self.boxSizes = [24, 32, 36, 40, 44, 48, 52, 56, 60, 64, 72, 84, 96, 100, 104, 112, 120, 128,\
-                         132, 140, 168, 180, 192, 196, 208, 216, 220, 224, 256, 288, 300, 320, 352, 360,\
-                         384, 416, 440, 448, 480, 480, 512, 540, 560, 576, 588, 600, 630, 648, 672, 686, 700,\
-                         720, 756, 768, 784, 800, 840, 864, 896, 912, 960, 1008, 1024, 1080, 1120, 1152, 1152]
+        self.boxSizes = PARTICLE_BOX_SIZES
 
         # self.initialize_post_process()
 
@@ -87,7 +87,6 @@ class PipelineHelper:
             ngpus: The number of GPUs to be used.
             timeout: The timeout for the job in hours.
         """
-        from py2rely.routines.submit_slurm import check_gpus
 
         # Timeout: keep hours for local execution, derive minutes for Slurm/submitit
         self.timeout = timeout  # hours (used by local execution/_execute_job)
@@ -101,13 +100,27 @@ class PipelineHelper:
         self.ncpus, self.mem_per_cpu = cpu_constraint
 
         # Validate GPU Constraint
-        check_gpus(self.gpu_constraint)
+        self.gpu_constraint = check_gpus(self.gpu_constraint)
+
+        # Compute nodes needed for GPU jobs.
+        # Uses min GPUs-per-node across matching nodes (conservative: ensures enough
+        # nodes are requested even if Slurm allocates the sparsest GPU node type).
+        self.gpu_nodes = get_gpu_node_range(ngpus, self.gpu_constraint)
+
+        # Compute CPU job resources independently of GPU task count.
+        # Size tasks to fill one node: floor(cpus_per_node / ncpus) MPI ranks per node.
+        # cpus_per_task will be set to ncpus × cpu_ntasks so SLURM reserves the full budget.
+        self.cpu_ntasks = get_cpus_per_node() // self.ncpus
+        self.cpu_nodes = 2
 
         # Warn if no GPU constraint specified
         if self.gpu_constraint is None:
-            print('No GPU Constraint Specified. Proceeding Without One...')
+            print(f'\nNo GPU Constraint Specified. Proceeding Without One...')
         else:
-            print(f'Submiting GPU Jobs on {self.gpu_constraint} Queues...')
+            print(f'\nSubmiting GPU Jobs on {self.gpu_constraint} Queues...')
+            print(f'  GPU nodes: {self.gpu_nodes} (≥{ngpus} GPUs)')
+
+        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs)\n')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -349,43 +362,53 @@ class PipelineHelper:
         os.makedirs(log_dir, exist_ok=True)
         executor = submitit.AutoExecutor(folder=log_dir)
     
-        # Adjust MPI Command if Present
-        if 'mpi_command' in job.joboptions:
-            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n {self.ntasks}'
-
-        # Update Executor Parameters
+        # Adjust MPI command if present.
+        # Both nr_mpi and mpi_command must be set: the pipeliner gates MPI on nr_mpi > 1
+        # and substitutes XXXmpinodesXXX in mpi_command with the nr_mpi value.
+        # GPU jobs use ntasks (1 leader + 1 per GPU); CPU jobs use cpu_ntasks
+        # (fills one node cleanly at ncpus per rank, no oversubscribe needed).
         use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
+        mpi_ranks = self.ntasks if use_gpu else self.cpu_ntasks
+        if 'nr_mpi' in job.joboptions:
+            job.joboptions['nr_mpi'].value = mpi_ranks
+        if 'mpi_command' in job.joboptions:
+            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n XXXmpinodesXXX'
+
+        # Update Executor Parameters.
         executor.update_parameters(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
+            slurm_job_name=job.OUT_DIR,
             timeout_min=self.timeout_min,
             tasks_per_node=1,
             slurm_use_srun=False,
-            cpus_per_task=self.ncpus,  
-            mem_per_cpu=f"{self.mem_per_cpu}G",
+            cpus_per_task=self.ncpus,
+            slurm_mem_per_cpu=f"{self.mem_per_cpu}G",
         )
 
-        # Add GPU Constraints if Needed
-        if use_gpu: # For GPU Jobs, we'll define the GPU Constraints
-            executor.update_parameters(
-                slurm_additional_parameters={
-                    "gpus": f"{self.num_gpus}",
-                },
-            )
-            if self.gpu_constraint:
-                executor.update_parameters(
-                    slurm_constraint=f"{self.gpu_constraint}",
-                )
+        # Add GPU Queue and Constraints if Needed
+        if use_gpu:
+            additional_params = {'nodes': f'{self.gpu_nodes[0]}-{self.gpu_nodes[1]}'}
+            additional_params['gpus'] = f"{self.num_gpus}"
+        else: 
+            additional_params = {'nodes': self.cpu_nodes}
+        executor.update_parameters(
+            slurm_additional_parameters=additional_params,
+            slurm_constraint=self.gpu_constraint if self.gpu_constraint and use_gpu else None
+        )
 
         # Get the Relion Module if Its Defined in Env Folder
         relion_setup = get_load_commands(prompt_if_missing=False)[1]
         if len(relion_setup) > 0:
             executor.update_parameters( slurm_setup = [relion_setup] )
 
+        # Snapshot existing jobXXX subdirs before submission so we can detect the new one
+        existing_subdirs = set(Path(job.OUT_DIR).glob('job*'))
+
         # Submit the Job and Wait for Result
-        submitted = executor.submit(self._execute_job, job, jobTag, self.timeout)
-        result, out_dir = submitted.result()
-        job.output_dir = out_dir
-        
+        executor.submit(self._execute_job, job, jobTag, self.timeout)
+
+        # Get the result of the job from SLURM
+        result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
         return result
 
     def _execute_job(self, job, jobTag: str, nHours: int):
@@ -399,6 +422,46 @@ class PipelineHelper:
         self.myProject.run_job(job)
         result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
         return result, job.output_dir
+
+    def _get_slurm_result(self, job, existing=None) -> tuple:
+        """
+        Poll for a new jobXXX subdirectory in job.OUT_DIR, then poll sentinel files.
+
+        RELION creates a jobXXX subdirectory inside job.OUT_DIR once the SLURM job
+        starts. Sentinel files are written into that subdirectory on completion.
+        existing: set of Path objects already present before submission,
+        so we can detect the new directory rather than re-using a stale one.
+
+        Returns:
+            ('Succeeded' | 'Failed', path_to_job_subdir)
+        """
+        job_path = Path(job.OUT_DIR)
+        deadline = time.monotonic() + self.timeout_min * 60
+
+        # Phase 1: wait for a new jobXXX subdirectory to appear
+        job_subdir = None
+        while time.monotonic() < deadline:
+            new_subdirs = set(job_path.glob('job*')) - existing
+            if new_subdirs:
+                job_subdir = max(new_subdirs, key=lambda p: p.stat().st_mtime)
+                out_dir = str(job_subdir) + '/'
+                break
+            time.sleep(10)
+
+        if job_subdir is None:
+            print(f"[Warning] _get_slurm_result: no new job subdirectory appeared in {job_path}")
+            return "Failed", str(job_path)
+
+        # Phase 2: poll that subdirectory for sentinel files
+        while time.monotonic() < deadline:
+            if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists() or (job_subdir / "PIPELINER_JOB_EXIT_FAILED").exists():
+                return "Failed", out_dir
+            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists() or (job_subdir / "RELION_JOB_EXIT_SUCCESS").exists():
+                return "Succeeded", out_dir
+            time.sleep(30)
+
+        print(f"[Warning] _get_slurm_result timed out after {self.timeout_min} min in {job_subdir}")
+        return "Failed", out_dir
 
     def _post_job_completion(self, job, jobName, jobIter, keepClasses):
         """

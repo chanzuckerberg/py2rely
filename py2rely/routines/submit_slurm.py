@@ -1,6 +1,6 @@
 from typing import Optional, Tuple, List, Set
 from py2rely.config import get_load_commands
-import subprocess, warnings
+import subprocess, warnings, re
 import rich_click as click
 
 def create_shellsubmit(
@@ -94,6 +94,12 @@ def validate_gpu_constraint(ctx, param, value):
     """Validate the GPU constraint, entry for click callback."""
     return check_gpus(value)
 
+def _strip_brackets(expr: str) -> str:
+    """ Strip brackets from a GPU constraint expression if present."""
+    if expr[0] == "[" and expr[-1] == "]":
+        return expr[1:-1]
+    return expr
+
 def _slurm_gpu_features(partition: str = "gpu") -> Set[str]:
     """
     Return the set of Slurm node feature flags available in the given partition.
@@ -145,7 +151,6 @@ def _parse_constraint(expr: str) -> Tuple[List[str], Optional[str]]:
 
     return cleaned, joiner
 
-
 def check_gpus(
     gpu_constraint: Optional[str],
     *,
@@ -158,21 +163,27 @@ def check_gpus(
     Examples:
       - None                    -> None
       - "a100"                  -> "a100" (if valid)
-      - "h100|a100|h200"        -> "h100|a100" (filters invalid)
-      - "h100,a100,h200"        -> "h100,a100" (filters invalid)
+      - "h100|a100|h200"        -> "[h100|a100]" (filters invalid, wraps in brackets)
+      - "h100,a100,h200"        -> "[h100|a100]" (converts commas to |, filters invalid, wraps)
 
     Behavior:
-      - If at least one token is valid: returns filtered expression.
+      - Commas are normalized to | (both mean OR in this context).
+      - If exactly one token is valid: returns bare token (no brackets needed).
+      - If multiple tokens are valid: returns bracket-wrapped | expression.
       - If zero tokens are valid: raises ValueError.
       - Warns (optional) about invalid tokens that were dropped.
     """
-    # Ignore if no constraint is provided.
+
+    # Handle None or empty input
     if gpu_constraint is None:
         return None
 
-    tokens, joiner = _parse_constraint(gpu_constraint)
+    # Strip brackets if user included them (we'll re-add if needed)
+    gpu_constraint = _strip_brackets(gpu_constraint)
+
+    tokens, _ = _parse_constraint(gpu_constraint)
     if not tokens:
-        return None  # treat empty/whitespace like None
+        return None
 
     available = _slurm_gpu_features(partition=partition)
 
@@ -188,12 +199,71 @@ def check_gpus(
 
     if not valid:
         raise ValueError(
-            f"\nNo valid GPU constraints found in '{gpu_constraint}'\n. "
+            f"\nNo valid GPU constraints found in '{gpu_constraint}'.\n"
             f"Available feature flags include: {sorted(available)}"
         )
 
-    # Recompose with the same joiner style the user provided
-    if joiner is None:
-        return valid[0]  # single entry
-    return joiner.join(valid)
+    if len(valid) == 1:
+        return valid[0]
 
+    return f"[{'|'.join(valid)}]"
+
+############################### Node Estimation Functions ###################################
+
+def get_cpus_per_node(partition: str = "cpu") -> int:
+    """
+    Return the minimum number of CPUs per node in the given partition.
+
+    Uses ``sinfo -p <partition> -o "%c" -h``.
+    Takes the minimum across all nodes so computed node counts are always sufficient.
+    """
+    cmd = ["sinfo", "-p", partition, "-o", "%c", "-h"]
+    out = subprocess.check_output(cmd, text=True)
+
+    counts: List[int] = []
+    for line in out.splitlines():
+        line = line.strip()
+        if line:
+            try:
+                counts.append(int(line.rstrip("+")))
+            except ValueError:
+                pass
+
+    if not counts:
+        raise ValueError(f"Could not determine CPU count per node in partition '{partition}'")
+    return min(counts)
+
+def get_gpu_node_range(total_gpus_wanted, gpu_types="h100|a100"):
+    cmd = ["sinfo", "-h", "-o", "%G|%D"]
+    res = subprocess.run(cmd, capture_output=True, text=True).stdout
+
+    configs = []
+    for line in res.strip().split('\n'):
+        parts = line.split('|')
+        if gpu_types is None:
+            match = re.search(r"gpu:(\w+):(\d+)", parts[0])
+        else:
+            gpu_pattern = _strip_brackets(gpu_types)
+            match = re.search(rf"gpu:({gpu_pattern}):(\d+)", parts[0])
+        
+        if match:
+            configs.append({
+                "type": match.group(1),
+                "per_node": int(match.group(2)),
+                "count": int(parts[1])
+            })
+
+    valid_max_nodes = []
+    max_density = 0
+
+    for conf in configs:
+        if (conf["per_node"] * conf["count"]) >= total_gpus_wanted:
+            type_max = min(total_gpus_wanted, conf["count"])
+            valid_max_nodes.append(type_max)
+            max_density = max(max_density, conf["per_node"])
+
+    if not valid_max_nodes:
+        raise ValueError("No single GPU type can satisfy that total count.")
+
+    min_nodes = (total_gpus_wanted + max_density - 1) // max_density
+    return [min_nodes, max(valid_max_nodes)]

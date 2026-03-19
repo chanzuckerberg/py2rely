@@ -192,6 +192,8 @@ def run_import_tilt_series(
         defocusV = []  # Defocus V values
         defocusAngle = []  # Defocus angle values
         phase_shift = []
+        max_resolution = [] # Maximum resolution from Aretomo CTF fit
+        figure_of_merit = [] # Figure of merit (CrossCorrelation) from Aretomo CTF fit
 
         # Handle symlinks for MRC stack files
         if symlinks is None:
@@ -224,6 +226,8 @@ def run_import_tilt_series(
             defocusU.append(ctfText[ind-1, 1])
             defocusV.append(ctfText[ind-1, 2])
             defocusAngle.append(ctfText[ind-1, 3])
+            figure_of_merit.append(ctfText[ind-1, 5])
+            max_resolution.append(ctfText[ind-1, 6])
 
             # Get phase shift information
             phase_shift.append(float(ctfText[ind-1, 4]) * 180.0 / np.pi)  # Convert from radians to degrees
@@ -262,8 +266,8 @@ def run_import_tilt_series(
         ts_dict['rlnAccumMotionTotal'] = ["0" for _ in range(num_rows)]
         ts_dict['rlnAccumMotionEarly'] = ["0" for _ in range(num_rows)]
         ts_dict['rlnAccumMotionLate'] = [str(i) for i in range(num_rows)]
-        ts_dict['rlnCtfFigureOfMerit'] = ["0" for _ in range(num_rows)]
-        ts_dict['rlnCtfMaxResolution'] = ["0" for _ in range(num_rows)]
+        ts_dict['rlnCtfFigureOfMerit'] = figure_of_merit
+        ts_dict['rlnCtfMaxResolution'] = max_resolution
         ts_dict['rlnCtfIceRingDensity'] = ["0" for _ in range(num_rows)]
 
         # Write the Output and Track StarFileName Name
@@ -309,7 +313,6 @@ def combine_tilt_series(
     """
     Combine multiple starfiles for tilt series.
     """
-
     run_combine_tilt_series(
         input, output
     )

@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Optional, Tuple, TYPE_CHECKING
 import rich_click as click
+from py2rely import snap_box_size
 
 # Optional: satisfy type checkers without runtime imports
 if TYPE_CHECKING:
@@ -182,9 +183,17 @@ def generate_template_from_map(
                 pad3 = tuple((pad // 2, pad // 2 + pad % 2) for _ in range(3))
                 vol = np.pad(vol, pad3, mode="constant", constant_values=0)
         elif output_box_size < final_vox_if_no_pad:
+            snapped = snap_box_size(int(final_vox_if_no_pad), side="right")
             logging.warning(
-                "Requested box smaller than downsampled size; not cropping to avoid truncation."
+                "Requested box (%d) smaller than downsampled size (%d); snapping up %d.",
+                output_box_size, int(final_vox_if_no_pad), snapped,
             )
+            output_box_size = snapped
+            target_pre = int(output_box_size * (float(input_spacing) / float(output_spacing)))
+            pad = max(0, target_pre - vol.shape[0])
+            if pad > 0:
+                pad3 = tuple((pad // 2, pad // 2 + pad % 2) for _ in range(3))
+                vol = np.pad(vol, pad3, mode="constant", constant_values=0)
 
     # LPF in Fourier (1x rfftn + 1x irfftn)
     lpf = create_gaussian_low_pass(vol.shape, float(input_spacing), float(filter_to_resolution))
@@ -376,6 +385,13 @@ def run_create_template(
         raise NotImplementedError(
             "Assumes input map has smaller voxel size than the output template (no upsampling)."
         )
+
+    # If no explicit box size was requested, snap the natural downsampled size to the
+    # nearest allowed RELION box size so the template is immediately usable in RELION.
+    if box_size is None:
+        natural = int(volume.shape[0] * map_spacing_A / output_voxel_size)
+        box_size = snap_box_size(natural)
+        logging.info("Auto box size: natural=%d → snapped to RELION size %d", natural, box_size)
 
     template = generate_template_from_map(
         volume,
