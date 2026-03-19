@@ -455,7 +455,7 @@ class PipelineHelper:
 
         # Phase 2: poll that subdirectory for sentinel files
         while time.monotonic() < deadline:
-            if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists():
+            if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists() or (job_subdir / "PIPELINER_JOB_EXIT_FAILED").exists():
                 return "Failed", out_dir
             elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists() or (job_subdir / "RELION_JOB_EXIT_SUCCESS").exists():
                 return "Succeeded", out_dir
