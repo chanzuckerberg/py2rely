@@ -1,4 +1,6 @@
 # py2rely - The Python Pipeline To Rely On 
+[![Ask DeepWiki](https://deepwiki.com/badge.svg)](https://deepwiki.com/chanzuckerberg/py2rely)
+
 Pythonic to Relion interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
 
 ## Introduction

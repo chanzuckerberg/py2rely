@@ -43,15 +43,14 @@ Project slabs from tomograms at particle coordinates using [`slabpick`](https://
     
     ```bash
     make_minislabs \
-        --in_coords=/path/to/copick/config.json \
+        --in_coords /path/to/copick/config.json \
         --extract_shape 500 500 400 \
-        --coords_scale 1.0 --col_name rlnMicrographName \
         --voxel_spacing 5.0 --tomo_type denoised \
         --user_id octopi --particle_name ribosome
 
     normalize_stack \
-        --in_stack=/path/to/output/particles.mrcs \
-        --out_stack=/path/to/output/particles_relion.mrcs \
+        --in_stack /path/to/output/particles.mrcs \
+        --out_stack /path/to/output/particles_relion.mrcs \
         --apix 1.54
     ```
 
@@ -258,7 +257,7 @@ rln_map_particles \
     --rln_file Select/job002/particles.star \
     --map_file stack/particle_map.csv \
     --particle_name ribosome --user_id octopi \
-    --user_id_out slabpick --session_id_out 1  session_id 1
+    --user_id_out slabpick --session_id_out 1  --session_id 1
 ```
 
 ??? note "📋 `rln_map_particles` Parameters"
