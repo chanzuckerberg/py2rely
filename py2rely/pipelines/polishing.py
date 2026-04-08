@@ -57,6 +57,14 @@ class ThePolisher:
         # Initialize Post Process from previous job
         self.utils.initialize_post_process()
         self.utils.post_process_job.output_dir = self.utils.outputDirectories['post_process']
+        
+        # Processing Parameters for Auto Refine
+        low_pass = self.utils.get_half_fsc(self.utils.post_process_job.output_dir)
+        self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24 
+        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass * 1.5
+        self.utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
+        self.utils.tomo_refine3D_job.joboptions['sampling'].value = self.utils.sampling[5]
+        self.utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = self.utils.sampling[5]    
 
     @classmethod
     def from_utils(cls, utils):
