@@ -1,11 +1,16 @@
-import py2rely.routines.submit_slurm as my_slurm 
+from py2rely.utils import common
 from py2rely import cli_context
 import rich_click as click
 
 class HighResolutionRefinement:
     """Class for high-resolution refinement with two entry points."""
 
-    def __init__(self, parameter_file: str, tomograms: str = None, rerun: bool = False):
+    def __init__(
+            self, parameter_file: str, 
+            tomograms: str = None, rerun: bool = False,
+            submitit: bool = False, cpu_constraint: str = '1', 
+            gpu_constraint: str = None, num_gpus: int = 0, timeout: int = 0
+        ):
         """Initialize the refinement pipeline with configuration file."""
 
         from pipeliner.api.manage_project import PipelinerProject
@@ -16,10 +21,11 @@ class HighResolutionRefinement:
         self.utils.read_json_params_file(parameter_file)
         self.utils.read_json_directories_file('output_directories.json')
 
-        # If a Path for Refined Tomograms is Provided, Assign it 
-        if tomograms is not None:
-            self.utils.set_new_tomograms_starfile(tomograms)            
-        
+        # Set Compute Constraints if Using Submitit
+        if submitit:
+            self.utils.use_submitit = True
+            self.utils.set_compute_constraints(cpu_constraint, gpu_constraint, num_gpus, timeout)
+
         # Initialize the processes
         self.utils.initialize_pseudo_tomos()
         self.utils.initialize_reconstruct_particle()
@@ -34,8 +40,8 @@ class HighResolutionRefinement:
         )
 
         # Initialize the Mask Create and Auto Refine Jobs
-        utils.initialize_mask_create()
-        utils.initialize_auto_refine()         
+        self.utils.initialize_mask_create()
+        self.utils.initialize_auto_refine()         
 
         # Store the rerun flag
         self.rerun = rerun
@@ -120,7 +126,6 @@ class HighResolutionRefinement:
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
         self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
-        # self.utils.post_process_job.joboptions['autob_lowres'].value =  self.utils.get_resolution(self.utils.tomo_refine3D_job, 'refine3D')
 
         self.utils.run_post_process(rerunPostProcess=True)
 
@@ -128,17 +133,17 @@ class HighResolutionRefinement:
 def high_resolution_options(func):
     """Decorator to add shared options for high-resolution commands."""
     options = [
-        click.option("--parameter", type=str, required=True, default='sta_parameters.json', 
+        click.option("--parameter", '-p', type=str, required=True, default='sta_parameters.json', 
                       help="The Saved Parameter Path",),
-        click.option("--tomograms", type=str, required=True, default='tomograms.star', 
+        click.option("--tomograms", '-t', type=str, required=True, default='tomograms.star', 
                       help="The Tomograms Star File to Start Refinement",),
-        click.option("--particles", type=str, required=True, default='particles.star', 
+        click.option("--particles", '-pts', type=str, required=True, default='particles.star', 
                       help="The Particles Star File to Start Refinement",),
-        click.option("--mask", type=str, required=False, default=None, 
+        click.option("--mask", '-m', type=str, required=False, default=None, 
                       help="The Mask to Use for Refinement, if none provided a new mask will be created.",),
-        click.option("--low-pass", type=float, required=True, default=10, 
+        click.option("--low-pass", '-lp', type=float, required=True, default=10, 
                       help="The Low-Pass Filter to Use for Refinement",),
-        click.option('--rerun', type=bool, required=False, default=False, 
+        click.option('--rerun', '-rr', type=bool, required=False, default=False, 
                       help="Rerun the pipeline if it has already been run.",),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
@@ -148,6 +153,7 @@ def high_resolution_options(func):
 
 @click.command(context_settings=cli_context, name='bin1', no_args_is_help=True)
 @high_resolution_options
+@common.add_submitit_options
 def high_resolution_cli(
     parameter: str,
     tomograms: str,
@@ -155,56 +161,20 @@ def high_resolution_cli(
     mask: str,
     low_pass: float,
     rerun: bool,
+    submitit: bool,
+    cpu_constraint: str,
+    gpu_constraint: str,
+    num_gpus: int,
+    timeout: int
     ):    
     """
     Run the high-resolution refinement through cli.
     """
 
     # Create Instance of HighResolutionRefinement Class and Run the Pipeline
-    bin1 = HighResolutionRefinement(parameter, tomograms, rerun)
-    bin1.run_hr_refinement(particles, low_pass, mask)
-
-
-@click.command(context_settings=cli_context, name='bin1-pipeline')
-@high_resolution_options
-@my_slurm.add_compute_options
-def high_resolution_slurm(
-    parameter: str,
-    tomograms: str,
-    particles: str,
-    mask: str,
-    low_pass: float,
-    rerun: bool,
-    num_gpus: int,
-    gpu_constraint: str,
-    ):
-    """
-    Run the high-resolution refinement through slurm.
-    """
-
-    # Create Refine3D Command
-    command = f"""
-py2rely pipelines bin1 \\
-    --parameter {parameter} \\
-    --tomograms {tomograms} \\
-    --particles {particles} \\
-    """
-
-    if mask is not None:
-        command += f" --mask {mask}"
-
-    if low_pass is not None:
-        command += f" --low-pass {low_pass}"
-
-    if rerun:
-        command += f" --rerun True"
-
-    # Create Slurm Submit Script
-    my_slurm.create_shellsubmit(
-        job_name="bin1-pipeline",
-        output_file="bin1_pipeline.out",
-        shell_name="high-res-pipeline.sh",
-        command=command,
-        num_gpus=num_gpus,
-        gpu_constraint=gpu_constraint
+    bin1 = HighResolutionRefinement(
+        parameter, tomograms, rerun, submitit, 
+        cpu_constraint, gpu_constraint, num_gpus, timeout
     )
+    
+    bin1.run_hr_refinement(particles, low_pass, mask)

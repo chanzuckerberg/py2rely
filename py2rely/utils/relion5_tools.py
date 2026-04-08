@@ -270,8 +270,7 @@ class Relion5Pipeline(PipelineHelper):
         parsed and set according to the configuration specified in the 'class3D' section 
         of the JSON file.
         """        
-        self.ctf_refine_job = tomo_ctfrefine_job.TomoRelionCtfRefine()
-        # self.ctf_refine_job.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
+        self.ctf_refine_job = tomo_ctfrefine_job.TomoRelionCtfRefine()   
         self.ctf_refine_job = self.parse_params(self.ctf_refine_job,'ctf_refine')
         
         # Apply Output Directories from Previous Job  
@@ -295,20 +294,19 @@ class Relion5Pipeline(PipelineHelper):
         of the JSON file.
         """        
         self.bayesian_polish_job = tomo_bayesianpolish_job.TomoRelionBayesPolishJob()
-        # self.bayesian_polish.joboptions['in_tomograms'].value = self.outputDirectories['reconstruct_tomograms']      
-        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'bayesian_polish')
+        self.bayesian_polish_job = self.parse_params(self.bayesian_polish_job,'bayesian_polish')     
 
         # Apply Output Directories from Previous Job  
         self.bayesian_polish_iter = self.return_job_iter(f'bin{self.binning}','bayesian_polish')
-        try: self.bayesian_polish.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
+        try: self.bayesian_polish_job.output_dir = self.get_subgroup(self.outputDirectories, f'bin{self.binning}', 'bayesian_polish')       
         except: pass
 
     def run_bayesian_polish(self,
                             rerunPolish: bool = False):
 
         # If Completed Classify Process Already Exists, Start Logging New Iterations if rerunClassify is True. 
-        if rerunPolish: polishJobIter = self.return_job_iter(f'bin{self.binning}', 'ctf_refine') 
-        else:           polishJobIter = None    
+        if rerunPolish: polishJobIter = self.return_job_iter(f'bin{self.binning}', 'bayesian_polish') 
+        else:           polishJobIter = None
 
         self.run_job(self.bayesian_polish_job, 'bayesian_polish', f'Bayesian Polish', jobIter=polishJobIter)                                   
 

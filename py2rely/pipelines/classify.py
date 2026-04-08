@@ -1,7 +1,6 @@
 from pipeliner.api.manage_project import PipelinerProject
-import py2rely.routines.submit_slurm as my_slurm 
-from py2rely.utils import relion5_tools
 import rich_click as click, starfile, os
+from py2rely.utils import relion5_tools
 
 @click.group()
 @click.pass_context
@@ -60,6 +59,12 @@ class TheClassifier:
         self.utils.run_mask_create(self.utils.tomo_refine3D_job, self.utils.tomo_class3D_job)
 
     def run(self, particles: str, reference: str, mask: str = None, select_method: str = 'auto'):
+
+        # Check Number of Classes
+        nclasses = self.utils.tomo_class3D_job.joboptions['nr_classes'].value
+        if nclasses < 2:
+            raise ValueError('Number of Classes is Set to 1. Please Set to 2 or More for Classification.')
+
         # Only Create Mask if None was Provided
         if mask is None:
             self._create_mask(reference)
@@ -203,3 +208,6 @@ class TheClassifier:
         starfile.write(particles, output)
 
         return output
+
+# @click.command(context_settings={"show_default": True}, name='classify', no_args_is_help=True)
+# @common.add_submitit_options
