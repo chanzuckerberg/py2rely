@@ -4,11 +4,12 @@ import rich_click as click
 class ThePolisher:
     """Class for high-resolution polishing with two entry points."""
 
-    def __init__(self, parameter_path: str, 
-                 tomograms: str = None, motion: str = None,
-                 box_size: int = 256, crop_size: int = 25,
-                 submitit: bool = False, cpu_constraint: str = '1', 
-                 gpu_constraint: str = None, num_gpus: int = 0, timeout: int = 0
+    def __init__(
+        self, parameter_path: str, 
+        tomograms: str = None, motion: str = None,
+        box_size: int = 256, crop_size: int = 25,
+        submitit: bool = False, cpu_constraint: str = '1', 
+        gpu_constraint: str = None, num_gpus: int = 0, timeout: int = 0
     ):
         """Initialize the polishing pipeline with configuration file."""
         from pipeliner.api.manage_project import PipelinerProject
@@ -20,6 +21,9 @@ class ThePolisher:
         self.utils.read_json_params_file(parameter_path)
         self.utils.read_json_directories_file('output_directories.json')
         self.utils.binning = 1  # Assume Polishing is Always Done at Bin1
+
+        if 'bin1' not in self.utils.outputDirectories:
+            raise ValueError("Run Polishing after the Bin1 Pipeline is Complete!")
 
         # Set Compute Constraints if Using Submitit
         if submitit:
@@ -49,22 +53,28 @@ class ThePolisher:
         # Update the motion and tomograms starfiles 
         if tomograms:
             self.utils.ctf_refine_job.joboptions['in_tomograms'].value = tomograms
-            self.utils.ctf_refine_job.joboptions['in_tomograms'].value = tomograms
+            self.utils.bayesian_polish_job.joboptions['in_tomograms'].value = tomograms
         if motion:
-            self.utils.bayesian_polish_job.joboptions['in_trajectories'].value = motion
+            self.utils.ctf_refine_job.joboptions['in_trajectories'].value = motion
             self.utils.bayesian_polish_job.joboptions['in_trajectories'].value = motion
 
-        # Initialize Post Process from previous job
+        # Update the Box Size to Current Pipeline Parameter
+        init_box_size = self.utils.reconstruct_particle_job.joboptions['box_size'].value
+        self.utils.ctf_refine_job.joboptions['box_size'].value = init_box_size
+        self.utils.bayesian_polish_job.joboptions['box_size'].value = init_box_size
+
+        # Initialize Post Process from previous job and following parameters
         self.utils.initialize_post_process()
-        self.utils.post_process_job.output_dir = self.utils.outputDirectories['post_process']
+        self.utils.post_process_job.output_dir = self.utils.outputDirectories['bin1']['post_process']
+        self.utils.post_process_job.joboptions['low_pass'].value = 0
         
         # Processing Parameters for Auto Refine
         low_pass = self.utils.get_half_fsc(self.utils.post_process_job.output_dir)
         self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24 
-        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass * 1.5
+        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass * 1.3
         self.utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
         self.utils.tomo_refine3D_job.joboptions['sampling'].value = self.utils.sampling[5]
-        self.utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = self.utils.sampling[5]    
+        self.utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = self.utils.sampling[5]        
 
     @classmethod
     def from_utils(cls, utils):
@@ -180,7 +190,7 @@ def polishing_options(func):
                       help="The Particles Star File to Start Polishing",),
         click.option("--mask", '-m', type=str, required=True, default='mask.mrc', 
                       help="The Mask to Use for Polishing",),
-        click.option('--tomograms', '-t', type=str, required=False, default=None, 
+        click.option('--tomograms', '-tomo', type=str, required=False, default=None, 
                       help="The Tomograms Star File to Start Polishing (e.g., 'tomograms.star')",),
         click.option('--motion', '-mo', type=str, required=False, default=None, 
                       help="The Motion Star File to Start Polishing (e.g., 'motion.star')",),
@@ -198,6 +208,10 @@ def polishing_options(func):
 
 @click.command(context_settings={"show_default": True}, name='polish', no_args_is_help=True)
 @polishing_options
+@click.option(
+    '-s', '--submitit', type=bool, required=False, default=False,
+    help='Use Submitit to Submit Jobs to SLURM Cluster'
+)
 @common.add_submitit_options
 def polish_pipeline(
     parameter: str,
@@ -207,11 +221,22 @@ def polish_pipeline(
     motion: str,
     box_size: int,
     crop_size: int,
-    num_iterations: int
+    num_iterations: int,
+    submitit: bool,
+    cpu_constraint: str,
+    gpu_constraint: str,
+    num_gpus: int,
+    timeout: int
     ):
     """
     Run polishing and ctf refinement through cli.
     """
 
-    polish = ThePolisher(parameter, tomograms, motion, box_size, crop_size)
+    print('Starting the Polishing Pipeline...')
+    cpu_constraint = list(map(int, cpu_constraint.split(',')))
+    polish = ThePolisher(
+        parameter, tomograms, motion, box_size, crop_size,
+        submitit, cpu_constraint, gpu_constraint, num_gpus, timeout
+    )
+    polish.utils.post_process_job.joboptions['fn_mask'].value = mask
     polish.run(particles, mask, num_iterations) 

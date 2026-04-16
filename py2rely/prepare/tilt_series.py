@@ -306,20 +306,24 @@ def run_import_tilt_series(
 @click.option( "-o","--output", type=str, required=False,
                default="input/aligned_tilt_series.star",
                help="Output Filename to Write Merged Starfile" )
+@click.option('-sm', '--skip-missing', type=bool, default=False, 
+              help="Skip missing files instead of throwing an error")
 def combine_tilt_series(
     input: List[str],
-    output: str
+    output: str,
+    skip_missing: bool
     ):
     """
     Combine multiple starfiles for tilt series.
     """
     run_combine_tilt_series(
-        input, output
+        input, output, skip_missing
     )
 
 def run_combine_tilt_series(
     input: List[str],
-    output: str
+    output: str,
+    skip_missing: bool
     ):
 
     from py2rely.utils.progress import get_console
@@ -337,7 +341,11 @@ def run_combine_tilt_series(
 
         filename = input[ii]
         console.print(f"[b]Adding[/b] {filename} to the Merged StarFile")
-        file = starfile.read(filename)
+        if not os.path.exists(filename) and skip_missing:
+            console.print(f"[yellow]Warning:[/yellow] File '{filename}' not found. Skipping.")
+            continue
+        else:
+            file = starfile.read(filename)
 
         if ii == 0:
             merged_alignments = file   
