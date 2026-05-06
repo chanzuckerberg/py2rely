@@ -139,7 +139,6 @@ class ThePolisher:
             # Post Process
             self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
             self.utils.run_post_process(rerunPostProcess=True)
-            if self._check_stopping_criteria(): break
 
             # 3D Refinement
             self._update_inputs(self.utils.tomo_refine3D_job)

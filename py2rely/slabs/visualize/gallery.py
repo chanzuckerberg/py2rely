@@ -1,10 +1,11 @@
 from py2rely import cli_context
 import rich_click as click
 
-def class_average_gallery(stack_path: str, 
-                          image_size: int = 2, 
-                          images_per_row: int = 5, 
-                          rows_per_page: int = 5):
+def class_average_gallery(stack_path: str,
+                          image_size: int = 2,
+                          images_per_row: int = 5,
+                          rows_per_page: int = 5,
+                          scale_bar_angstrom: float = 100.0):
     from matplotlib.backends.backend_pdf import PdfPages
     import mrcfile, os, starfile, math
     import matplotlib.pyplot as plt
@@ -12,6 +13,7 @@ def class_average_gallery(stack_path: str,
     # Load the stack
     stack = mrcfile.read(stack_path)
     num_images = stack.shape[0]
+    img_px = stack.shape[1]  # assumes square images
 
     # Load Statistics Associated with Class Averages
     data_path = stack_path.replace('classes.mrcs', 'data.star')
@@ -20,8 +22,18 @@ def class_average_gallery(stack_path: str,
 
     model_path = stack_path.replace('classes.mrcs', 'model.star')
     modelStarFile = starfile.read(model_path)
-    particle_count_list = [ f"{math.ceil(modelStarFile['model_classes']['rlnClassDistribution'][i] * nParticles)} Particles" for i in range(num_images) ]      
-    resolution_list = [f"{round(modelStarFile['model_classes']['rlnEstimatedResolution'][i],2)} A" for i in range(num_images)]  
+    particle_count_list = [ f"{math.ceil(modelStarFile['model_classes']['rlnClassDistribution'][i] * nParticles)} Particles" for i in range(num_images) ]
+    resolution_list = [f"{round(modelStarFile['model_classes']['rlnEstimatedResolution'][i],2)} A" for i in range(num_images)]
+
+    # Pixel size and scale bar length in pixels
+    pixel_size = float(modelStarFile['model_general']['rlnPixelSize'])
+    scale_bar_px = scale_bar_angstrom / pixel_size
+    scale_bar_label = f"{int(scale_bar_angstrom)} Å"
+
+    # Scale bar position: bottom-left, 5% margin from edges
+    sb_x0 = 0.05 * img_px
+    sb_x1 = sb_x0 + scale_bar_px
+    sb_y  = 0.90 * img_px  # near bottom (y axis points down in image coords)
 
     # Create a PDF to save the gallery
     output_pdf_path = "image_gallery.pdf"
@@ -32,14 +44,14 @@ def class_average_gallery(stack_path: str,
 
     images_per_page = images_per_row * rows_per_page
     with PdfPages(output_pdf_path) as pdf:
-        
+
         num_pages = (num_images + images_per_page - 1) // images_per_page
-        
+
         for page in range(num_pages):
-            fig, axes = plt.subplots( rows_per_page, images_per_row, 
+            fig, axes = plt.subplots( rows_per_page, images_per_row,
                                       figsize=(images_per_row * image_size, rows_per_page * image_size) )
             axes = axes.flatten()  # Flatten to easily iterate over axes
-            
+
             for i, ax in enumerate(axes):
                 image_idx = page * images_per_page + i
                 if image_idx < num_images:
@@ -52,15 +64,20 @@ def class_average_gallery(stack_path: str,
                     ax.set_title(f"Class {image_idx + 1}", fontsize=8)
 
                     # Add the number of particles on top
-                    ax.text(0.5, 0.9, num_particles, fontsize=10, ha='center', va='bottom', 
+                    ax.text(0.5, 0.9, num_particles, fontsize=10, ha='center', va='bottom',
                             transform=ax.transAxes, color='lime')
-                    
+
                     # Add the resolution on the bottom
-                    ax.text(0.5, 0.1, resolution, fontsize=10, ha='center', va='top', 
+                    ax.text(0.5, 0.1, resolution, fontsize=10, ha='center', va='top',
                             transform=ax.transAxes, color='lime')
+
+                    # Scale bar (bottom-left, in data/pixel coordinates)
+                    ax.plot([sb_x0, sb_x1], [sb_y, sb_y], color='white', linewidth=2, solid_capstyle='butt')
+                    ax.text(sb_x0, sb_y - 0.02 * img_px, scale_bar_label,
+                            fontsize=7, color='white', va='bottom', ha='left')
                 else:
                     ax.axis('off')  # Turn off unused subplots
-            
+
             plt.tight_layout()
             pdf.savefig(fig)  # Save the current figure to the PDF
             plt.close(fig)

@@ -99,7 +99,7 @@ class TheClassifier:
         if self.utils.binning == 2:
 
             # Re-run Refinement
-            self.utils.tomo_refine3D_job.joboptions['ini_high'].value = current_res * 1.5
+            self.utils.tomo_refine3D_job.joboptions['ini_high'].value = float(current_res) * 1.5
             self.utils.tomo_refine3D_job.joboptions['in_particles'].value = current_particles
             self.utils.tomo_refine3D_job.joboptions['fn_ref'].value = reference
             self.utils.run_auto_refine(rerunRefine=True)
