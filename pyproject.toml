@@ -16,6 +16,7 @@ dependencies = [
     "submitit",
     "rich-click",
     "zarr-particle-tools",
+    "fastmcp>=2.0.0",
     "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
     "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
 ]
