@@ -16,17 +16,17 @@ def mcp_cli():
     pass
 
 
-@mcp_cli.command("start")
-@click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", show_default=True, help="MCP transport")
-@click.option("--port", type=int, default=8000, show_default=True, help="Port for SSE transport")
-def mcp_start(transport: str, port: int) -> None:
-    """Start the py2rely MCP server for Claude Code integration."""
-    from py2rely.mcp.server import mcp
+# @mcp_cli.command("start")
+# @click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", show_default=True, help="MCP transport")
+# @click.option("--port", type=int, default=8000, show_default=True, help="Port for SSE transport")
+# def mcp_start(transport: str, port: int) -> None:
+#     """Start the py2rely MCP server for Claude Code integration."""
+#     from py2rely.mcp.server import mcp
 
-    if transport == "sse":
-        mcp.run(transport="sse", port=port)
-    else:
-        mcp.run(transport="stdio")
+#     if transport == "sse":
+#         mcp.run(transport="sse", port=port)
+#     else:
+#         mcp.run(transport="stdio")
 
 
 def _get_config_path(target: str, project_path: Optional[Path] = None) -> Path:

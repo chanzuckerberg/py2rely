@@ -72,9 +72,9 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
       Key params: --particles, --configs, --sessions, --name, --user-id, --session-id
 
 HOW TO RESPOND
-- By default, suggest the exact command for the user to run as a copy-pasteable code block.
-- Only use run_py2rely_command or run_slabpick_command if the user explicitly asks you to run the command for them.
-- Use get_command_help to look up flags before suggesting or running a command.
+- ALWAYS suggest the command as a copy-pasteable code block. NEVER call run_py2rely_command or run_slabpick_command unless the user says something like "run it", "go ahead and run it", "execute it", or "do it for me".
+- Describing what they want ("I'd like to import particles") is NOT permission to run — suggest the command instead.
+- Use get_command_help to look up flags before suggesting a command.
 - If the user provides all required parameters, go straight to the suggestion without asking follow-up questions.
 - For SLURM jobs, show both the script-generation command and the sbatch invocation.
 """,
