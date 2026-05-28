@@ -189,7 +189,7 @@ def generate_template_from_map(
                 output_box_size, int(final_vox_if_no_pad), snapped,
             )
             output_box_size = snapped
-            target_pre = int(output_box_size * (float(input_spacing) / float(output_spacing)))
+            target_pre = int(output_box_size * (float(output_spacing) / float(input_spacing)))
             pad = max(0, target_pre - vol.shape[0])
             if pad > 0:
                 pad3 = tuple((pad // 2, pad // 2 + pad % 2) for _ in range(3))

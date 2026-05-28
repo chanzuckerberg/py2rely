@@ -527,7 +527,7 @@ class PipelineHelper:
         with open(job.output_dir + 'run.out','r') as file:
             for line in file:
                 if sub_string in line:
-                    new_resolution = int(float(re.search(pattern, line).group()))
+                    new_resolution = float(re.search(pattern, line).group())
                     print(line) 
 
         # Check to See if Resolution is Improving. If not, terminate the pipeline early

@@ -26,6 +26,8 @@ def cli(ctx):
               help="Low-Pass Filter for the Reference Template (in Angstroms)")
 @click.option("-pd","--protein-diameter",type=float,required=False,default=290,
               help="Protein Diameter")
+@click.option("--max-dose", '-md', type=float, required=False, default=-1,
+              help="Maximum Dose for Extraction Step (in e-/Å^2)")
 @click.option("-dg","--denovo-generation",type=bool,required=False,default=False,
               help="Create Template Parameters for Denovo Model Generation")
 @click.option("-bs","--box-scaling",type=float,required=False,default=2.0,
@@ -49,13 +51,14 @@ def relion5_parameters(
     symmetry: str,
     low_pass: float,
     protein_diameter: float,
+    max_dose: float,
     denovo_generation: bool,
     box_scaling: float,
     binning_list: List[int],
     nclasses: int,
     ninit_models: int,
     nthreads: int,
-    nprocesses: int
+    nprocesses: int,
     ):
     """
     Generate a JSON file with the default parameters for the py2rely.
@@ -63,7 +66,7 @@ def relion5_parameters(
 
     create_relion5_parameters(
         output, tilt_series, particles, 
-        tilt_series_pixel_size, symmetry, low_pass, 
+        tilt_series_pixel_size, symmetry, low_pass, max_dose,
         protein_diameter, denovo_generation, box_scaling, 
         binning_list, nclasses, ninit_models, nthreads, nprocesses
     )
@@ -75,6 +78,7 @@ def create_relion5_parameters(
     tilt_series_pixel_size: float,
     symmetry: str,
     low_pass: float,
+    max_dose: float,
     protein_diameter: float,
     denovo_generation: bool,
     box_scaling: float,
@@ -109,6 +113,7 @@ def create_relion5_parameters(
     table.add_row("Symmetry", symmetry)
     table.add_row("Low-Pass Filter (Å)", str(low_pass))
     table.add_row("Protein Diameter (Å)", str(protein_diameter))
+    table.add_row("Max Dose (e-/Å^2)", str(max_dose))
     table.add_row("Box Scaling", str(box_scaling))
     table.add_row("Binning List", str(binning_list))
     table.add_row("Number of Classes", str(nclasses))
@@ -158,6 +163,7 @@ def create_relion5_parameters(
             in_particles=particles,
             do_use_direct_entries="yes",
             crop_size=-1,
+            max_dose=max_dose,
             do_float16="yes",
             do_output_2dstacks="yes",
             nr_threads=nthreads,

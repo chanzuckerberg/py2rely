@@ -14,7 +14,7 @@ def cli(ctx):
               help="Input Coordinates File Path (either single config or a comma-separated list e.g., config1.json,config2.json)" )
 @click.option("-iv","--in-vols", type=str, required=False, default=None,
               help="Input Volumes File Path")
-@click.option("-o","--out-dir", type=str, required=True, 
+@click.option("-o","--out-dir", type=str, required=False, default=None, 
               help="Output Directory" )
 @click.option("-es","--extract-shape", type=str, required=True, default="500,500,400",
               help="Extraction Shape for Particles Extraction (x y z) in Angstroms provided as comma-separated values" )
@@ -57,13 +57,16 @@ def slabpick(
     if tomo_alg is None and in_coords.endswith(".json"):
         raise click.BadParameter("Tomogram Algorithm (--tomo-alg) is required when reading from a copick-config (*.json) file")
 
+    # Set the Output Directory
+    out_dir = 'stack' if out_dir is None else os.path.join(out_dir, "stack")
+
     make_minislabs_command = f"""
 echo "################################################################################"
 echo "Making Minislabs"
 echo "################################################################################"
 make_minislabs \\
     --in_coords {in_coords} \\
-    --out_dir {os.path.join(out_dir, "stack")} \\
+    --out_dir {out_dir} \\
     --extract_shape {extract_shape} \\
     --voxel_spacing {voxel_spacing} \\
     --make_stack
@@ -74,8 +77,8 @@ echo "##########################################################################
 echo "Normalizing Particles Stack"
 echo "################################################################################"    
 normalize_stack \\
-    --in_stack={os.path.join(out_dir, "stack", "particles.mrcs")} \\
-    --out_stack={os.path.join(out_dir, "stack", "particles_relion.mrcs")} \\
+    --in_stack {os.path.join(out_dir, "particles.mrcs")} \\
+    --out_stack {os.path.join(out_dir, "particles_relion.mrcs")} \\
     --apix {pixel_size}
 """
 
@@ -129,9 +132,8 @@ normalize_stack \\
               help="2D Classification Algorithm, choose either '2DEM' or 'VDAM'." )
 @click.option('-ng', "--num-gpus", type=int, required=False, default=2,
               help="Number of GPUs for Processing" )
-@click.option('-gc', "--gpu-constraint", required=False, default="h100",
-              type=str,
-              callback=submit_slurm.validate_gpu_constraint,
+@click.option('-gc', "--gpu-constraint", required=False, default=None,
+              type=str, callback=submit_slurm.validate_gpu_constraint,
               help="GPU Hardware to Reqest for Processing" )
 @click.option('-nj', "--num-threads", type=int, required=False, default=16,
               help="Number of Threads to Use" )
@@ -260,12 +262,16 @@ def create_shellsubmit(
     command,
     total_time = '12:00:00',
     num_gpus = 1, 
-        gpu_constraint = 'h100',
+    gpu_constraint = None,
     load_relion = True,
     additional_commands = ''):
 
-    if num_gpus > 0:
-        slurm_gpus = f'#SBATCH --ntasks=1\n#SBATCH --nodes=1\n#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}'
+
+
+    if num_gpus > 0 and gpu_constraint is not None:
+        slurm_gpus = f'#SBATCH --partition=gpu\n#SBATCH --gpus={gpu_constraint}:{num_gpus}'
+    elif num_gpus > 0 and gpu_constraint is None:
+        slurm_gpus = f'#SBATCH --nodes=1\n#SBATCH --partition=gpu\n#SBATCH --gpus={num_gpus}'
     else:
         slurm_gpus = f'#SBATCH --partition=cpu'
 

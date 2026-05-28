@@ -329,19 +329,26 @@ def run_import_particles(
     default="input/full_picks.star",
     help="Output Filename to Write Merged Starfile"
 )
+@click.option(
+    '-sm', '--skip-missing',
+    type=bool, default=False, 
+    help="Skip missing files instead of throwing an error"
+)
 def combine_particles(
     input: List[str],
-    output: str
+    output: str,
+    skip_missing: bool
     ):
     """Combine multiple starfiles for particles."""
 
     run_combine_particles(
-        input, output
+        input, output, skip_missing
     )
 
 def run_combine_particles(
     input: List[str],
-    output: str
+    output: str,
+    skip_missing: bool
     ):
     from py2rely.utils.progress import get_console, _progress
     import pandas as pd
@@ -358,7 +365,11 @@ def run_combine_particles(
 
         filename = input[ii]
         print(f'Adding {filename} to the Merged StarFile')
-        file = starfile.read(filename)
+        if not os.path.exists(filename) and skip_missing:
+            console.print(f"[yellow]Warning:[/yellow] File '{filename}' not found. Skipping.")
+            continue
+        else: 
+            file = starfile.read(filename)
 
         if ii == 0:
             merged_optics = file['optics']
