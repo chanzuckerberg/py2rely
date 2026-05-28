@@ -71,11 +71,12 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
       Writes the final refined picks back to copick. This always ends the STA workflow.
       Key params: --particles, --configs, --sessions, --name, --user-id, --session-id
 
-EXECUTION MODES
-- Fast/setup commands (prepare, select, export, rln_map_particles): run directly via run_py2rely_command
-- Long-running RELION jobs on SLURM: use run_py2rely_command with use_slurm_entry=True to generate a .sh script
-- Long-running jobs without SLURM: provide the exact py2rely command for the user to run themselves
-- pipelines sta and polish also accept --submitit for direct SLURM submission without a shell script
+HOW TO RESPOND
+- By default, suggest the exact command for the user to run as a copy-pasteable code block.
+- Only use run_py2rely_command or run_slabpick_command if the user explicitly asks you to run the command for them.
+- Use get_command_help to look up flags before suggesting or running a command.
+- If the user provides all required parameters, go straight to the suggestion without asking follow-up questions.
+- For SLURM jobs, show both the script-generation command and the sbatch invocation.
 """,
 )
 
@@ -185,7 +186,7 @@ def get_slabpick_tool_help(tool_name: str) -> dict[str, Any]:
 
 
 @mcp.tool()
-def run_py2rely_command(args: list[str], working_dir: str, use_slurm_entry: bool = False) -> dict[str, Any]:
+def run_py2rely_command(args: list[str], working_dir: str | None = None, use_slurm_entry: bool = False) -> dict[str, Any]:
     """Run a py2rely command and return its output.
 
     Use this for fast commands (prepare, slab auto-class-ranker, routines select).
@@ -194,14 +195,15 @@ def run_py2rely_command(args: list[str], working_dir: str, use_slurm_entry: bool
 
     Args:
         args: Arguments after the entry point, e.g. ['prepare', 'particles', '-c', 'config.json', '-n', 'ribosome'].
-        working_dir: Directory to run the command in (should be the RELION project directory).
+        working_dir: Directory to run the command in. Defaults to cwd — do not ask the user unless they specify otherwise.
         use_slurm_entry: If True, use py2rely-slurm (generates a SLURM .sh script, does not block).
     """
+    cwd = working_dir or os.getcwd()
     entry = "py2rely-slurm" if use_slurm_entry else "py2rely"
     cmd = [entry] + args
-    logger.info("Running: %s (cwd=%s)", " ".join(cmd), working_dir)
+    logger.info("Running: %s (cwd=%s)", " ".join(cmd), cwd)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=working_dir, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=600)
         return {
             "success": result.returncode == 0,
             "command": " ".join(cmd),
@@ -219,21 +221,22 @@ def run_py2rely_command(args: list[str], working_dir: str, use_slurm_entry: bool
 
 
 @mcp.tool()
-def run_slabpick_command(tool_name: str, args: list[str], working_dir: str) -> dict[str, Any]:
+def run_slabpick_command(tool_name: str, args: list[str], working_dir: str | None = None) -> dict[str, Any]:
     """Run a slabpick CLI tool directly.
 
     Args:
         tool_name: One of make_minislabs, normalize_stack, rln_map_particles.
         args: Arguments to pass to the tool.
-        working_dir: Directory to run the command in.
+        working_dir: Directory to run the command in. Defaults to cwd — do not ask the user unless they specify otherwise.
     """
+    cwd = working_dir or os.getcwd()
     valid = [t for t, _ in SLABPICK_TOOLS]
     if tool_name not in valid:
         return {"success": False, "error": f"Unknown tool '{tool_name}'. Valid tools: {valid}"}
     cmd = [tool_name] + args
-    logger.info("Running slabpick: %s (cwd=%s)", " ".join(cmd), working_dir)
+    logger.info("Running slabpick: %s (cwd=%s)", " ".join(cmd), cwd)
     try:
-        result = subprocess.run(cmd, capture_output=True, text=True, cwd=working_dir, timeout=600)
+        result = subprocess.run(cmd, capture_output=True, text=True, cwd=cwd, timeout=600)
         return {
             "success": result.returncode == 0,
             "command": " ".join(cmd),

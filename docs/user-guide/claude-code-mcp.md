@@ -6,7 +6,7 @@
 
 ## 🧰 What Claude Can Do
 
-Once connected, Claude has access to the full py2rely and slabpick CLI through six tools:
+Once connected, Claude has access to the full py2rely and slabpick CLI through these tools:
 
 | Tool | Purpose |
 |------|---------|
@@ -17,139 +17,58 @@ Once connected, Claude has access to the full py2rely and slabpick CLI through s
 | `run_py2rely_command` | Execute a `py2rely` or `py2rely-slurm` command |
 | `run_slabpick_command` | Execute a slabpick tool directly |
 
-!!! info "How Claude handles long-running jobs"
-    py2rely commands fall into two categories depending on how long they take to run.
-    Just let Claude know whether you're on a SLURM cluster or running locally — it will adjust accordingly.
+!!! info "Default behaviour: suggest, not run"
+    By default Claude will give you the exact command to copy and paste — you stay in control of what runs and when. If you'd prefer Claude to run a command directly, just ask: *"go ahead and run it"*.
 
-??? success "✅ Commands Claude runs for you"
-
-    These are fast, non-blocking operations. Claude executes them directly and returns the result in the conversation.
-
-    | Command | What it does |
-    |---------|-------------|
-    | `prepare particles` | Export copick coordinates to a RELION star file |
-    | `prepare import-particles` | Import particles from an existing STAR file |
-    | `prepare combine-particles` | Merge multiple particle STAR files |
-    | `prepare tilt-series` | Import tilt series from AreTomo |
-    | `prepare combine-tilt-series` | Merge multiple tilt series STAR files |
-    | `prepare filter-unused-tilts` | Remove tilts not used by any particle |
-    | `prepare relion5-parameters` | Generate a `sta_parameters.json` config file |
-    | `prepare relion5-pipeline` | Initialise a RELION pipeline from a parameters file |
-    | `prepare create-template` | Create a template from an MRC map |
-    | `routines select` | Extract particles from the best 3D class |
-    | `export star2copick` | Write refined RELION picks back to a copick project |
-    | `rln_map_particles` | Map selected slab particles back to copick coordinates |
-
-??? warning "⏳ Commands that submit or hand off to you"
-
-    These jobs run for minutes to hours. Claude will either generate a SLURM submission script or print the exact command for you to run, depending on your setup.
-
-    === "On a SLURM cluster"
-
-        Claude calls `py2rely-slurm`, which writes a `.sh` script. You submit it with `sbatch`.
-
-        | Command | Script generated |
-        |---------|-----------------|
-        | `slab slabpick` | `slabpick.sh` — runs `make_minislabs` + `normalize_stack` |
-        | `slab class2d` | `class2d.sh` — runs RELION Class2D |
-        | `routines class3d` | `class3d.sh` — runs RELION Class3D |
-        | `pipelines sta` | submitted via Submitit directly to SLURM |
-        | `pipelines polish` | submitted via Submitit directly to SLURM |
-
-    === "Without SLURM (local / interactive)"
-
-        Claude provides the exact `py2rely` command to paste into your terminal. Nothing is executed on your behalf — you stay in control of when the job runs.
-
-        ```bash
-        # Example — Claude will give you the filled-in version of commands like:
-        py2rely slab class2d \
-            --particles stack/particles_relion.star \
-            --nr-classes 50 --particle-diameter 300
-
-        py2rely routines class3d \
-            --parameter sta_parameters.json \
-            --particles particles.star \
-            --reference reference.mrc
-        ```
-
----
-
-## 🚀 Starting the Server
-
-Run `py2rely mcp` from your terminal. No extra installation is needed — the MCP server is included with py2rely.
-
-```bash
-py2rely mcp
-```
-
-By default the server uses **stdio** transport, which is what Claude Code and Claude Desktop expect. An SSE transport is also available for other MCP clients:
-
-```bash
-py2rely mcp --transport sse --port 8000
-```
+    For long-running RELION jobs (Class2D, Class3D, STA pipeline), Claude always hands off to you regardless — either by generating a SLURM `.sh` script to `sbatch`, or by printing the command to run locally.
 
 ---
 
 ## ⚙️ Setup
 
-=== "Claude Code"
+Run `py2rely mcp install` once from the terminal. It automatically registers the server in the right config file — you never need to start the server manually.
 
-    Add py2rely as an MCP server to your project from the terminal:
+=== "Claude Code (project)"
+
+    Registers py2rely for the current directory only. Other projects won't see it.
 
     ```bash
-    claude mcp add py2rely -- py2rely mcp
+    cd /path/to/your/relion/project
+    py2rely mcp install
     ```
 
-    Or edit `.claude/mcp.json` in your project directory manually:
+    This creates a `.mcp.json` file in the current directory. Open Claude Code in that directory and the server connects automatically.
 
-    ```json
-    {
-      "mcpServers": {
-        "py2rely": {
-          "command": "py2rely",
-          "args": ["mcp"]
-        }
-      }
-    }
+=== "Claude Code (global)"
+
+    Registers py2rely for all Claude Code sessions on this machine.
+
+    ```bash
+    py2rely mcp install --target code-global
     ```
 
-    Restart Claude Code. You should see `py2rely` listed under connected MCP servers.
+    Start a new Claude Code session to pick up the change.
 
 === "Claude Desktop"
 
-    Edit the Claude Desktop config file for your platform:
-
-    **macOS**: `~/Library/Application Support/Claude/claude_desktop_config.json`  
-    **Windows**: `%APPDATA%\Claude\claude_desktop_config.json`
-
-    ```json
-    {
-      "mcpServers": {
-        "py2rely": {
-          "command": "py2rely",
-          "args": ["mcp"]
-        }
-      }
-    }
+    ```bash
+    py2rely mcp install --target desktop
     ```
 
     Restart Claude Desktop to pick up the change.
 
-    !!! warning "Using a conda or virtual environment?"
-        If py2rely is installed in a specific environment, use the full path to the binary:
+You can verify the registration at any time:
 
-        ```json
-        {
-          "mcpServers": {
-            "py2rely": {
-              "command": "/path/to/your/env/bin/py2rely",
-              "args": ["mcp"]
-            }
-          }
-        }
-        ```
+```bash
+py2rely mcp status                        # check project-level
+py2rely mcp status --target code-global   # check global
+```
 
-        Find the path with `which py2rely` after activating your environment.
+To remove it:
+
+```bash
+py2rely mcp uninstall --server-name py2rely
+```
 
 ---
 
@@ -188,7 +107,7 @@ When you start a conversation, Claude will first ask which workflow you want to 
 
     **Step 4 — Export back to copick**
 
-    Claude runs `rln_map_particles` directly, mapping the selected particles back to their original copick coordinates and writing them under your chosen `user_id` and `session_id`.
+    Claude suggests the `rln_map_particles` command to map selected particles back to their original copick coordinates under your chosen `user_id` and `session_id`.
 
 === "Workflow B — 3D Sub-Tomogram Averaging"
 
@@ -196,11 +115,11 @@ When you start a conversation, Claude will first ask which workflow you want to 
 
     **Step 1 — Prepare inputs**
 
-    Claude runs the relevant `prepare` commands directly (e.g. `prepare particles`, `prepare tilt-series`, `prepare relion5-parameters`) to assemble all inputs.
+    Claude suggests the relevant `prepare` commands (e.g. `prepare particles`, `prepare tilt-series`, `prepare relion5-parameters`) to assemble all inputs.
 
     **Step 2 — Run the STA pipeline**
 
-    Claude either generates a submission script or runs with `--submitit` for direct SLURM submission:
+    Claude suggests the command, either with `--submitit` for direct SLURM submission or as a script to run locally:
 
     ```bash
     py2rely pipelines sta \
@@ -210,18 +129,18 @@ When you start a conversation, Claude will first ask which workflow you want to 
 
     **Step 3 — [Optional] 3D Classification**
 
-    Claude generates a `class3d.sh` script for you to submit. Once the job finishes:
+    Claude suggests the `py2rely-slurm routines class3d` command to generate a `class3d.sh` script for you to submit. Once the job finishes:
 
     !!! warning "Class3D selection is a human step"
-        Deciding which 3D class to carry forward requires expert judgement on map quality, resolution, and biological relevance. Claude will run `routines select` once you tell it which class number to keep — but the decision is always yours.
+        Deciding which 3D class to carry forward requires expert judgement on map quality, resolution, and biological relevance. Claude will suggest `routines select` once you tell it which class number to keep — but the decision is always yours.
 
     **Step 4 — [Optional] Polish**
 
-    Claude runs `pipelines polish` with `--submitit` or generates a script depending on your setup.
+    Claude suggests `pipelines polish` with `--submitit` or the equivalent local command.
 
     **Step 5 — Export back to copick**
 
-    Claude runs `export star2copick` directly to write the final refined picks back to your copick project. This always ends the STA workflow.
+    Claude suggests `export star2copick` to write the final refined picks back to your copick project. This always ends the STA workflow.
 
 ---
 
