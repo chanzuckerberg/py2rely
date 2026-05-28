@@ -112,6 +112,16 @@ click.rich_click.OPTION_GROUPS = {
             "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],
         }
     ],
+    "py2rely pipelines polish": [
+        {
+            "name": "Polishing Options",
+            "options": ["--parameter", "--particles", "--mask", "--tomograms", "--motion", "--num-iterations"],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],            
+        }
+    ],
     "py2rely slab class2d": [
         {
             "name": "Input",

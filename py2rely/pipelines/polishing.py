@@ -7,7 +7,6 @@ class ThePolisher:
     def __init__(
         self, parameter_path: str, 
         tomograms: str = None, motion: str = None,
-        box_size: int = 256, crop_size: int = 25,
         submitit: bool = False, cpu_constraint: str = '1', 
         gpu_constraint: str = None, num_gpus: int = 0, timeout: int = 0
     ):
@@ -194,10 +193,6 @@ def polishing_options(func):
                       help="The Tomograms Star File to Start Polishing (e.g., 'tomograms.star')",),
         click.option('--motion', '-mo', type=str, required=False, default=None, 
                       help="The Motion Star File to Start Polishing (e.g., 'motion.star')",),
-        click.option('--box-size', '-bs', type=int, required=False, default=256,
-                      help="The Box Size for Polishing (default: 256)",),
-        click.option('--crop-size', '-cs', type=int, required=False, default=256,
-                      help="The Crop Size for Polishing (default: 256)",),
         click.option('--num-iterations', '-niter', type=int, required=False, default=5,
                       help="Number of Iterations for Polishing",),
     ]
@@ -219,8 +214,6 @@ def polish_pipeline(
     mask: str,
     tomograms: str,
     motion: str,
-    box_size: int,
-    crop_size: int,
     num_iterations: int,
     submitit: bool,
     cpu_constraint: str,
@@ -235,7 +228,7 @@ def polish_pipeline(
     print('Starting the Polishing Pipeline...')
     cpu_constraint = list(map(int, cpu_constraint.split(',')))
     polish = ThePolisher(
-        parameter, tomograms, motion, box_size, crop_size,
+        parameter, tomograms, motion,
         submitit, cpu_constraint, gpu_constraint, num_gpus, timeout
     )
     polish.utils.post_process_job.joboptions['fn_mask'].value = mask
