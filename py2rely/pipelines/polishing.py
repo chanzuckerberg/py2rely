@@ -98,6 +98,7 @@ class ThePolisher:
 
         # Initialize the Best Resolution
         self.best_resolution = 999
+        self.max_counts = 3
         self.counter = 0
 
         # For now, lets start off with 5 iterations
