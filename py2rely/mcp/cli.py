@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -15,17 +16,17 @@ def mcp_cli():
     pass
 
 
-# @mcp_cli.command("start")
-# @click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", show_default=True, help="MCP transport")
-# @click.option("--port", type=int, default=8000, show_default=True, help="Port for SSE transport")
-# def mcp_start(transport: str, port: int) -> None:
-#     """Start the py2rely MCP server for Claude Code integration."""
-#     from py2rely.mcp.server import mcp
+@mcp_cli.command("start", hidden=True)
+@click.option("--transport", type=click.Choice(["stdio", "sse"]), default="stdio", show_default=True, help="MCP transport")
+@click.option("--port", type=int, default=8000, show_default=True, help="Port for SSE transport")
+def mcp_start(transport: str, port: int) -> None:
+    """Start the py2rely MCP server (called by Claude Code — not for direct use)."""
+    from py2rely.mcp.server import mcp
 
-#     if transport == "sse":
-#         mcp.run(transport="sse", port=port)
-#     else:
-#         mcp.run(transport="stdio")
+    if transport == "sse":
+        mcp.run(transport="sse", port=port)
+    else:
+        mcp.run(transport="stdio")
 
 
 def _get_config_path(target: str, project_path: Optional[Path] = None) -> Path:
@@ -61,6 +62,11 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, for
     config_path = _get_config_path(target, project_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
+    py2rely_bin = shutil.which("py2rely")
+    if not py2rely_bin:
+        click.echo("❌ 'py2rely' not found in PATH. Is it installed in the active environment?")
+        sys.exit(1)
+
     config: dict = {}
     if config_path.exists():
         try:
@@ -80,7 +86,7 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, for
         click.echo("   Use --force to overwrite or choose a different --server-name.")
         sys.exit(1)
 
-    config["mcpServers"][server_name] = {"command": sys.executable, "args": ["-m", "py2rely.mcp"]}
+    config["mcpServers"][server_name] = {"command": py2rely_bin, "args": ["mcp", "start"]}
 
     try:
         with open(config_path, "w") as f:
@@ -92,7 +98,7 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, for
     target_name = _target_display(target)
     click.echo(f"✅ Registered '{server_name}' in {target_name}")
     click.echo(f"   Config: {config_path}")
-    click.echo(f"   Command: {sys.executable} -m py2rely.mcp")
+    click.echo(f"   Command: {py2rely_bin} mcp start")
     click.echo()
     if target == "desktop":
         click.echo("   Restart Claude Desktop to apply.")
