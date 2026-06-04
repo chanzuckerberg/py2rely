@@ -77,8 +77,8 @@ def _local_call(particles_fname: str, classes: List[int], output: str) -> str:
 
 def _relion_call(particles: str, classes: List[int]) -> str:
     """Run subset selection via RELION pipeliner, appending a Select job to history."""
+    from py2rely.utils.sta_tools import PipelineHelper as pipeline
     from pipeliner.api.manage_project import PipelinerProject
-    from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
     import os
 
     my_project = PipelinerProject(make_new_project=True)
@@ -91,9 +91,12 @@ def _relion_call(particles: str, classes: List[int]) -> str:
     utils.tomo_select_job.joboptions["select_maxval"].value = classes[0]
 
     # pipeline's custom_select adds 1 internally (expects 0-based), so convert
-    utils.run_2D_subset_select(particles, classes)
+    utils.run_subset_select(keepClasses=None, rerunSelect=True)
 
-    return os.path.join(utils.tomo_select_job.output_dir, "particles.star")
+    # Manually filter the particles with local call
+    output_path = os.path.join(utils.tomo_select_job.output_dir, "particles.star")
+    _local_call(particles, classes, output_path)
+    return output_path
 
 
 if __name__ == "__main__":

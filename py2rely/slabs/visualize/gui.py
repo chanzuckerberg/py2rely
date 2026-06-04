@@ -230,7 +230,6 @@ def run_class_selector(
             exit(1)
 
         output_path = run_select(particlesStarPath, selected_classes)
-        print(f"✅ Exported {len(selected_classes)} classes → {output_path}")
 
 if __name__ == "__main__":
     cli()

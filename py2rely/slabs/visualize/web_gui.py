@@ -198,6 +198,9 @@ def export_selected_classes(selected_indices, particles_star_path):
     if not selected_indices:
         return "❌ No classes selected!"
 
+    print('selected_indices', selected_indices)
+    print('particles_star_path', particles_star_path)
+
     try:
         # selected_indices are 0-based (from UI store); convert to 1-based
         classes_1based = [x + 1 for x in selected_indices]
