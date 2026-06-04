@@ -212,33 +212,25 @@ class SlabAveragePipeline(PipelineHelper):
         
         self.run_job(self.auto_select_job, jobName, 'Auto Selection', jobIter=autoSelectJobIter)
     
-    def run_subset_select(self, keepClasses: list = None, # selectStep: str = None, 
-                         classPath: str = None, rerunSelect: bool = True):
+    def run_2D_subset_select(
+        self, 
+        particles: str,
+        classes: list[int], 
+        ):
         """
         Run subset selection with full iteration tracking from parent class.
         
         Args:
-            keepClasses: List of classes to keep.
-            selectStep: Optional selection step identifier.
-            classPath: Path to the class file.
-            rerunSelect: If True, force rerun even if job exists
+            particles: Path to the particles star file.
+            classes: List of classes to keep.
         """
-        # Store classPath for custom_select
-        if classPath:
-            self.classPath = classPath
-        
-        # Generate job name
-        # jobName = self.check_custom_job_name('select', selectStep)
-        
-        # Use parent class's iteration tracking
-        if rerunSelect:
-            selectJobIter = self.return_job_iter(f'bin{self.binning}', 'select')
-        else:
-            selectJobIter = None
+        # particles path
+        self.classPath = particles
         
         # Run using parent's run_job with full tracking
+        selectJobIter = self.return_job_iter(f'bin{self.binning}', 'select')
         self.run_job(self.tomo_select_job, 'select', 'Subset Selection', 
-                    keepClasses=keepClasses, jobIter=selectJobIter)
+                    keepClasses=classes, jobIter=selectJobIter)
     
     def custom_select(self, classPath: str, keepClasses: list, uniqueExport: str = None):
         """

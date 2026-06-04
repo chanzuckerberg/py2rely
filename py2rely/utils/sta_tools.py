@@ -714,7 +714,6 @@ class PipelineHelper:
     # Select Class Job - Pick class with Largest Distribution
     def run_subset_select(self, 
                           keepClasses: list = None, 
-                          selectStep: str = None,
                           rerunSelect: bool = False ):
         """
         Run the subset selection job to pick classes with the largest distribution.

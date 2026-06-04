@@ -11,7 +11,7 @@ def slab():
     pass
 
 slab.add_command(slab_average)
-slab.add_command(auto_class_ranker) 
+slab.add_command(auto_class_ranker)
 slab.add_command(summary)
 slab.add_command(extractor)
 slab.add_command(extract)

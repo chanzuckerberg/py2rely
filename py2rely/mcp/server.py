@@ -39,6 +39,12 @@ Use this when the user wants to validate or clean picks from a copick project us
       Read the PDF, inspect the class averages visually, and suggest which classes contain real signal.
       The user makes the final selection decision.
 
+  Step 3b (direct): py2rely routines select -p <particles_star_path> -c <comma-separated class numbers>
+      Export particles belonging to the selected classes. Use the class numbers as labeled in the PDF gallery.
+      Example: py2rely routines select -p Class2D/job001/run_it025_data.star -c 1,3,5
+      Use --output to write to a custom path; omit it to append a Select job to the RELION pipeline history.
+      ALWAYS suggest this command after recommending classes — never skip this step.
+
   Step 4 (direct): rln_map_particles
       Maps selected RELION particles back to copick coordinates.
       Key params: --rln_file, --map_file, --particle_name, --user_id, --session_id,
@@ -62,7 +68,9 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
   Step 3 (optional, SLURM script): py2rely-slurm routines class3d
       Generates class3d.sh. User submits with sbatch.
       HUMAN DECISION: which 3D class to keep is always the user's call — never choose for them.
-      After the user decides, run: py2rely routines select --best-class N --class-job jobXXX
+      After the user decides, run: py2rely routines select -p <particles_star_path> -c <class number>
+      Example: py2rely routines select -p Class3D/job001/run_it025_data.star -c 2
+      ALWAYS suggest this command once the user has made their class decision.
 
   Step 4 (optional, direct or --submitit): py2rely pipelines polish
       Runs frame-based polishing. Key params: --parameter, --particles, --mask, --submitit
@@ -102,7 +110,7 @@ PY2RELY_COMMANDS = [
     ("pipelines polish", "Run the frame-based polishing pipeline (use --submitit for SLURM)"),
     # routines group — individual RELION job steps
     ("routines class3d", "Run a single RELION Class3D job (direct, blocking)"),
-    ("routines select", "Select particles from the best class after Class3D"),
+    ("routines select", "Export particles from selected 2D or 3D classes (-p particles.star -c 1,3,5)"),
 ]
 
 # Commands exposed via py2rely-slurm entry point — these generate .sh scripts for sbatch
@@ -273,7 +281,17 @@ def get_class2d_summary_pdf(working_dir: str, job_name: str = "job001") -> dict[
     # Look for an existing gallery PDF
     existing = glob.glob(os.path.join(class2d_dir, "**", "image_gallery.pdf"), recursive=True)
     if existing:
-        return {"success": True, "pdf_path": os.path.abspath(existing[0])}
+        particles = sorted(glob.glob(os.path.join(class2d_dir, "run_it*_data.star")))
+        particles_path = os.path.abspath(particles[-1]) if particles else f"{class2d_dir}/run_it###_data.star"
+        return {
+            "success": True,
+            "pdf_path": os.path.abspath(existing[0]),
+            "next_step": (
+                f"After reviewing the PDF and deciding which classes to keep, run:\n"
+                f"py2rely routines select -p {particles_path} -c <comma-separated class numbers>\n"
+                f"Example: py2rely routines select -p {particles_path} -c 1,3,5"
+            ),
+        }
 
     # No PDF yet — find the final classes MRC and generate one
     mrcs_files = sorted(glob.glob(os.path.join(class2d_dir, "run_it*_classes.mrcs")))
@@ -293,7 +311,17 @@ def get_class2d_summary_pdf(working_dir: str, job_name: str = "job001") -> dict[
     if not os.path.exists(pdf_path):
         return {"success": False, "error": f"Gallery generation succeeded but PDF not found at {pdf_path}"}
 
-    return {"success": True, "pdf_path": os.path.abspath(pdf_path)}
+    particles_candidates = sorted(glob.glob(os.path.join(class2d_dir, "run_it*_data.star")))
+    particles_path = os.path.abspath(particles_candidates[-1]) if particles_candidates else f"{class2d_dir}/run_it###_data.star"
+    return {
+        "success": True,
+        "pdf_path": os.path.abspath(pdf_path),
+        "next_step": (
+            f"After reviewing the PDF and deciding which classes to keep, run:\n"
+            f"py2rely routines select -p {particles_path} -c <comma-separated class numbers>\n"
+            f"Example: py2rely routines select -p {particles_path} -c 1,3,5"
+        ),
+    }
 
 
 if __name__ == "__main__":

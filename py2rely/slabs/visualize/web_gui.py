@@ -190,34 +190,8 @@ def load_class2d_data(job):
     return items, particlesStarPath, maxIter, status
 
 
-def export_selected_classes(job, selected_indices, particles_star_path):
-    """
-    Export particles belonging to selected 2D classes via py2rely/pipeliner pipeline utilities.
-
-    This uses the SlabAveragePipeline helpers to:
-      - initialize selection + classification context
-      - point the selection job at the chosen Class2D output directory
-      - subset-select particles belonging to the chosen classes
-      - write a particles.star file in the selection job output directory
-
-    Parameters
-    ----------
-    job : str
-        Job directory name under ./Class2D (e.g. "job001").
-    selected_indices : list[int]
-        0-based class indices (e.g. [0, 2, 4]).
-        IMPORTANT: These are kept 0-based to match the existing PyQt workflow.
-    particles_star_path : str
-        Path to run_it###_data.star corresponding to the final iteration.
-
-    Returns
-    -------
-    str
-        Human-readable status string for UI display.
-    """   
-    from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
-    from pipeliner.api.manage_project import PipelinerProject
-    import os
+def export_selected_classes(selected_indices, particles_star_path):
+    from py2rely.routines.select import run_select
 
     if not particles_star_path:
         return "❌ Please load data first!"
@@ -225,25 +199,10 @@ def export_selected_classes(job, selected_indices, particles_star_path):
         return "❌ No classes selected!"
 
     try:
-        my_project = PipelinerProject(make_new_project=True)
-        utils = pipeline(my_project)
-        utils.read_json_directories_file("output_directories.json")
-
-        # Keep 0-based indices (matches your PyQt version)
-        selected_classes = list(selected_indices)
-
-        utils.initialize_selection()
-        utils.initialize_classification()
-        utils.class2D_job.output_dir = os.path.join("Class2D", job)
-        utils.tomo_select_job.joboptions["fn_data"].value = particles_star_path
-        utils.tomo_select_job.joboptions["select_minval"].value = selected_classes[0]
-        utils.tomo_select_job.joboptions["select_maxval"].value = selected_classes[0]
-
-        utils.run_subset_select(keepClasses=selected_classes, classPath=particles_star_path)
-
-        output_path = os.path.join(utils.tomo_select_job.output_dir, "particles.star")
-        return f"✅ Exported {len(selected_classes)} classes → {output_path}"
-
+        # selected_indices are 0-based (from UI store); convert to 1-based
+        classes_1based = [x + 1 for x in selected_indices]
+        output_path = run_select(particles_star_path, classes_1based)
+        return f"✅ Exported {len(classes_1based)} classes → {output_path}"
     except Exception as e:
         return f"❌ Error exporting: {e}"
 
@@ -424,19 +383,19 @@ def create_interface():
         )
 
         # --- Export ---
-        def export_handler(job, store, particles_path):
+        def export_handler(store, particles_path):
             if not particles_path or not particles_path.strip():
                 return "❌ Please load data first!"
             if not store or not store.strip():
                 return "❌ No classes selected!"
 
             selected = [int(x) for x in store.split(",") if x.strip() != ""]
-            return export_selected_classes(job, selected, particles_path)
+            return export_selected_classes(selected, particles_path)
 
         # --- Connect export button ---
         export_btn.click(
             fn=export_handler,
-            inputs=[job_input, selected_store, particles_star_path_store],  # <-- changed
+            inputs=[selected_store, particles_star_path_store],
             outputs=[export_status],
             show_progress="hidden",
         )

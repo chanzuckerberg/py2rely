@@ -187,12 +187,8 @@ def run_class_selector(
         from PyQt5 import QtWidgets        
     except ImportError:
         raise ImportError("PyQt5 is required for the desktop GUI. Please install it via 'pip install py2rely[gui]'.")
-    from py2rely.slabs.pipeline import SlabAveragePipeline as pipeline
-    from pipeliner.api.manage_project import PipelinerProject
-    import rich_click as click, glob, mrcfile
-    import sys, os, re, starfile
-    import pyqtgraph as pg
-    import numpy as np
+    from py2rely.routines.select import run_select
+    import sys, os, starfile, mrcfile
 
     # Check to Make Sure a Valid Class Path is Provided
     if not os.path.isdir(os.path.join('Class2D', job)):
@@ -226,28 +222,15 @@ def run_class_selector(
 
         print('Exporting Particles...')
 
-        # Create Pipeliner Project
-        my_project = PipelinerProject(make_new_project=True)
-        utils = pipeline(my_project)
-        utils.read_json_directories_file('output_directories.json')
+        # selected_indices are 0-based (display index); convert to 1-based for run_select
+        selected_classes = [x + 1 for x in ex.selected_indices]
 
-        selected_classes = ex.selected_indices  
-        selected_classes = [x for x in selected_classes]
-
-        if len(selected_classes) == 0:
-            print(f'No Classes Selected, Exiting...\n')
+        if not selected_classes:
+            print('No Classes Selected, Exiting...')
             exit(1)
 
-        # class2DIteration = key_with_substring.split('_')[1]
-        utils.initialize_selection()
-        utils.initialize_classification()
-        utils.class2D_job.output_dir = os.path.join('Class2D', job)
-        utils.tomo_select_job.joboptions['fn_data'].value = particlesStarPath
-        utils.tomo_select_job.joboptions['select_minval'].value = selected_classes[0]
-        utils.tomo_select_job.joboptions['select_maxval'].value = selected_classes[0]        
-        utils.run_subset_select(keepClasses = selected_classes, classPath = particlesStarPath)
-
-        print(f'✅ Particles Exported to: {utils.tomo_select_job.output_dir}particles.star')
+        output_path = run_select(particlesStarPath, selected_classes)
+        print(f"✅ Exported {len(selected_classes)} classes → {output_path}")
 
 if __name__ == "__main__":
     cli()

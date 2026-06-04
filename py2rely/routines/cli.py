@@ -5,8 +5,8 @@ from py2rely.routines.reconstruct import (
 )
 from py2rely.routines.refine import refine3d, refine3d_slurm
 from py2rely.routines.class3d import class3d, class3d_slurm
-from py2rely.routines.select import select, select_slurm
 from py2rely.routines.post_process import post_process
+from py2rely.routines.select import select
 import rich_click as click
 
 @click.group()
@@ -33,7 +33,6 @@ routines_slurm.add_command(class3d_slurm)
 routines_slurm.add_command(refine3d_slurm)
 routines_slurm.add_command(reconstruct_particle_slurm)
 routines_slurm.add_command(extract_subtomo_slurm)
-routines_slurm.add_command(select_slurm)
 
 if __name__ == "__main__":
     routines()
