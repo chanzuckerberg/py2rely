@@ -1,7 +1,6 @@
 import json
 import os
 import platform
-import shutil
 import sys
 from pathlib import Path
 from typing import Optional
@@ -56,16 +55,15 @@ def _target_display(target: str) -> str:
 @click.option("--project-path", type=click.Path(exists=True, file_okay=False, dir_okay=True, path_type=Path),
               help="Project directory for --target code-project (defaults to cwd)")
 @click.option("--server-name", default="py2rely", show_default=True, help="Name for the MCP server entry")
+@click.option("--python-path", default=None, help="Path to Python executable (defaults to current Python)")
 @click.option("--force", is_flag=True, help="Overwrite existing entry if present")
-def mcp_install(target: str, project_path: Optional[Path], server_name: str, force: bool) -> None:
+def mcp_install(target: str, project_path: Optional[Path], server_name: str, python_path: Optional[str], force: bool) -> None:
     """Register py2rely as an MCP server in Claude Desktop or Claude Code."""
     config_path = _get_config_path(target, project_path)
     config_path.parent.mkdir(parents=True, exist_ok=True)
 
-    py2rely_bin = shutil.which("py2rely")
-    if not py2rely_bin:
-        click.echo("❌ 'py2rely' not found in PATH. Is it installed in the active environment?")
-        sys.exit(1)
+    if not python_path:
+        python_path = sys.executable
 
     config: dict = {}
     if config_path.exists():
@@ -86,7 +84,7 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, for
         click.echo("   Use --force to overwrite or choose a different --server-name.")
         sys.exit(1)
 
-    config["mcpServers"][server_name] = {"command": py2rely_bin, "args": ["mcp", "start"]}
+    config["mcpServers"][server_name] = {"command": python_path, "args": ["-m", "py2rely.mcp.server"], "env": {}}
 
     try:
         with open(config_path, "w") as f:
@@ -98,7 +96,7 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, for
     target_name = _target_display(target)
     click.echo(f"✅ Registered '{server_name}' in {target_name}")
     click.echo(f"   Config: {config_path}")
-    click.echo(f"   Command: {py2rely_bin} mcp start")
+    click.echo(f"   Command: {python_path} -m py2rely.mcp.server")
     click.echo()
     if target == "desktop":
         click.echo("   Restart Claude Desktop to apply.")
