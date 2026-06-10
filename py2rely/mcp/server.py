@@ -24,16 +24,19 @@ Always begin by asking the user which workflow they want to run before proceedin
 WORKFLOW A — 2D Slab Particle Filtering
 Use this when the user wants to validate or clean picks from a copick project using 2D class averages.
 
-  Step 1 (SLURM script): py2rely-slurm slab slabpick
-      Generates slabpick.sh which runs make_minislabs + normalize_stack.
-      User submits with: sbatch slabpick.sh
-      Key params: --in-coords (copick config or star file), --extract-shape, --voxel-spacing, --pixel-size,
-                  --tomo-alg, --particle-name, --user-id, --session-id
+  Step 1 (direct): make_minislabs then normalize_stack
+      Extract slabs from tomograms and normalize the stack for RELION.
+      Key params for make_minislabs: --out_dir, --in_coords (copick config or star file), --extract_shape,
+                  --voxel_spacing, --tomo_type, --user_id, --particle_name, --make_stack
+      Key params for normalize_stack: --in_stack, --out_stack, --apix
+      If the user asks for a SLURM script instead, use: py2rely-slurm slab slabpick
+          Generates slabpick.sh; user submits with: sbatch slabpick.sh
 
-  Step 2 (SLURM script OR direct): py2rely-slurm slab class2d  OR  py2rely slab class2d
-      Generates class2d.sh (SLURM) or runs Class2D directly.
-      User submits with: sbatch class2d.sh
+  Step 2 (direct): py2rely slab class2d
+      Runs RELION Class2D directly (blocking).
       Key params: --particle-diameter, --num-classes (or --nr-classes), --tau-fudge, --class-algorithm
+      If the user asks for a SLURM script instead, use: py2rely-slurm slab class2d
+          Generates class2d.sh; user submits with: sbatch class2d.sh
 
   Step 3 (you do this): call get_class2d_summary_pdf to locate or generate the class gallery PDF.
       Read the PDF, inspect the class averages visually, and suggest which classes contain real signal.
@@ -65,12 +68,14 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
       Key params: --parameter (sta_parameters.json), --reference-template, --submitit,
                   --run-class3d, --run-denovo-generation
 
-  Step 3 (optional, SLURM script): py2rely-slurm routines class3d
-      Generates class3d.sh. User submits with sbatch.
+  Step 3 (optional, direct): py2rely routines class3d
+      Runs a single RELION Class3D job directly (blocking).
       HUMAN DECISION: which 3D class to keep is always the user's call — never choose for them.
       After the user decides, run: py2rely routines select -p <particles_star_path> -c <class number>
       Example: py2rely routines select -p Class3D/job001/run_it025_data.star -c 2
       ALWAYS suggest this command once the user has made their class decision.
+      If the user asks for a SLURM script instead, use: py2rely-slurm routines class3d
+          Generates class3d.sh; user submits with: sbatch class3d.sh
 
   Step 4 (optional, direct or --submitit): py2rely pipelines polish
       Runs frame-based polishing. Key params: --parameter, --particles, --mask, --submitit

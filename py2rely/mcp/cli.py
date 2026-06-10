@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import subprocess
 import sys
 from pathlib import Path
 from typing import Optional
@@ -98,6 +99,25 @@ def mcp_install(target: str, project_path: Optional[Path], server_name: str, pyt
     click.echo(f"   Config: {config_path}")
     click.echo(f"   Command: {python_path} -m py2rely.mcp.server")
     click.echo()
+
+    # Also install copick-mcp at the same target location
+    copick_cmd = ["copick", "setup", "mcp", "--target", target]
+    if project_path:
+        copick_cmd += ["--project-path", str(project_path)]
+    if python_path:
+        copick_cmd += ["--python-path", python_path]
+    if force:
+        copick_cmd.append("--force")
+    try:
+        result = subprocess.run(copick_cmd, capture_output=True, text=True)
+        if result.returncode == 0:
+            click.echo("✅ Also registered 'copick-mcp' (via copick setup mcp)")
+        else:
+            click.echo(f"⚠️  copick-mcp registration failed: {(result.stderr or result.stdout).strip()}")
+    except FileNotFoundError:
+        click.echo("⚠️  copick not found — skipping copick-mcp registration")
+    click.echo()
+
     if target == "desktop":
         click.echo("   Restart Claude Desktop to apply.")
     elif target == "code-global":
