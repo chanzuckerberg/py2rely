@@ -35,7 +35,7 @@ def class3d_options(func):
         func = option(func)
     return func  
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @class3d_options
 @click.option( "--nr-classes", type=int, required=False, default=5, help="Number of Classes" )
 def class3d(

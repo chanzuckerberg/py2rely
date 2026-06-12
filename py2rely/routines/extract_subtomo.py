@@ -10,39 +10,66 @@ def cli(ctx):
 def extract_subtomo_options(func):
     """Decorator to add shared options for extract-subtomo commands."""
     options = [
-        click.option("-p", "--parameter",type=str,required=True,
-                      help="Path to Pipeline Parameter JSON File."),
-        click.option("--particles", type=str,required=True, default='particles.star',
+        click.option("-param", "--parameter", type=str, required=False, default=None,
+                      help="Py2rely Parameter file to determine the crop and box size at the requested resolution (e.g., 'sta_parameters.json')."),
+        click.option("-p", "--particles", type=str,required=True, default='particles.star',
                       help="Path to Particles STAR File."),
-        click.option("-bf", "--binfactor",type=int,required=False, default=None,
+        click.option("-bf", "--binfactor",type=int,required=False, default=1,
                       help="(Optional) Binning Factor, if not provided, will use the starting binning factor from the parameter pipeline file."),
         click.option("-t", "--tomogram",type=str,required=False, default=None,
                       help="(Optional) Path to Tomogram, if not provided, will use the tomograms from the parameter pipeline file."),
+        click.option("-m", "--motion", type=str,required=False, default=None,
+                      help="(Optional) Path to Motion Correction STAR File."),
+        click.option("-bs", "--boxsize", type=int,required=False, default=None,
+                      help="(Optional) Box Size, if not provided, will use the box size from the parameter pipeline file."),
+        click.option("-cs", "--cropsize", type=int,required=False, default=None,
+                      help="(Optional) Crop Size, if not provided, will use the crop size from the parameter pipeline file."),
+        click.option("-apex", "--apex", type=bool, required=False, default=False,
+                      help="Apply APEX Flags for extraction."),\
+        click.option("-j", "--nthreads", type=int, required=False, default=8,
+                      help="Number of threads to use for extraction."),
+        click.option("-np", "--nprocesses", type=int, required=False, default=1,
+                      help="Number of processes to use for extraction."),
     ]
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
     return func  
 
-@cli.command(context_settings=cli_context)
+@cli.command(context_settings=cli_context, no_args_is_help=True)
 @extract_subtomo_options
-def extract_subtomo(
+def extract(
     parameter: str,
     particles: str,
     tomogram: str,
     binfactor: int,
+    motion: str,
+    boxsize: int,
+    cropsize: int,
+    apex: bool,
+    nthreads: int,
+    nprocesses: int,
     ): 
     """Extract pseudo sub-tomograms from tilt series"""
 
     run_extract_subtomo(
-        parameter, particles, tomogram, binfactor,
+        particles, tomogram, binfactor,
+        nthreads, nprocesses, motion, 
+        boxsize, cropsize, 
+        apex, parameter, 
     )  
 
 
 def run_extract_subtomo(
-    parameter: str,
     particles: str,
     tomogram: str,
-    binfactor: int = None,
+    binfactor: int = 1,
+    nthreads: int = 8,
+    nprocesses: int = 1,
+    motion: str = None,
+    boxsize: int = None,
+    cropsize: int = None,
+    apex: bool = False,
+    parameter: str = None,
     ):
     """Extract pseudo sub-tomograms from cryo-ET tomograms using RELION.
     
@@ -62,42 +89,51 @@ def run_extract_subtomo(
                   the starting binning factor specified in the parameter pipeline file.
                   Higher values result in smaller, faster-to-process sub-tomograms.
     """    
+    from pipeliner.jobs.tomography.relion_tomo import tomo_pseudosubtomo_job
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
+    from py2rely.routines import helper
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter)
+    utils.binning = binfactor
     utils.read_json_directories_file('output_directories.json')
 
-    # If a Path for Refined Tomograms is Provided, Assign it 
-    if tomogram is not None:
-        utils.set_new_tomograms_star_file(tomogram)    
+    # Set Parameters
+    parameters = {
+        'in_particles': particles, 'in_tomograms': tomogram, 
+        'in_trajectories': motion, 'do_float16': 'yes', 
+        'do_output_2dstacks': 'yes', 'do_use_direct_entries': 'yes',
+        'binfactor': binfactor, 'nr_threads': nthreads, 'nr_mpi': nprocesses}
+    if parameter: 
+        helper.compute_boxsize_from_project(parameter, utils)
+    elif boxsize is None and cropsize is None: 
+        raise ValueError("Either parameter, boxsize, or both (cropsize and boxsize) must be provided.")
+    elif boxsize is not None and cropsize is None:
+        utils.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
+        parameters['crop_size'] = boxsize
+        parameters['box_size'] = boxsize 
+    else: # boxsize and cropsize are provided
+        utils.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()   
+        parameters['crop_size'] = cropsize
+        parameters['box_size'] = boxsize 
 
-    # Get Binning
-    if binfactor is not None:
-        utils.binning = binfactor
-
-    # Initialize Pseudo Subtomo Extraction
-    utils.initialize_reconstruct_particle()    
-    utils.initialize_pseudo_tomos()  
+    # Set Parameters
+    helper.set_parameters(utils.pseudo_subtomo_job, parameters)
 
     # Print Input Parameters
-    utils.print_pipeline_parameters('Pseudo Subtomo Extraction', Parameter=parameter, 
-                                     Tomogram_Path=tomogram, Binning_Factor=binfactor,
-                                     Particles=particles)    
+    helper.print_params('Pseudo Subtomo Extraction', params=parameters)
 
-    # Update the Box Size and Binning for Reconstruction and Pseudo-Subtomogram Averaging Job
-    utils.update_job_binning_box_size(
-        utils.reconstruct_particle_job, utils.pseudo_subtomo_job,
-        binningFactor = binfactor
-    )              
-
-    utils.pseudo_subtomo_job.joboptions['in_particles'].value = particles
+    # Remove CTF Pre-multiplication for Apex 
+    if apex:
+        utils.pseudo_subtomo_job.joboptions['other_args'].value = "--no_ctf --no_comb"
 
     # Run
     utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
+
+    # Return the Output Directory for Apex
+    return utils.pseudo_subtomo_job.output_dir
 
 @cli.command(context_settings=cli_context, name='extract-subtomo')
 @extract_subtomo_options

@@ -139,6 +139,7 @@ click.rich_click.OPTION_GROUPS = {
                 "--do-ctf-correction",
                 "--ctf-intact-first-peak",
                 "--dont-skip-align",
+                "--center-class"
             ],
         },
         {
@@ -183,5 +184,43 @@ click.rich_click.OPTION_GROUPS = {
             "name": "Extraction",
             "options": ["--extract-shape", "--voxel-spacing", "--pixel-size"],
         },
-    ]    
+    ],
+    "py2rely routines extract": [
+        {
+            "name": "I/O",
+            "options": ["--tomogram", "--particles", "--motion", "--parameter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--binfactor", "--boxsize", "--cropsize"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses"],
+        },
+    ], 
+    "py2rely routines reconstruct": [
+        {
+            "name": "I/O",
+            "options": ["--particles", "--tomograms", "--motion", "--parameter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--binfactor", "--boxsize", "--cropsize", "--symmetry"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses"],
+        },
+    ],
+    "py2rely routines class3d": [
+        {
+            "name": "I/O",
+            "options": ["--particles", "--parameter", "--reference", "--mask"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--ini-high", "--tau-fudge", "--nr-classes", "--nr-iter", "--ref-correct-greyscale", "--align-particles", "--nr-classes"],
+        },
+    ],
 }

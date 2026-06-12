@@ -104,7 +104,7 @@ PY2RELY_COMMANDS = [
     ("prepare filter-unused-tilts", "Remove tilts not referenced by any particle"),
     ("prepare relion5-parameters", "Generate a sta_parameters.json config file"),
     ("prepare relion5-pipeline", "Initialize a RELION pipeline from a parameters file"),
-    ("prepare create-template", "Create a template from an MRC map"),
+    ("prepare template", "Create a template from an MRC map"),
     # slab group — 2D class averaging on slab projections
     ("slab class2d", "Run RELION Class2D on slab projections (direct, blocking)"),
     ("slab summary", "Generate a PDF gallery of 2D class averages for inspection"),

@@ -8,16 +8,13 @@ def cli(ctx):
 
 # Post Process Command
 @cli.command(context_settings=cli_context)
-@click.option("-p", "--parameter", type=str, required=True, default="sta_parameters.json", 
-              help="Sub-Tomogram Refinement Parameter Path")
-@click.option("-m", "--mask", type=str, required=True, 
-              help="Path to Mask to Measure the Map Resolution")
 @click.option("-hm", "--half-map", type=str, required=True, 
               help="Path to Half Map to Post Process")
+@click.option("-m", "--mask", type=str, required=True, 
+              help="Path to Mask to Measure the Map Resolution")
 @click.option("-lp", "--low-pass", type=float, required=False, default=None, 
               help='Low Pass Filter to Use for Post Processing')
 def post_process(
-    parameter: str,
     mask: str,
     half_map: str,
     low_pass: float,
@@ -26,10 +23,9 @@ def post_process(
     Post Process a Half Map through the CLI.
     """
 
-    fresh_run(parameter, mask, half_map, low_pass)
+    fresh_run(mask, half_map, low_pass)
 
 def fresh_run( 
-    parameter: str,
     mask: str,
     half_map: str,
     low_pass: float,
@@ -49,7 +45,6 @@ def fresh_run(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.read_json_params_file(parameter)
     utils.read_json_directories_file('output_directories.json')
 
     # Initialize the Processes Job

@@ -10,22 +10,34 @@ def cli(ctx):
 def refine3d_options(func):
     """Decorator to add shared options for refine3d commands."""
     options = [
-        click.option("--parameter",type=str,required=True,default="sta_parameters.json",
+        click.option("-param","--parameter",type=str,required=True,default="sta_parameters.json",
                       help="Sub-Tomogram Refinement Parameter Path",),
-        click.option("--particles",type=str,required=True,default="Refine3D/job001/run_data.star",
+        click.option("-p","--particles",type=str,required=True,default="Refine3D/job001/run_data.star",
                       help="Path to Particles File to Reconstruct Data"),
-        click.option("-r", "--reference",type=str,required=True,default="Refine3D/job001/class001.mrc",
+        click.option("-t","--tomogram",type=str, required=False,default=None,
+                      help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)"),
+        click.option("-mo","--motion",type=str, required=False,default=None,
+                      help="Path to Motion File (e.g., Motion/job001/motion.star)"),
+        click.option("-r","--reference",type=str,required=True,default="Refine3D/job001/class001.mrc",
                       help="Path to Reference MRC for Refinement"),
-        click.option("-m", "--mask",type=str,required=False,default=None,
-                      help="(Optional) Path for Mask."),
+        click.option("-ma", "--mask",type=str,required=False,default=None,
+                      help="Path for Mask."),
         click.option("-lp", "--low-pass",type=float,required=False,default=15,
                       help="User Input Low Pass Filter"),
+        click.option('-d', '--diameter',type=int,required=False,default=280,
+                      help="Diameter of the Tomogram (default: 280)"),
+        click.option("-sym","--symmetry",type=str,required=False,default='C1',
+                      help="Symmetry of the Tomogram"),
         click.option("-rcg", "--ref-correct-greyscale",type=bool,required=False, default=True,
                       help="Reference Map is on Absolute Greyscale?"),
         click.option("--continue-iter",type=str,required=False,default=None,
-                      help="(Optional) Continue from this iteration? (e.g., Refine3D/job009/run_it008_optimiser.star)"),
-        click.option("--tomogram",type=str, required=False,default=None,
-                      help="(Optional) Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)" )
+                      help="Continue from this iteration? (e.g., Refine3D/job009/run_it008_optimiser.star)"),
+        click.option('-j','--nthreads',type=int,required=False,default=8,
+                      help="Number of Threads to Use"),
+        click.option('-np','--nprocesses',type=int,required=False,default=1,
+                      help="Number of Processes to Use"),
+        click.option('-g', '--use-gpu', type=bool, required=False, default=True, 
+                      help="Use GPU for Refinement"),
     ]  
     for option in reversed(options):  # Add options in reverse order to preserve order in CLI
         func = option(func)
@@ -38,32 +50,41 @@ def refine3d(
     parameter: str,
     particles: str, 
     reference: str,
-    mask: str = None,
-    symmetry: str = None,
-    low_pass: float = None,
-    ref_correct_greyscale: bool = True,    
-    continue_iter: str = None,
-    tomogram: str = None
+    mask: str ,
+    motion: str ,
+    diameter: int,
+    symmetry: str,
+    low_pass: float ,
+    ref_correct_greyscale: bool,    
+    continue_iter: str ,
+    tomogram: str ,
+    nthreads: int,
+    nprocesses: int
     ): 
     """3D Refinement from sub-tomograms."""
 
     run_refine3d(
         parameter, particles, reference, mask, 
         symmetry, low_pass, ref_correct_greyscale, 
-        continue_iter, tomogram
+        continue_iter, tomogram,
+        nthreads, nprocesses
     )
-
 
 def run_refine3d(
     parameter: str,
     particles: str, 
     reference: str,
-    mask: str = None,
-    symmetry: str = None,
-    low_pass: float = None,
-    ref_correct_greyscale: bool = True,    
-    continue_iter: str = None,
-    tomogram: str = None
+    mask: str ,
+    motion: str ,
+    diameter: int,
+    symmetry: str ,
+    low_pass: float ,
+    ref_correct_greyscale: bool ,    
+    continue_iter: str ,
+    tomogram: str ,
+    nthreads: int,
+    nprocesses: int,
+    use_gpu: bool
     ):
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools

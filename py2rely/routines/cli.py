@@ -1,7 +1,7 @@
-from py2rely.routines.extract_subtomo import extract_subtomo, extract_subtomo_slurm
+from py2rely.routines.extract_subtomo import extract, extract_subtomo_slurm
 from py2rely.routines.reconstruct import (
     reconstruct_particle, reconstruct_particle_slurm, 
-    mask_post_process, create_mask_and_post_process
+    #mask_post_process, create_mask_and_post_process
 )
 from py2rely.routines.refine import refine3d, refine3d_slurm
 from py2rely.routines.class3d import class3d, class3d_slurm
@@ -18,9 +18,9 @@ def routines():
 routines.add_command(class3d)
 routines.add_command(refine3d)
 routines.add_command(reconstruct_particle)
-routines.add_command(mask_post_process)
+# routines.add_command(mask_post_process)
 routines.add_command(post_process)
-routines.add_command(extract_subtomo)
+routines.add_command(extract)
 routines.add_command(select)
 
 @click.group(name="routines")
