@@ -101,7 +101,13 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
       If the user asks for a SLURM script instead, use: py2rely-slurm routines refine3d
           Generates refine3d.sh; user submits with: sbatch refine3d.sh
 
-  Step 3e (optional, direct): py2rely routines post-process
+  Step 3e (optional, direct): py2rely routines mask-create
+      Build a soft solvent mask from a reconstructed map. Run this before post-process
+      (or refine3d) when a --mask is needed.
+      Key params: --map (path to map, e.g. Reconstruct/job001/half1.mrc)
+      Optional: --threshold, --extend, --width, --low-pass, --nthreads
+
+  Step 3f (optional, direct): py2rely routines post-process
       Apply FSC-based post-processing to a pair of half-maps.
       Key params: --half-map (path to half1), --mask
       Optional: --low-pass
@@ -147,6 +153,7 @@ PY2RELY_COMMANDS = [
     ("routines reconstruct", "Back-project aligned sub-tomograms to produce a 3D map (direct, blocking)"),
     ("routines refine3d", "Run RELION gold-standard 3D auto-refinement on sub-tomograms (direct, blocking)"),
     ("routines class3d", "Run a single RELION Class3D job (direct, blocking)"),
+    ("routines mask-create", "Build a soft solvent mask from a reconstructed map (direct, blocking)"),
     ("routines post-process", "Apply FSC-based post-processing to a pair of half-maps (direct, blocking)"),
     ("routines select", "Export particles from selected 2D or 3D classes (-p particles.star -c 1,3,5)"),
 ]
