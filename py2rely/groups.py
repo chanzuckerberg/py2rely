@@ -252,7 +252,7 @@ click.rich_click.OPTION_GROUPS = {
         },
         {
             "name": "Compute Resources",
-            "options": ["--nthreads", "--nprocesses", "--use-gpu"],
+            "options": ["--nthreads", "--nprocesses", "--use-gpu", "--nr-pool"],
         },
     ],
 }

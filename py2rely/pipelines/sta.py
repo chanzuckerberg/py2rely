@@ -156,6 +156,7 @@ def run_average(
             utils.mask_create_job.joboptions['lowpass_filter'].value = utils.get_resolution(utils.tomo_refine3D_job, 'refine3D') * 1.25
             utils.run_mask_create(utils.tomo_refine3D_job, utils.tomo_class3D_job)
 
+            # Check
             if manual_masking and binFactor == 0:
                 print('[UPDATE] Manual masking requested. Exiting for user intervention.')
                 exit()

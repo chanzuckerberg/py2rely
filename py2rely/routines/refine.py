@@ -10,19 +10,19 @@ def cli(ctx):
 def refine3d_options(func):
     """Decorator to add shared options for refine3d commands."""
     options = [
-        click.option("-param","--parameter",type=str,required=True,default="sta_parameters.json",
+        click.option("-param","--parameter",type=str,required=False,default=None,
                       help="Sub-Tomogram Refinement Parameter Path",),
         click.option("-p","--particles",type=str,required=True,default="Refine3D/job001/run_data.star",
-                      help="Path to Particles File to Reconstruct Data"),
-        click.option("-t","--tomogram",type=str, required=False,default=None,
-                      help="Path to CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)"),
+                      help="Particles File to Reconstruct Data"),
+        click.option("-t","--tomogram",type=str, required=True,default='tomograms.star',
+                      help="CtfRefine or Polish tomograms StarFile (e.g., CtfRefine/job010)"),
         click.option("-mo","--motion",type=str, required=False,default=None,
-                      help="Path to Motion File (e.g., Motion/job001/motion.star)"),
-        click.option("-r","--reference",type=str,required=True,default="Refine3D/job001/class001.mrc",
-                      help="Path to Reference MRC for Refinement"),
-        click.option("-ma", "--mask",type=str,required=False,default=None,
-                      help="Path for Mask."),
-        click.option("-lp", "--low-pass",type=float,required=False,default=15,
+                      help="Motion File (e.g., CtfRefine/job001/motion.star)"),
+        click.option("-r","--reference",type=str,required=True,default="Reconstruct/job001/half1.mrc",
+                      help="Reference MRC for Refinement"),
+        click.option("-ma", "--mask",type=str,required=True,default="path/to/mask.mrc",
+                      help="Mask for the Reference."),
+        click.option("-lp", "--low-pass",type=float,required=True,default=15,
                       help="User Input Low Pass Filter"),
         click.option('-d', '--diameter',type=int,required=False,default=280,
                       help="Diameter of the Tomogram (default: 280)"),
@@ -40,6 +40,8 @@ def refine3d_options(func):
                       help="Number of Threads to Use"),
         click.option('-np','--nprocesses',type=int,required=False,default=1,
                       help="Number of Processes to Use"),
+        click.option('-npool', '--nr-pool', type=int, required=False, default=16, 
+                      help="Number of Pool Threads to Use"),
         click.option('-g', '--use-gpu', type=bool, required=False, default=True, 
                       help="Use GPU for Refinement"),
     ]  
@@ -65,9 +67,13 @@ def refine3d(
     reference: str,
     mask: str ,
     nthreads: int,
-    nprocesses: int
+    nprocesses: int,
+    nr_pool: int,
+    use_gpu: bool,
     ): 
     """Run RELION gold-standard 3D auto-refinement on sub-tomograms.
+
+    If a parameter file is provided, all the other options are ignored.
 
     Pass --continue-iter to resume from a previous optimiser checkpoint.
     """
@@ -75,26 +81,27 @@ def refine3d(
     run_refine3d(
         parameter, particles, tomogram, motion, diameter, symmetry,
         sampling_angle, local_sampling_angle, low_pass, ref_correct_greyscale,
-        continue_iter, reference, mask, nthreads, nprocesses
+        continue_iter, reference, mask, nthreads, nprocesses, nr_pool, use_gpu
     )
 
 def run_refine3d(
     parameter: str,
     particles: str,
-    reference: str,
-    mask: str ,
-    motion: str ,
+    tomogram: str,
+    motion: str,
     diameter: int,
-    symmetry: str ,
+    symmetry: str,
     sampling_angle: str,
     local_sampling_angle: str,
-    low_pass: float ,
-    ref_correct_greyscale: bool ,
-    continue_iter: str ,
-    tomogram: str ,
+    low_pass: float,
+    ref_correct_greyscale: bool,
+    continue_iter: str,
+    reference: str,
+    mask: str,
     nthreads: int,
     nprocesses: int,
-    use_gpu: bool
+    nr_pool: int,
+    use_gpu: bool,
     ):
     """Run RELION 3D auto-refinement on extracted pseudo sub-tomograms.
 
@@ -131,32 +138,46 @@ def run_refine3d(
         nprocesses: Number of MPI processes (--np).
         use_gpu: If True, enables GPU acceleration for the refinement.
     """
+    from pipeliner.jobs.tomography.relion_tomo import tomo_refine3D_job
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
     from py2rely.routines import helper
+    import starfile
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
     utils.read_json_directories_file('output_directories.json')
+    utils.tomo_refine3D_job = tomo_refine3D_job.TomoRelionRefine3D()
+
+    # Set Required Parameters
+    required_parameters = {
+        'fn_mask': mask, 'fn_ref': reference,
+        'in_particles': particles, 'in_tomograms': tomogram, 
+        'in_trajectories': motion, 'use_direct_entries': 'yes',
+        'nr_threads': nthreads, 'nr_mpi': nprocesses, 'nr_pool': nr_pool,
+    }
+    required_parameters['use_gpu'] = 'yes' if use_gpu else 'no'
+    required_parameters['ref_correct_greyscale'] = 'yes' if ref_correct_greyscale else 'no'
+    helper.set_parameters(utils.tomo_refine3D_job, required_parameters)
 
     # Set Parameters
     parameters = {
-        'in_particles': particles, 'in_tomograms': tomogram, 
-        'in_trajectories': motion, 'fn_mask': mask, 'fn_ref': reference,
-        'particle_diameter': diameter, 'do_use_direct_entries': 'yes', 'sym_name': symmetry,
-        'ini_high': low_pass, 'nr_threads': nthreads, 'nr_mpi': nprocesses, 
-        'sampling': sampling_angle, 'auto_local_sampling': local_sampling_angle
+        'particle_diameter': diameter, 'sym_name': symmetry,
+        'ini_high': low_pass, 'sampling': sampling_angle, 
+        'auto_local_sampling': local_sampling_angle
     }
-    parameters['use_gpu'] = 'yes' if use_gpu else 'no'
-    parameters['ref_correct_greyscale'] = 'yes' if ref_correct_greyscale else 'no'
-
     if parameter:
-        helper.compute_boxsize_from_project(parameter, utils)
+        df = starfile.read(particles) 
+        utils.binning = int(df['optics']['rlnTomoSubtomogramBinning'])
+        utils.read_json_params_file(parameter)
+        utils.get_new_sampling(utils.tomo_refine3D_job)
+    else:
+        # Set Parameters
+        helper.set_parameters(utils.tomo_refine3D_job, parameters)
 
-    # Set Parameters
-    helper.set_parameters(utils.tomo_refine3D_job, parameters)
-
+    # Add required parameters to parameters
+    parameters.update(required_parameters) 
     # Print Input Parameters
     helper.print_params('Refine3D', params=parameters)
 
