@@ -1,4 +1,5 @@
 from py2rely.utils.progress import get_console
+from py2rely import snap_box_size
 from rich.table import Table
 from typing import Optional
 import json, os
@@ -71,3 +72,33 @@ def print_params( process: str, header: str = None, params: dict = None, **kwarg
             f"\n[green]Parameters saved to[/green] [b]{file_name}[/b]"
             + (f" under header [cyan]{header}[/cyan]" if header else "")
         )
+
+def validate_crop_box_size(boxsize: int, cropsize: int):
+    """
+    Validate the crop and box sizes and return the validated sizes.
+
+    Args:
+        boxsize: The box size to validate.
+        cropsize: The crop size to validate.
+
+    Returns:
+        boxsize: The validated box size.
+        cropsize: The validated crop size.
+
+    Raises:
+        ValueError: If the box size is smaller than the crop size.
+    """
+
+    # If cropsize is not provided, set it to boxsize
+    if cropsize is None:
+        cropsize = boxsize
+
+    # Snap box and crop sizes to nearest valid RELION box size
+    boxsize = snap_box_size(boxsize)
+    cropsize = snap_box_size(cropsize)
+
+    # Ensure crop size is not larger than box size
+    if boxsize < cropsize:
+        print('[Warning] Box size is smaller than crop size. Setting crop size to box size.')
+        cropsize = boxsize
+    return boxsize, cropsize

@@ -57,6 +57,22 @@ def create_shellsubmit(
 
     print(f"\nShell script {shell_name} created successfully.\n")
 
+def build_command(base: str, params: dict) -> str:
+    """Build a CLI command string from a base command and a flag→value dict.
+
+    Skips entries where value is None or False. Values containing spaces
+    (e.g. RELION sampling angles like '7.5 degrees') are automatically quoted.
+    """
+    parts = [base]
+    for flag, value in params.items():
+        if value is None or value is False:
+            continue
+        str_val = str(value)
+        if " " in str_val:
+            str_val = f'"{str_val}"'
+        parts.append(f"--{flag} {str_val}")
+    return " \\\n    ".join(parts)
+
 ##############################################################################
 
 def validate_even_gpus(ctx, param, value):

@@ -49,7 +49,12 @@ def extract(
     nthreads: int,
     nprocesses: int,
     ): 
-    """Extract pseudo sub-tomograms from tilt series"""
+    """Extract pseudo sub-tomograms from tilt-series data.
+
+    Box and crop sizes are read from a parameter file
+    or supplied directly via --boxsize / --cropsize. Use --apex to disable
+    CTF pre-multiplication for APEX-corrected data.
+    """
 
     run_extract_subtomo(
         particles, tomogram, binfactor,
@@ -71,24 +76,33 @@ def run_extract_subtomo(
     apex: bool = False,
     parameter: str = None,
     ):
-    """Extract pseudo sub-tomograms from cryo-ET tomograms using RELION.
-    
-    This command extracts 3D sub-volumes (sub-tomograms) from full tomogram
-    reconstructions at particle coordinates. It creates pseudo sub-tomograms
-    that can be used for subsequent sub-tomogram averaging and classification
-    workflows in RELION.
-    
+    """Extract pseudo sub-tomograms from cryo-ET tilt-series data using RELION.
+
+    Cuts 3D boxes around particle coordinates from full tomogram reconstructions,
+    producing pseudo sub-tomograms ready for classification or refinement.  Box
+    and crop sizes are derived from a parameter file or passed explicitly; at
+    least one of (parameter, boxsize) must be provided.
+
     Args:
-        parameter: Path to the JSON file containing pipeline parameters. This file
-                  specifies the tomogram locations, particle coordinates, and
-                  extraction settings.
-        tomogram: Optional path to a STAR file containing tomogram information.
-                 If provided, overrides the tomogram paths in the parameter file.
-                 Useful for using refined tomograms from CtfRefine or Polish jobs.
-        binfactor: Optional binning factor for extraction. If not provided, uses
-                  the starting binning factor specified in the parameter pipeline file.
-                  Higher values result in smaller, faster-to-process sub-tomograms.
-    """    
+        particles: Path to the RELION particles STAR file containing particle
+                   coordinates and CTF information.
+        tomogram: Optional STAR file of tomograms (e.g. from a CtfRefine or
+                  Polish job).  Overrides tomogram paths from the parameter file.
+        binfactor: Binning factor applied during extraction.  Higher values yield
+                   smaller, faster sub-tomograms for initial rounds of refinement.
+        nthreads: Number of CPU threads passed to RELION (--j).
+        nprocesses: Number of MPI processes passed to RELION (--np).
+        motion: Optional STAR file of per-tilt motion trajectories from a Polish
+                job, used to apply beam-induced motion correction during extraction.
+        boxsize: 3D box size in pixels for the extracted sub-tomograms.  If None,
+                 derived from the parameter file.
+        cropsize: Cropped (final) sub-tomogram size in pixels written to disk.
+                  Must be ≤ boxsize.  If None, defaults to boxsize.
+        apex: If True, disables CTF pre-multiplication (--no_ctf --no_comb) for
+              data corrected with the APEX phase-plate algorithm.
+        parameter: Path to a py2rely JSON parameter file.  When supplied, box and
+                   crop sizes are computed automatically from the project settings.
+    """
     from pipeliner.jobs.tomography.relion_tomo import tomo_pseudosubtomo_job
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
@@ -106,16 +120,17 @@ def run_extract_subtomo(
         'in_trajectories': motion, 'do_float16': 'yes', 
         'do_output_2dstacks': 'yes', 'do_use_direct_entries': 'yes',
         'binfactor': binfactor, 'nr_threads': nthreads, 'nr_mpi': nprocesses}
+ 
+    # If parameter is provided, compute the boxsize from the parameter file
     if parameter: 
         helper.compute_boxsize_from_project(parameter, utils)
+    # If boxsize and cropsize are not provided, raise an error
     elif boxsize is None and cropsize is None: 
         raise ValueError("Either parameter, boxsize, or both (cropsize and boxsize) must be provided.")
-    elif boxsize is not None and cropsize is None:
-        utils.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()
-        parameters['crop_size'] = boxsize
-        parameters['box_size'] = boxsize 
-    else: # boxsize and cropsize are provided
+    # If boxsize and/or cropsize are provided, validate the sizes and set the parameters
+    else: 
         utils.pseudo_subtomo_job = tomo_pseudosubtomo_job.RelionPseudoSubtomoJob()   
+        boxsize, cropsize = helper.validate_crop_box_size(boxsize, cropsize)
         parameters['crop_size'] = cropsize
         parameters['box_size'] = boxsize 
 
@@ -132,30 +147,37 @@ def run_extract_subtomo(
     # Run
     utils.run_pseudo_subtomo(rerunPseudoSubtomo=True)
 
-    # Return the Output Directory for Apex
+    # Return the Output Directory
     return utils.pseudo_subtomo_job.output_dir
 
 @cli.command(context_settings=cli_context, name='extract-subtomo')
 @extract_subtomo_options
 def extract_subtomo_slurm(
     parameter: str,
+    particles: str,
     tomogram: str,
     binfactor: int,
+    motion: str,
+    boxsize: int,
+    cropsize: int,
+    apex: bool,
+    nthreads: int,
+    nprocesses: int,
     ):
 
-    # Create Class3D Command
-    command = f"""
-py2rely routines extract-subtomo \\
-    --parameter {parameter} \\
-    """
+    command = my_slurm.build_command("py2rely routines extract", {
+        "particles": particles,
+        "binfactor": binfactor,
+        "nthreads": nthreads,
+        "nprocesses": nprocesses,
+        "parameter": parameter,
+        "tomogram": tomogram,
+        "motion": motion,
+        "boxsize": boxsize,
+        "cropsize": cropsize,
+        "apex": apex or None,
+    })
 
-    if tomogram is not None:
-        command += f" --tomogram {tomogram}"
-
-    if binfactor is not None:
-        command += f" --binfactor {binfactor}"
-
-    # Create Slurm Submit Script
     my_slurm.create_shellsubmit(
         job_name="extract-subtomo",
         output_file="extract-subtomo.out",

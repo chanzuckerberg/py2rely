@@ -77,6 +77,35 @@ Use this when the user wants to run a full 3D reconstruction from copick coordin
       If the user asks for a SLURM script instead, use: py2rely-slurm routines class3d
           Generates class3d.sh; user submits with: sbatch class3d.sh
 
+  Step 3b (optional, direct): py2rely routines extract
+      Extract pseudo sub-tomograms from tilt-series data at a specific binning factor.
+      Key params: --particles, --binfactor, --nthreads, --nprocesses
+      Optional: --parameter (derives box/crop from JSON), --boxsize, --cropsize, --tomogram, --motion, --apex
+      If the user asks for a SLURM script instead, use: py2rely-slurm routines extract-subtomo
+          Generates extract-subtomo.sh; user submits with: sbatch extract-subtomo.sh
+
+  Step 3c (optional, direct): py2rely routines reconstruct
+      Back-project aligned sub-tomograms to produce a 3D map.
+      Key params: --particles, --binfactor, --symmetry, --nthreads, --nprocesses
+      Optional: --parameter, --boxsize, --cropsize, --tomograms, --motion
+      If the user asks for a SLURM script instead, use: py2rely-slurm routines reconstruct
+          Generates reconstruct-particle.sh; user submits with: sbatch reconstruct-particle.sh
+
+  Step 3d (optional, direct): py2rely routines refine3d
+      Run RELION gold-standard 3D auto-refinement on sub-tomograms.
+      Key params: --particles, --reference, --diameter, --nthreads, --nprocesses
+      Optional: --parameter, --mask, --tomogram, --motion, --symmetry, --low-pass,
+                --sampling-angle (global search, default '7.5 degrees'),
+                --local-sampling-angle (local search, default '1.8 degrees'),
+                --ref-correct-greyscale, --continue-iter (resume from checkpoint)
+      If the user asks for a SLURM script instead, use: py2rely-slurm routines refine3d
+          Generates refine3d.sh; user submits with: sbatch refine3d.sh
+
+  Step 3e (optional, direct): py2rely routines post-process
+      Apply FSC-based post-processing to a pair of half-maps.
+      Key params: --half-map (path to half1), --mask
+      Optional: --low-pass
+
   Step 4 (optional, direct or --submitit): py2rely pipelines polish
       Runs frame-based polishing. Key params: --parameter, --particles, --mask, --submitit
 
@@ -114,7 +143,11 @@ PY2RELY_COMMANDS = [
     ("pipelines sta", "Run the full STA pipeline (use --submitit for SLURM)"),
     ("pipelines polish", "Run the frame-based polishing pipeline (use --submitit for SLURM)"),
     # routines group — individual RELION job steps
+    ("routines extract", "Extract pseudo sub-tomograms from tilt-series data (direct, blocking)"),
+    ("routines reconstruct", "Back-project aligned sub-tomograms to produce a 3D map (direct, blocking)"),
+    ("routines refine3d", "Run RELION gold-standard 3D auto-refinement on sub-tomograms (direct, blocking)"),
     ("routines class3d", "Run a single RELION Class3D job (direct, blocking)"),
+    ("routines post-process", "Apply FSC-based post-processing to a pair of half-maps (direct, blocking)"),
     ("routines select", "Export particles from selected 2D or 3D classes (-p particles.star -c 1,3,5)"),
 ]
 
@@ -123,6 +156,9 @@ PY2RELY_SLURM_COMMANDS = [
     ("slab slabpick", "Generate a SLURM script running make_minislabs + normalize_stack"),
     ("slab class2d", "Generate a SLURM script running RELION Class2D"),
     ("routines class3d", "Generate a SLURM script running RELION Class3D"),
+    ("routines refine3d", "Generate a SLURM script running RELION Refine3D"),
+    ("routines reconstruct", "Generate a SLURM script running RELION ReconstructParticle"),
+    ("routines extract-subtomo", "Generate a SLURM script running pseudo sub-tomogram extraction"),
 ]
 
 # Slabpick CLI tools available as standalone commands

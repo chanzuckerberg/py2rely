@@ -47,8 +47,9 @@ def reconstruct_particle(
     nthreads: int,
     nprocesses: int,
     ): 
-    """
-    Reconstruct map from sub-tomograms.
+    """Reconstruct a 3D map by back-projecting aligned sub-tomograms.
+
+    Box and crop sizes are read from a parameter file or supplied directly via --boxsize / --cropsize.
     """
     run_reconstruct_particle(
         particles, tomograms, motion, binfactor, 
@@ -57,10 +58,10 @@ def reconstruct_particle(
     )
 
 def run_reconstruct_particle(
-    particles: str, 
+    particles: str,
     tomogram: str,
     motion: str,
-    bin_factor: int, 
+    bin_factor: int,
     box_size: int,
     crop_size: int,
     symmetry: str,
@@ -68,6 +69,33 @@ def run_reconstruct_particle(
     nprocesses: int,
     parameter: str = None,
     ):
+    """Back-project aligned sub-tomograms to produce a reconstructed 3D map.
+
+    Sets up and runs a RELION ReconstructParticle job via the Pipeliner API.
+    Box and crop sizes are derived from a parameter file when provided, or
+    validated and set directly otherwise.
+
+    Args:
+        particles: RELION STAR file containing aligned particle orientations
+                   and CTF parameters (e.g. from a Refine3D or Class3D job).
+        tomogram: Optional STAR file of tomograms from a CtfRefine or Polish
+                  job.  Overrides the default tomogram paths.
+        motion: Optional STAR file of per-tilt motion trajectories used to
+                apply beam-induced motion correction during reconstruction.
+        bin_factor: Binning factor controlling the reconstruction resolution.
+                    Higher values produce smaller, lower-resolution maps.
+        box_size: 3D box size in pixels used during reconstruction.  If None,
+                  derived from the parameter file.
+        crop_size: Final cropped map size in pixels written to disk.  Must be
+                   ≤ box_size.  If None, defaults to box_size.
+        symmetry: Point-group symmetry applied during reconstruction
+                  (e.g. 'C1', 'C4', 'D2').
+        nthreads: Number of CPU threads per MPI process (--j).
+        nprocesses: Number of MPI processes (--np).
+        parameter: Path to a py2rely JSON parameter file.  When supplied, box
+                   and crop sizes are computed automatically from the project
+                   settings at the requested binning factor.
+    """
     from pipeliner.jobs.tomography.relion_tomo import tomo_reconstructparticle_job
     from pipeliner.api.manage_project import PipelinerProject
     from py2rely.utils import relion5_tools
@@ -90,16 +118,16 @@ def run_reconstruct_particle(
         'do_use_direct_entries': 'yes',
     }
 
+    # If parameter is provided, compute the boxsize from the parameter file
     if parameter: 
         helper.compute_boxsize_from_project(parameter, utils, bin_factor)
+    # If boxsize and cropsize are not provided, raise an error
     elif box_size is None and crop_size is None: 
         raise ValueError("Either parameter, boxsize, or both (cropsize and boxsize) must be provided.")
-    elif box_size is not None and crop_size is None:
-        utils.reconstruct_particle_job = tomo_reconstructparticle_job.RelionReconstructParticleJob()
-        parameters['crop_size'] = box_size
-        parameters['box_size'] = box_size 
-    else: # boxsize and cropsize are provided
+    # If boxsize and/or cropsize are provided, validate the sizes and set the parameters
+    else:
         utils.reconstruct_particle_job = tomo_reconstructparticle_job.RelionReconstructParticleJob()   
+        box_size, crop_size = helper.validate_crop_box_size(box_size, crop_size)
         parameters['crop_size'] = crop_size
         parameters['box_size'] = box_size
 
@@ -110,45 +138,40 @@ def run_reconstruct_particle(
     helper.print_params('Reconstruct Particle', params=parameters)
 
     # Run Reconstruct Particle
-    utils.run_reconstruct_particle(rerunReconstruct=True)    
+    utils.run_reconstruct_particle(rerunReconstruct=True)  
+
+    # Return the Output Directory
+    return utils.reconstruct_particle_job.output_dir   
 
 @cli.command(context_settings=cli_context, name='reconstruct', no_args_is_help=True)
 @add_recon_options
 def reconstruct_particle_slurm(
     parameter: str,
-    particles: str, 
+    particles: str,
     tomograms: str,
     motion: str,
-    binfactor: int, 
+    binfactor: int,
     boxsize: int,
     cropsize: int,
     symmetry: str,
     nthreads: int,
     nprocesses: int,
     ):
-    import py2rely.routines.submit_slurm as my_slurm 
+    import py2rely.routines.submit_slurm as my_slurm
 
-    # # Create Reconstruct Particle Command
-    # command = f"""
-    # py2rely routines reconstruct-particle \\
-    #     --parameter {parameter} \\
-    #     --particles {particles} \\
-    #     --bin-factor {bin_factor} --low-pass {low_pass} \\
-    # """
+    command = my_slurm.build_command("py2rely routines reconstruct", {
+        "particles": particles,
+        "binfactor": binfactor,
+        "symmetry": symmetry,
+        "nthreads": nthreads,
+        "nprocesses": nprocesses,
+        "parameter": parameter,
+        "tomograms": tomograms,
+        "motion": motion,
+        "boxsize": boxsize,
+        "cropsize": cropsize,
+    })
 
-    # if mask is not None:
-    #     command += f" --mask {mask}"
-
-    # if extend is not None:
-    #     command += f" --extend {extend}"
-
-    # if soft_edge is not None:
-    #     command += f" --soft-edge {soft_edge}"
-
-    # if tomogram is not None:
-    #     command += f" --tomogram {tomogram}"
-
-    # Create Slurm Submit Script
     my_slurm.create_shellsubmit(
         job_name="reconstruct-particle",
         output_file="reconstruct-particle.out",
@@ -156,98 +179,3 @@ def reconstruct_particle_slurm(
         command=command,
         num_gpus=0
     )
-
-
-# # Mask Create + Post-Process
-# @cli.command(context_settings=cli_context)
-# @click.option("-p", "--parameter", type=str, required=True, default="sta_parameters.json", 
-#               help="Sub-Tomogram Refinement Parameter Path")
-# @click.option("-r", "--reconstruction", type=str, required=True, 
-#               help="Path to Reconstruction Job")
-# @add_masking_options
-# def mask_post_process(
-#     parameter: str,
-#     reconstruction: str, 
-#     mask: str, 
-#     low_pass: float,
-#     extend: int,
-#     soft_edge: int,
-#     tomogram: str = None
-#     ):
-#     """Create mask and perform post-processing on an existing reconstruction.
-    
-#     This command creates a soft-edged mask from a reconstruction and performs
-#     post-processing to estimate resolution via Fourier Shell Correlation (FSC).
-#     Use this when you already have a reconstruction and want to regenerate masks
-#     with different parameters or recalculate resolution estimates.
-#     """
-
-#     create_mask_and_post_process(parameter, reconstruction, mask, 
-#                                  low_pass, extend, soft_edge, tomogram)
-
-# def create_mask_and_post_process(
-#     parameter: str,
-#     reconstruction: str, 
-#     mask: str = None,
-#     low_pass: float = 10,
-#     extend: int = 0,
-#     soft_edge: int = 5,
-#     tomogram: str = None
-#     ):
-#     from pipeliner.api.manage_project import PipelinerProject
-#     from py2rely.utils import relion5_tools
-#     import starfile, os
-
-#     # Create Pipeliner Project
-#     my_project = PipelinerProject(make_new_project=True)
-#     utils = relion5_tools.Relion5Pipeline(my_project)
-#     utils.read_json_params_file(parameter)
-#     utils.read_json_directories_file('output_directories.json')
-
-#     # If a Path for Refined Tomograms is Provided, Assign it 
-#     if tomogram is not None:
-#         utils.set_new_tomograms_star_file(tomogram)    
-
-#     # Initialize Job Classes
-#     utils.initialize_reconstruct_particle()
-#     utils.initialize_pseudo_tomos()
-
-#     # Print Input Parameters
-#     utils.print_pipeline_parameters('Mask Create - Post Process', Parameter = parameter, 
-#                                     Reconstruction = reconstruction,
-#                                     Low_Pass = low_pass, Extend = extend, Soft_Edge=soft_edge)    
-
-#     # Get Binning
-#     recon_params = starfile.read( os.path.join(reconstruction, 'job.star') )
-#     index = recon_params['joboptions_values'].index[ recon_params['joboptions_values']['rlnJobOptionVariable'] == 'binfactor' ][0]
-#     currentBinning = int(recon_params['joboptions_values']['rlnJobOptionValue'][index])
-#     binIndex = utils.binningList.index(currentBinning)    
-
-#     print(f'\n[Mask Create - Post Process]\nRunning Mask Creation and Post-Processing at Bin Factor: {currentBinning}')
-
-#     utils.initialize_pseudo_tomos()
-#     utils.initialize_reconstruct_particle()
-    
-#     # Do I want to Scale My Classification Sampling Based on Resolution?
-#     utils.update_resolution(binIndex)    
-
-#     # Create Mask for Reconstruction and Next Stages of Refinement
-#     utils.initialize_post_process()
-#     if mask is None:
-#         utils.initialize_mask_create()
-#         utils.initialize_auto_refine()
-#         utils.mask_create_job.joboptions['fn_in'].value = os.path.join(reconstruction, 'merged.mrc')
-#         utils.mask_create_job.joboptions['lowpass_filter'].value = low_pass
-#         utils.mask_create_job.joboptions['extend_inimask'].value = extend
-#         utils.mask_create_job.joboptions['width_mask_edge'].value = soft_edge
-        
-#         # We don't need to pass a refine and classification job here
-#         utils.run_mask_create(None, None, rerunMaskCreate=True)
-#     else:
-#         utils.post_process_job.joboptions['fn_mask'].value = mask
-
-#     # Post-Process to Estimate Resolution     
-#     utils.post_process_job.joboptions['fn_in'].value = os.path.join(reconstruction, 'half1.mrc')
-#     utils.post_process_job.joboptions['low_pass'].value = low_pass
-#     utils.run_post_process(rerunPostProcess=True)
-    

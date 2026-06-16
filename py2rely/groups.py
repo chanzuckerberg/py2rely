@@ -5,8 +5,22 @@ click.rich_click.USE_RICH_MARKUP = True
 click.rich_click.SHOW_ARGUMENTS = True
 click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 
-# click.rich_click.COMMAND_GROUPS = {
-# }
+click.rich_click.COMMAND_GROUPS = {
+    "py2rely": [
+        {
+            "name": "Setup & Configuration",
+            "commands": ["config", "mcp"],
+        },
+        {
+            "name": "Data Preparation",
+            "commands": ["prepare", "utils", "export"],
+        },
+        {
+            "name": "Run Jobs",
+            "commands": ["pipelines", "routines", "slab", "ui"],
+        },
+    ],
+}
 
 click.rich_click.OPTION_GROUPS = {
     "py2rely ui": [
@@ -221,6 +235,24 @@ click.rich_click.OPTION_GROUPS = {
         {
             "name": "Parameters",
             "options": ["--ini-high", "--tau-fudge", "--nr-classes", "--nr-iter", "--ref-correct-greyscale", "--align-particles", "--nr-classes"],
+        },
+    ],
+    "py2rely routines refine3d": [
+        {
+            "name": "I/O",
+            "options": ["--parameter", "--particles", "--reference", "--mask", "--motion", "--tomogram", "--continue-iter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--diameter", "--symmetry", "--low-pass", "--ref-correct-greyscale"],
+        },
+        {
+            "name": "Sampling Angles",
+            "options": ["--sampling-angle", "--local-sampling-angle"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses", "--use-gpu"],
         },
     ],
 }

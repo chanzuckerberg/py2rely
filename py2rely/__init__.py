@@ -9,6 +9,9 @@ PARTICLE_BOX_SIZES = [
     720, 756, 768, 784, 800, 840, 864, 896, 912, 960, 1008, 1024, 1080, 1120, 1152, 1152,
 ]
 
+# Sampling angles considered valid by RELION
+SAMPLING_ANGLES = ['30 degrees', '15 degrees', '7.5 degrees', '3.7 degrees', '1.8 degrees', '0.9 degrees',
+                   '0.5 degrees', '0.2 degrees', '0.1 degrees']                   
 
 def snap_box_size(size: int, *, side: str = "nearest") -> int:
     """Snap *size* to an allowed RELION box size.
