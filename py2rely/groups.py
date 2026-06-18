@@ -112,6 +112,16 @@ click.rich_click.OPTION_GROUPS = {
             "options": ["--output", "--output-voxel-size", "--box-size"],
         }
     ],
+    "py2rely pipelines bin1": [
+        {
+            "name": "Pipeline Options",
+            "options": ["--parameter", "--tomograms", "--particles", "--mask", "--low-pass", '--rerun'],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],
+        }
+    ],
     "py2rely pipelines sta": [
         {
             "name": "Pipeline Options",
