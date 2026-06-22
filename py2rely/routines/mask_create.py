@@ -115,6 +115,7 @@ def run_mask_create(map: str, threshold: str, extend: int, width: int, nthreads:
     from pipeliner.jobs.relion import maskcreate_job
     from py2rely.utils import relion5_tools
     from py2rely.routines import helper
+    import mrcfile
 
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)

@@ -15,15 +15,15 @@ def extract_subtomo_options(func):
         click.option("-p", "--particles", type=str,required=True, default='particles.star',
                       help="Path to Particles STAR File."),
         click.option("-bf", "--binfactor",type=int,required=False, default=1,
-                      help="(Optional) Binning Factor, if not provided, will use the starting binning factor from the parameter pipeline file."),
+                      help="Binning Factor, if not provided, will use the starting binning factor from the parameter pipeline file."),
         click.option("-t", "--tomogram",type=str,required=False, default=None,
-                      help="(Optional) Path to Tomogram, if not provided, will use the tomograms from the parameter pipeline file."),
+                      help="Path to Tomogram, if not provided, will use the tomograms from the parameter pipeline file."),
         click.option("-m", "--motion", type=str,required=False, default=None,
-                      help="(Optional) Path to Motion Correction STAR File."),
+                      help="Path to Motion Correction STAR File."),
         click.option("-bs", "--boxsize", type=int,required=False, default=None,
-                      help="(Optional) Box Size, if not provided, will use the box size from the parameter pipeline file."),
+                      help="Box Size, if not provided, will use the box size from the parameter pipeline file."),
         click.option("-cs", "--cropsize", type=int,required=False, default=None,
-                      help="(Optional) Crop Size, if not provided, will use the crop size from the parameter pipeline file."),
+                      help="Crop Size, if not provided, will use the crop size from the parameter pipeline file."),
         click.option("-apex", "--apex", type=bool, required=False, default=False,
                       help="Apply APEX Flags for extraction."),\
         click.option("-j", "--nthreads", type=int, required=False, default=8,
@@ -111,8 +111,8 @@ def run_extract_subtomo(
     # Create Pipeliner Project
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
-    utils.binning = binfactor
     utils.read_json_directories_file('output_directories.json')
+    utils.binning = binfactor
 
     # Set Parameters
     parameters = {

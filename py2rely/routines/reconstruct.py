@@ -105,6 +105,7 @@ def run_reconstruct_particle(
     my_project = PipelinerProject(make_new_project=True)
     utils = relion5_tools.Relion5Pipeline(my_project)
     utils.read_json_directories_file('output_directories.json')
+    utils.binning = bin_factor
 
     # Set Parameters
     parameters = {
