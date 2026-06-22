@@ -16,24 +16,10 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 ## 🚀 Getting Started
 
 ### Installation
-To create, first we need to generate a conda environment:
 
-`conda create -n pyRely python=3.10` 
-
-Once the environment is created, activate it:
-`conda activate pyRely`
-
-Then install the code with:
+py2rely is availableon PyPI and can be installed using pip:
 ```bash
-git clone https://github.com/chanzuckerberg/py2rely.git
-cd py2rely
-pip install -e .
-````
-
-### Basic Usage
-`py2rely` provides a clean, scriptable command-line interface. Run the following command to view all the available sub-commands:
-```
-py2rely
+pip install py2rely
 ```
 
 ## 📚 Documentation 

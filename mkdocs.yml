@@ -59,5 +59,6 @@ nav:
     - 3D Sub-tomogram Averaging: user-guide/3d-subtomogram-averaging.md
     - STA with Slurm: user-guide/running-on-hpc-with-submitit.md
     - Dashboard: user-guide/pipeline-ui.md
+    - Claude Code / MCP: user-guide/claude-code-mcp.md
   - 📖 API Reference:
     - Overview: api-reference/overview.md

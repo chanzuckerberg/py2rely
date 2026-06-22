@@ -60,6 +60,12 @@ def add_class2D_options(func):
     type=int, required=False, default=16,
     help="Number of Threads to Use"
 )
+@click.option(
+    "--center-class",
+    "-cc", required=False, default='yes',
+    type=click.Choice(["yes", "no"], case_sensitive=False),
+    help="Center the Class Averages by Center of Mass Every Iteration?"
+)
 def slab_average(
     particles: str,
     tau_fudge: float,
@@ -72,7 +78,8 @@ def slab_average(
     highres_limit: float,
     dont_skip_align: str,
     use_gpu: str,
-    nr_threads: int
+    nr_threads: int,
+    center_class: str
     ):
     """
     Run Class2D on an Extracted Minislab Particle Stack
@@ -81,7 +88,7 @@ def slab_average(
         particles, tau_fudge, nr_classes, class_algorithm, 
         nr_iter, do_ctf_correction, ctf_intact_first_peak, 
         particle_diameter, highres_limit, dont_skip_align, 
-        use_gpu, nr_threads
+        use_gpu, nr_threads, center_class
     )
 
 def run_class2D(
@@ -96,7 +103,8 @@ def run_class2D(
     highres_limit: float,
     dont_skip_align: str,
     use_gpu: str,
-    nr_threads: int
+    nr_threads: int,
+    center_class: str
     ):
     """
     Run Class2D on an Extracted Minislab Particle Stack
@@ -143,6 +151,10 @@ def run_class2D(
 
     # Assign the number of threads to use
     utils.class2D_job.joboptions['nr_threads'].value = nr_threads
+
+    # Every iteration the class averages are centered by center of mass
+    if center_class == 'no':
+        utils.class2D_job.joboptions['do_center'].value = False
 
     # Run the Class2D Job
     utils.run_class2D()

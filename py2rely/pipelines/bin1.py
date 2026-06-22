@@ -104,6 +104,7 @@ class HighResolutionRefinement:
         # Automatically Create Mask if None is Provided
         if mask is None:
             auto_mask_create(self.utils, low_pass)
+            mask = self.utils.mask_create_job.output_dir + 'mask.mrc'
 
         # Processing Parameters for Auto Refine
         self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24
@@ -125,7 +126,7 @@ class HighResolutionRefinement:
 
         # Run Post Process
         self.utils.post_process_job.joboptions['fn_in'].value = self.utils.reconstruct_particle_job.output_dir + 'half1.mrc'
-        self.utils.post_process_job.joboptions['fn_mask'].value = self.utils.mask_create_job.output_dir + 'mask.mrc'
+        self.utils.post_process_job.joboptions['fn_mask'].value = mask
 
         self.utils.run_post_process(rerunPostProcess=True)
 
@@ -135,7 +136,7 @@ def high_resolution_options(func):
     options = [
         click.option("--parameter", '-p', type=str, required=True, default='sta_parameters.json', 
                       help="The Saved Parameter Path",),
-        click.option("--tomograms", '-t', type=str, required=True, default='tomograms.star', 
+        click.option("--tomograms", '-tomo', type=str, required=True, default='tomograms.star', 
                       help="The Tomograms Star File to Start Refinement",),
         click.option("--particles", '-pts', type=str, required=True, default='particles.star', 
                       help="The Particles Star File to Start Refinement",),

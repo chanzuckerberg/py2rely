@@ -5,8 +5,22 @@ click.rich_click.USE_RICH_MARKUP = True
 click.rich_click.SHOW_ARGUMENTS = True
 click.rich_click.GROUP_ARGUMENTS_OPTIONS = True
 
-# click.rich_click.COMMAND_GROUPS = {
-# }
+click.rich_click.COMMAND_GROUPS = {
+    "py2rely": [
+        {
+            "name": "Setup & Configuration",
+            "commands": ["config", "mcp"],
+        },
+        {
+            "name": "Data Preparation",
+            "commands": ["prepare", "utils", "export"],
+        },
+        {
+            "name": "Run Jobs",
+            "commands": ["pipelines", "routines", "slab", "ui"],
+        },
+    ],
+}
 
 click.rich_click.OPTION_GROUPS = {
     "py2rely ui": [
@@ -98,6 +112,16 @@ click.rich_click.OPTION_GROUPS = {
             "options": ["--output", "--output-voxel-size", "--box-size"],
         }
     ],
+    "py2rely pipelines bin1": [
+        {
+            "name": "Pipeline Options",
+            "options": ["--parameter", "--tomograms", "--particles", "--mask", "--low-pass", '--rerun'],
+        },
+        {
+            "name": "Submitit Options",
+            "options": ["--submitit", "--cpu-constraint", "--gpu-constraint", "--num-gpus", "--timeout"],
+        }
+    ],
     "py2rely pipelines sta": [
         {
             "name": "Pipeline Options",
@@ -139,6 +163,7 @@ click.rich_click.OPTION_GROUPS = {
                 "--do-ctf-correction",
                 "--ctf-intact-first-peak",
                 "--dont-skip-align",
+                "--center-class"
             ],
         },
         {
@@ -183,5 +208,61 @@ click.rich_click.OPTION_GROUPS = {
             "name": "Extraction",
             "options": ["--extract-shape", "--voxel-spacing", "--pixel-size"],
         },
-    ]    
+    ],
+    "py2rely routines extract": [
+        {
+            "name": "I/O",
+            "options": ["--tomogram", "--particles", "--motion", "--parameter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--binfactor", "--boxsize", "--cropsize"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses"],
+        },
+    ], 
+    "py2rely routines reconstruct": [
+        {
+            "name": "I/O",
+            "options": ["--particles", "--tomograms", "--motion", "--parameter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--binfactor", "--boxsize", "--cropsize", "--symmetry"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses"],
+        },
+    ],
+    "py2rely routines class3d": [
+        {
+            "name": "I/O",
+            "options": ["--particles", "--parameter", "--reference", "--mask"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--ini-high", "--tau-fudge", "--nr-classes", "--nr-iter", "--ref-correct-greyscale", "--align-particles", "--nr-classes"],
+        },
+    ],
+    "py2rely routines refine3d": [
+        {
+            "name": "I/O",
+            "options": ["--parameter", "--particles", "--reference", "--mask", "--motion", "--tomogram", "--continue-iter"],
+        },
+        {
+            "name": "Parameters",
+            "options": ["--diameter", "--symmetry", "--low-pass", "--ref-correct-greyscale"],
+        },
+        {
+            "name": "Sampling Angles",
+            "options": ["--sampling-angle", "--local-sampling-angle"],
+        },
+        {
+            "name": "Compute Resources",
+            "options": ["--nthreads", "--nprocesses", "--use-gpu", "--nr-pool"],
+        },
+    ],
 }

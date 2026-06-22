@@ -16,7 +16,8 @@ py2rely simplifies and accelerates the execution of RELION-based sub-tomogram av
 - [2D Slab Classification](user-guide/2d-slab-classification.md) - 2D class averaging workflow
 - [3D Sub-tomogram Averaging](user-guide/3d-subtomogram-averaging.md) - Complete STA pipeline guide
 - [Running on HPC with Submitit](user-guide/running-on-hpc-with-submitit.md) - Submit STA jobs to SLURM via Submitit
-- [Monitoring Relion Workflows](user-guide/pipeline-ui.md) - 
+- [Monitoring Relion Workflows](user-guide/pipeline-ui.md) - Visualize the RELION job graph, monitor live job status, and inspect 3D density maps in the browser
+- [Claude Code / MCP Integration](user-guide/claude-code-mcp.md) - Use Claude to orchestrate STA workflows
 
 ### Reference
 - [API Reference](api-reference/overview.md) - Detailed API documentation

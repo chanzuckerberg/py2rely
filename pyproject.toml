@@ -5,19 +5,20 @@ build-backend = "hatchling.build"
 [project]
 name = "py2rely"
 requires-python = ">=3.9"
-version = "0.1.0"  
+version = "0.5.0"
 dependencies = [
     "scipy",
     "gradio",
     "copick",
     "mrcfile",
+    "slabpick",
     "starfile",
     "pydantic",
     "submitit",
     "rich-click",
+    "ccpem-pipeliner",
     "zarr-particle-tools",
-    "slabpick @ git+https://github.com/apeck12/slabpick.git@main",
-    "pipeliner @ git+https://gitlab.com/ccpem/ccpem-pipeliner.git@main",
+    "fastmcp>=2.0.0",
 ]
 authors = [
   { name = "Jonathan Schwartz", email = "jonathan.schwartz@czii.org" }
