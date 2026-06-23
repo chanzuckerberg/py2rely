@@ -154,6 +154,10 @@ def high_resolution_options(func):
 
 @click.command(context_settings=cli_context, name='bin1', no_args_is_help=True)
 @high_resolution_options
+@click.option(
+    '-s', '--submitit', type=bool, required=False, default=False,
+    help='Use Submitit to Submit Jobs to SLURM Cluster'
+)
 @common.add_submitit_options
 def high_resolution_cli(
     parameter: str,
