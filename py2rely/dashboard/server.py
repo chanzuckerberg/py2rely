@@ -16,7 +16,18 @@ from fastapi import FastAPI, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import FileResponse, PlainTextResponse
 from fastapi.staticfiles import StaticFiles
 
-from py2rely.dashboard.models import FileList, JobDetail, PipelineGraph
+from py2rely.dashboard.models import (
+    FileList,
+    JobDetail,
+    MapEntry,
+    MaskFilterRequest,
+    MaskFilterResponse,
+    MaskGenerateRequest,
+    MaskGenerateResponse,
+    MaskSaveRequest,
+    MaskSaveResponse,
+    PipelineGraph,
+)
 from py2rely.dashboard.parser import (
     get_command_history,
     get_job_type,
@@ -33,6 +44,18 @@ PROJECT_DIR = Path.cwd()
 POLL_INTERVAL = 5
 
 _connected: set[WebSocket] = set()
+
+# Mask Tuner: directory for generated preview masks + a per-generate cache token.
+_MASKTUNE_DIR = ".py2rely_masktune"
+_mask_token = 0
+
+
+def _safe_path(filepath: str) -> Path:
+    """Resolve a project-relative path, rejecting traversal outside PROJECT_DIR."""
+    resolved = (PROJECT_DIR / filepath).resolve()
+    if not str(resolved).startswith(str(PROJECT_DIR.resolve())):
+        raise HTTPException(status_code=400, detail="Invalid path")
+    return resolved
 
 
 # ---------------------------------------------------------------------------
@@ -119,6 +142,7 @@ async def get_map_info(filepath: str) -> dict:  # type: ignore[type-arg]
                 "rms":        rms,
                 "dmin":       float(mrc.header.dmin),
                 "dmax":       dmax,
+                "dmean":      float(mrc.header.dmean),
                 "originX":    float(origin.x),
                 "originY":    float(origin.y),
                 "originZ":    float(origin.z),
@@ -167,6 +191,198 @@ async def get_analysis(job_id: str) -> dict:  # type: ignore[type-arg]
         return parse_analysis(PROJECT_DIR, job_id)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+# ---------------------------------------------------------------------------
+# Mask Tuner endpoints
+# ---------------------------------------------------------------------------
+
+# Filenames that are masks / auxiliary maps rather than density maps to tune against.
+_MAP_SKIP = ("mask", "moment", "gridrec", "preview")
+
+
+@app.get("/api/maps", response_model=list[MapEntry])
+async def list_maps() -> list[MapEntry]:
+    """Enumerate candidate input density maps from jobs that produced 3D output."""
+    if not (PROJECT_DIR / "default_pipeline.star").exists():
+        return []  # create-mask may run outside a full RELION project
+    try:
+        graph = parse_pipeline(PROJECT_DIR)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+    entries: list[MapEntry] = []
+    for node in graph.nodes:
+        if not node.has_3d:
+            continue
+        job_dir = PROJECT_DIR / node.id
+        if not job_dir.is_dir():
+            continue
+        for mrc in sorted(job_dir.glob("*.mrc")):
+            name = mrc.name.lower()
+            if any(skip in name for skip in _MAP_SKIP):
+                continue
+            entries.append(
+                MapEntry(
+                    path=f"{node.id}/{mrc.name}",
+                    job_id=node.id,
+                    job_type=node.type,
+                    file=mrc.name,
+                )
+            )
+    return entries
+
+
+@app.post("/api/mask/generate", response_model=MaskGenerateResponse)
+async def generate_mask(req: MaskGenerateRequest) -> MaskGenerateResponse:
+    """Run the MaskCreate algorithm and write a preview mask under the project dir."""
+    global _mask_token
+
+    input_path = _safe_path(req.input_path)
+    if not input_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Input map not found: {req.input_path}")
+
+    try:
+        import mrcfile
+
+        from py2rely.dashboard.maskcreate import build_relion_command, create_mask
+
+        with mrcfile.open(str(input_path), mode="r", permissive=True) as mrc:
+            vol = mrc.data.astype("float32")
+            header_angpix = float(mrc.voxel_size.x)
+            origin = (float(mrc.header.origin.x), float(mrc.header.origin.y), float(mrc.header.origin.z))
+            nstart = (int(mrc.header.nxstart), int(mrc.header.nystart), int(mrc.header.nzstart))
+
+        result = create_mask(
+            vol,
+            header_angpix=header_angpix,
+            ini_threshold=req.ini_threshold,
+            extend_inimask=req.extend_inimask,
+            width_soft_edge=req.width_soft_edge,
+            lowpass=req.lowpass,
+            angpix=req.angpix,
+            invert=req.invert,
+        )
+
+        out_dir = PROJECT_DIR / _MASKTUNE_DIR
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / "preview.mrc"
+        with mrcfile.new(str(out_file), overwrite=True) as mrc:
+            mrc.set_data(result.mask)
+            mrc.voxel_size = result.angpix
+            # Preserve the input map's coordinate frame so the mask aligns with it
+            # (both in RELION and in the 3D overlay): origin + starting indices.
+            mrc.header.origin.x, mrc.header.origin.y, mrc.header.origin.z = origin
+            mrc.header.nxstart, mrc.header.nystart, mrc.header.nzstart = nstart
+            mrc.update_header_stats()
+
+        _mask_token += 1
+        nz, ny, nx = result.mask.shape
+        return MaskGenerateResponse(
+            mask_path=f"{_MASKTUNE_DIR}/preview.mrc",
+            token=_mask_token,
+            angpix=result.angpix,
+            nx=nx,
+            ny=ny,
+            nz=nz,
+            fraction=result.fraction,
+            command=build_relion_command(
+                req.input_path,
+                "mask.mrc",
+                ini_threshold=req.ini_threshold,
+                extend_inimask=req.extend_inimask,
+                width_soft_edge=req.width_soft_edge,
+                lowpass=req.lowpass,
+                angpix=req.angpix,
+                invert=req.invert,
+            ),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/mask/filter", response_model=MaskFilterResponse)
+async def filter_map(req: MaskFilterRequest) -> MaskFilterResponse:
+    """Low-pass filter the input map for visualization.
+
+    RELION binarizes the *filtered* map, so previewing this lets the user read
+    the binarization threshold directly off the contour slider.
+    """
+    global _mask_token
+
+    if req.lowpass <= 0:
+        raise HTTPException(status_code=400, detail="Lowpass must be > 0 to preview a filtered map")
+
+    input_path = _safe_path(req.input_path)
+    if not input_path.is_file():
+        raise HTTPException(status_code=404, detail=f"Input map not found: {req.input_path}")
+
+    try:
+        import mrcfile
+
+        from py2rely.dashboard.maskcreate import lowpass_filter
+
+        with mrcfile.open(str(input_path), mode="r", permissive=True) as mrc:
+            vol = mrc.data.astype("float32")
+            header_angpix = float(mrc.voxel_size.x)
+
+        used_angpix = req.angpix if req.angpix > 0 else header_angpix
+        if used_angpix <= 0:
+            used_angpix = 1.0
+
+        filtered = lowpass_filter(vol, req.lowpass, used_angpix).astype("float32")
+
+        out_dir = PROJECT_DIR / _MASKTUNE_DIR
+        out_dir.mkdir(parents=True, exist_ok=True)
+        out_file = out_dir / "filtered.mrc"
+        with mrcfile.new(str(out_file), overwrite=True) as mrc:
+            mrc.set_data(filtered)
+            mrc.voxel_size = used_angpix
+            mrc.update_header_stats()
+
+        _mask_token += 1
+        nz, ny, nx = filtered.shape
+        return MaskFilterResponse(
+            path=f"{_MASKTUNE_DIR}/filtered.mrc",
+            token=_mask_token,
+            angpix=used_angpix,
+            nx=nx,
+            ny=ny,
+            nz=nz,
+            rms=float(filtered.std()),
+            dmin=float(filtered.min()),
+            dmax=float(filtered.max()),
+            dmean=float(filtered.mean()),
+        )
+    except HTTPException:
+        raise
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc)) from exc
+
+
+@app.post("/api/mask/save", response_model=MaskSaveResponse)
+async def save_mask(req: MaskSaveRequest) -> MaskSaveResponse:
+    """Copy the current preview mask to a user-chosen destination within the project."""
+    preview = PROJECT_DIR / _MASKTUNE_DIR / "preview.mrc"
+    if not preview.is_file():
+        raise HTTPException(status_code=400, detail="No mask has been generated yet")
+
+    dest = req.dest_path.strip()
+    if not dest:
+        raise HTTPException(status_code=400, detail="Destination path is empty")
+    if not dest.lower().endswith(".mrc"):
+        dest = dest + ".mrc"
+
+    dest_path = _safe_path(dest)
+    dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+    import shutil
+
+    shutil.copyfile(preview, dest_path)
+    rel = dest_path.relative_to(PROJECT_DIR.resolve())
+    return MaskSaveResponse(saved_path=str(rel))
 
 
 # Must come after the more-specific /api/* routes so the greedy path
@@ -298,16 +514,19 @@ def launch(
     open_browser: bool = True,
     poll_interval: int = 5,
     sync: bool = False,
+    open_path: str = "",
+    project_dir: Path | None = None,
+    require_project: bool = True,
 ) -> None:
     global PROJECT_DIR, POLL_INTERVAL
-    PROJECT_DIR = Path.cwd()
+    PROJECT_DIR = (project_dir or Path.cwd()).resolve()
     POLL_INTERVAL = poll_interval
 
     _ensure_frontend(sync=sync)
     app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
 
     pipeline_star = PROJECT_DIR / "default_pipeline.star"
-    if not pipeline_star.exists():
+    if require_project and not pipeline_star.exists():
         print(
             f"\n[py2rely-dashboard] No 'default_pipeline.star' found in {PROJECT_DIR}\n"
             "Make sure you run 'py2rely ui' from inside a RELION project directory.\n"
@@ -324,6 +543,6 @@ def launch(
         )
 
     if open_browser:
-        webbrowser.open(f"http://localhost:{port}")
+        webbrowser.open(f"http://localhost:{port}{open_path}")
 
     uvicorn.run(app, host=host, port=port, log_level="warning")
