@@ -523,7 +523,18 @@ def launch(
     POLL_INTERVAL = poll_interval
 
     _ensure_frontend(sync=sync)
-    app.mount("/", StaticFiles(directory=_DIST, html=True), name="static")
+
+    # Serve index.html with no-cache so the browser always re-fetches it after a
+    # frontend update. Hashed JS/CSS assets are still cached by the browser normally.
+    # Hash routing means the browser only ever requests "/" for page navigation.
+    @app.get("/")
+    async def serve_index() -> FileResponse:
+        index = _DIST / "index.html"
+        if not index.exists():
+            raise HTTPException(status_code=404, detail="Frontend not built")
+        return FileResponse(index, headers={"Cache-Control": "no-cache, no-store, must-revalidate"})
+
+    app.mount("/assets", StaticFiles(directory=_DIST / "assets"), name="assets")
 
     pipeline_star = PROJECT_DIR / "default_pipeline.star"
     if require_project and not pipeline_star.exists():
