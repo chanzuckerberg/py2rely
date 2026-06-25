@@ -31,3 +31,50 @@ export async function fetchMapInfo(filepath) {
   if (!res.ok) return null
   return res.json()
 }
+
+// ── Mask Tuner ──────────────────────────────────────────────────────────────
+
+export async function fetchMaps() {
+  const res = await fetch('/api/maps')
+  if (!res.ok) throw new Error(`Maps fetch failed: ${res.status}`)
+  return res.json()
+}
+
+export async function generateMask(params) {
+  const res = await fetch('/api/mask/generate', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.detail || `Mask generation failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function filterMap(params) {
+  const res = await fetch('/api/mask/filter', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(params),
+  })
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.detail || `Lowpass filter failed: ${res.status}`)
+  }
+  return res.json()
+}
+
+export async function saveMask(destPath) {
+  const res = await fetch('/api/mask/save', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ dest_path: destPath }),
+  })
+  if (!res.ok) {
+    const detail = await res.json().catch(() => ({}))
+    throw new Error(detail.detail || `Mask save failed: ${res.status}`)
+  }
+  return res.json()
+}

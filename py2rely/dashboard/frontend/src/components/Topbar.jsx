@@ -44,6 +44,23 @@ export default function Topbar({ pipeline, wsStatus, themeName, onToggleTheme })
           style={{ width: 8, height: 8, borderRadius: '50%', background: wsDot[wsStatus] ?? '#475569', display: 'inline-block' }}
         />
 
+        <a
+          href="#/mask-tune"
+          title="Interactive MaskCreate parameter tuner"
+          style={{
+            background: 'none',
+            border: `1px solid ${theme.border}`,
+            borderRadius: 6,
+            color: theme.text,
+            textDecoration: 'none',
+            padding: '3px 10px',
+            fontSize: 12,
+            lineHeight: 1.6,
+          }}
+        >
+          Mask Create
+        </a>
+
         <button
           onClick={onToggleTheme}
           style={{
