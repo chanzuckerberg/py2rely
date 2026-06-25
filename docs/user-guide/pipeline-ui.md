@@ -113,7 +113,7 @@ There are two ways in:
     project — the positional argument is the input map you want to build a mask from:
 
     ```bash
-    py2rely create-mask Refine3D/job021/run_class001.mrc
+    py2rely mask-create Refine3D/job021/run_class001.mrc
     ```
 
     The page opens preloaded on that map.

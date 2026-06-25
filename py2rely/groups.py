@@ -17,7 +17,7 @@ click.rich_click.COMMAND_GROUPS = {
         },
         {
             "name": "Run Jobs",
-            "commands": ["pipelines", "routines", "slab", "ui"],
+            "commands": ["pipelines", "routines", "slab", "ui", "mask-create"],
         },
     ],
 }

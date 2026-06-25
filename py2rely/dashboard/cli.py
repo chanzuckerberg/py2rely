@@ -49,7 +49,7 @@ def ui(port: int, host: str, no_browser: bool, poll_interval: int, sync: bool) -
     launch(host=host, port=port, open_browser=not no_browser, poll_interval=poll_interval, sync=sync)
 
 
-@click.command(name="create-mask", context_settings=cli_context)
+@click.command(name="mask-create", context_settings=cli_context)
 @click.argument("input_map", type=click.Path(exists=True, dir_okay=False), required=True)
 @click.option("-p", "--port", type=int, default=3000, show_default=True, help="Port to serve on.")
 @click.option(
@@ -62,7 +62,7 @@ def ui(port: int, host: str, no_browser: bool, poll_interval: int, sync: bool) -
 @click.option("-nb", "--no-browser", is_flag=True, default=False, help="Do not automatically open the browser on startup.")
 @click.option("-s", "--sync", is_flag=True, default=False, help="Force sync frontend assets from GitHub Releases.")
 def create_mask(input_map: str, port: int, host: str, no_browser: bool, sync: bool) -> None:
-    """Interactive MaskCreate tuner for INPUT_MAP.
+    """Interactive MaskCreate GUI.
 
     Opens a dedicated browser page preloaded with the given density map. Adjust
     the RELION MaskCreate parameters, click "Generate Mask" to preview the new
