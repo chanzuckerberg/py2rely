@@ -83,7 +83,6 @@ def create_mask(input_map: str, port: int, host: str, no_browser: bool, sync: bo
         sys.exit(1)
 
     from pathlib import Path
-    from urllib.parse import quote
 
     from py2rely.dashboard.server import launch
 
@@ -105,7 +104,8 @@ def create_mask(input_map: str, port: int, host: str, no_browser: bool, sync: bo
         open_browser=not no_browser,
         poll_interval=5,
         sync=sync,
-        open_path=f"/#/mask-tune?input={quote(str(rel))}",
+        open_path="/#/mask-tune",
         project_dir=project_dir,
         require_project=False,
+        masktune_init_path=str(rel),
     )

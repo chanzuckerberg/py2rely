@@ -48,6 +48,7 @@ _connected: set[WebSocket] = set()
 # Mask Tuner: directory for generated preview masks + a per-generate cache token.
 _MASKTUNE_DIR = ".py2rely_masktune"
 _mask_token = 0
+_masktune_init_path: str = ""  # pre-seeded input path from create-mask CLI
 
 
 def _safe_path(filepath: str) -> Path:
@@ -196,6 +197,12 @@ async def get_analysis(job_id: str) -> dict:  # type: ignore[type-arg]
 # ---------------------------------------------------------------------------
 # Mask Tuner endpoints
 # ---------------------------------------------------------------------------
+
+
+@app.get("/api/mask/init")
+async def mask_init() -> dict:  # type: ignore[type-arg]
+    """Return the input path pre-seeded by the create-mask CLI, if any."""
+    return {"input_path": _masktune_init_path}
 
 # Filenames that are masks / auxiliary maps rather than density maps to tune against.
 _MAP_SKIP = ("mask", "moment", "gridrec", "preview")
@@ -517,10 +524,12 @@ def launch(
     open_path: str = "",
     project_dir: Path | None = None,
     require_project: bool = True,
+    masktune_init_path: str = "",
 ) -> None:
-    global PROJECT_DIR, POLL_INTERVAL
+    global PROJECT_DIR, POLL_INTERVAL, _masktune_init_path
     PROJECT_DIR = (project_dir or Path.cwd()).resolve()
     POLL_INTERVAL = poll_interval
+    _masktune_init_path = masktune_init_path
 
     _ensure_frontend(sync=sync)
 

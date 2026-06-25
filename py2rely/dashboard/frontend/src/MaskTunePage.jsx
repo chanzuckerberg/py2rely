@@ -328,19 +328,12 @@ function ParamPanel({
   )
 }
 
-// Read a preloaded input map from the hash query (#/mask-tune?input=...).
-function initialInput() {
-  const q = window.location.hash.split('?')[1]
-  if (!q) return ''
-  return new URLSearchParams(q).get('input') ?? ''
-}
-
 export default function MaskTunePage() {
   const [themeName, setThemeName] = useState(() => localStorage.getItem('theme') ?? 'dark')
   const theme = themes[themeName]
 
   const [maps,       setMaps]       = useState([])
-  const [inputPath,  setInputPath]  = useState(initialInput)
+  const [inputPath,  setInputPath]  = useState('')
   const [customPath, setCustomPath] = useState('')
   const [params,     setParams]     = useState(DEFAULTS)
   const [generating, setGenerating] = useState(false)
@@ -355,7 +348,13 @@ export default function MaskTunePage() {
   const [filtering,    setFiltering]    = useState(false)
   const [filterErr,    setFilterErr]    = useState(null)
 
-  useEffect(() => { fetchMaps().then(setMaps).catch(() => setMaps([])) }, [])
+  useEffect(() => {
+    fetchMaps().then(setMaps).catch(() => setMaps([]))
+    fetch('/api/mask/init')
+      .then(r => r.json())
+      .then(d => { if (d.input_path) setInputPath(d.input_path) })
+      .catch(() => {})
+  }, [])
 
   const setParam = useCallback((key, value) => {
     setParams(prev => ({ ...prev, [key]: value }))
