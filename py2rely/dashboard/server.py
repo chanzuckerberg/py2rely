@@ -545,7 +545,8 @@ def launch(
         raise SystemExit(1)
 
     url = f"http://{host}:{port}"
-    print(f"\n[py2rely-dashboard] Running at {url}")
+    full_url = f"{url}{open_path}" if open_path else url
+    print(f"\n[py2rely-dashboard] Open: {full_url}")
 
     if host in ("0.0.0.0", "::"):
         print(
@@ -554,6 +555,6 @@ def launch(
         )
 
     if open_browser:
-        webbrowser.open(f"http://localhost:{port}{open_path}")
+        webbrowser.open(full_url)
 
     uvicorn.run(app, host=host, port=port, log_level="warning")
