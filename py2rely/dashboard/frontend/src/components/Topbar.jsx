@@ -58,7 +58,7 @@ export default function Topbar({ pipeline, wsStatus, themeName, onToggleTheme })
             lineHeight: 1.6,
           }}
         >
-          Mask Tuner
+          Mask Create
         </a>
 
         <button

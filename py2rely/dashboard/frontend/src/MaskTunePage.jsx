@@ -56,7 +56,7 @@ function Header({ themeName, onToggleTheme }) {
       background: T.surface, borderBottom: `1px solid ${T.border}`, flexShrink: 0,
     }}>
       <span style={{ fontWeight: 700, letterSpacing: '0.05em', color: T.accent, fontSize: 14 }}>
-        py2rely · Mask Tuner
+        py2rely · Mask Create
       </span>
       <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: 12 }}>
         <a href="#/" style={{ fontSize: 12, color: T.textMuted, textDecoration: 'none' }}>← Dashboard</a>
@@ -100,8 +100,14 @@ function ParamPanel({
           style={{ ...fieldStyle, marginBottom: 8 }}
         >
           <option value="">— select a pipeline map —</option>
-          {maps.map(m => (
-            <option key={m.path} value={m.path}>{m.job_type}: {m.path}</option>
+          {Object.entries(
+            maps.reduce((acc, m) => { (acc[m.job_id] = acc[m.job_id] || { job_type: m.job_type, items: [] }).items.push(m); return acc }, {})
+          ).map(([job_id, { job_type, items }]) => (
+            <optgroup key={job_id} label={`${job_type}: ${job_id}`}>
+              {items.map(m => (
+                <option key={m.path} value={m.path}>{m.file}</option>
+              ))}
+            </optgroup>
           ))}
         </select>
         <input
