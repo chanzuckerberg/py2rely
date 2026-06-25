@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 import { ThemeContext, themes, useTheme } from './theme.js'
 import { fetchMaps, generateMask, saveMask, filterMap } from './api/http.js'
 import MaskTuneViewer from './components/MaskTuneViewer.jsx'
@@ -19,6 +19,106 @@ const DEFAULTS = {
   extend_inimask: 3,
   width_soft_edge: 3,
   invert: false,
+}
+
+// Collapsible grouped map picker — groups by job_id, expands on click.
+function MapGroupSelect({ maps, value, onChange }) {
+  const T = useTheme()
+  const [open, setOpen] = useState(false)
+  const [expanded, setExpanded] = useState({})
+  const ref = useRef(null)
+
+  // Close on outside click
+  useEffect(() => {
+    const handler = (e) => { if (ref.current && !ref.current.contains(e.target)) setOpen(false) }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [])
+
+  const groups = Object.entries(
+    maps.reduce((acc, m) => {
+      (acc[m.job_id] = acc[m.job_id] || { job_type: m.job_type, items: [] }).items.push(m)
+      return acc
+    }, {})
+  )
+
+  const selectedMap = maps.find(m => m.path === value)
+  const label = selectedMap ? selectedMap.file : '— select a pipeline map —'
+
+  const toggleGroup = (job_id) =>
+    setExpanded(prev => ({ ...prev, [job_id]: !prev[job_id] }))
+
+  const select = (path) => { onChange(path); setOpen(false) }
+
+  return (
+    <div ref={ref} style={{ position: 'relative', marginBottom: 8 }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          width: '100%', textAlign: 'left', fontSize: 12,
+          background: T.surface2, border: `1px solid ${T.border}`,
+          borderRadius: 4, color: value ? T.text : T.textMuted,
+          padding: '5px 28px 5px 8px', cursor: 'pointer', boxSizing: 'border-box',
+          position: 'relative',
+        }}
+      >
+        {label}
+        <span style={{ position: 'absolute', right: 8, top: '50%', transform: 'translateY(-50%)', fontSize: 10, color: T.textMuted }}>▼</span>
+      </button>
+
+      {open && (
+        <div style={{
+          position: 'absolute', top: '100%', left: 0, right: 0, zIndex: 100,
+          background: T.surface2, border: `1px solid ${T.border}`, borderRadius: 4,
+          maxHeight: 320, overflowY: 'auto', boxShadow: '0 6px 20px rgba(0,0,0,0.35)',
+        }}>
+          <div
+            onClick={() => select('')}
+            style={{ padding: '6px 10px', fontSize: 12, cursor: 'pointer', color: T.textMuted,
+              background: !value ? T.accent + '33' : 'transparent' }}
+            onMouseEnter={e => e.currentTarget.style.background = T.border}
+            onMouseLeave={e => e.currentTarget.style.background = !value ? T.accent + '33' : 'transparent'}
+          >
+            — select a pipeline map —
+          </div>
+
+          {groups.map(([job_id, { job_type, items }]) => (
+            <div key={job_id}>
+              <div
+                onClick={() => toggleGroup(job_id)}
+                style={{
+                  padding: '6px 10px', fontSize: 12, fontWeight: 700, cursor: 'pointer',
+                  color: T.text, borderTop: `1px solid ${T.border}`,
+                  display: 'flex', alignItems: 'center', gap: 6,
+                }}
+                onMouseEnter={e => e.currentTarget.style.background = T.border}
+                onMouseLeave={e => e.currentTarget.style.background = 'transparent'}
+              >
+                <span style={{ fontSize: 9, color: T.textMuted }}>{expanded[job_id] ? '▼' : '▶'}</span>
+                {job_type}: {job_id}
+              </div>
+
+              {expanded[job_id] && items.map(m => (
+                <div
+                  key={m.path}
+                  onClick={() => select(m.path)}
+                  style={{
+                    padding: '5px 10px 5px 26px', fontSize: 12, cursor: 'pointer',
+                    color: T.text, fontFamily: 'monospace',
+                    background: value === m.path ? T.accent + '33' : 'transparent',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = T.border}
+                  onMouseLeave={e => e.currentTarget.style.background = value === m.path ? T.accent + '33' : 'transparent'}
+                >
+                  {m.file}
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // A small "?" badge that reveals a help popup while the cursor hovers over it.
@@ -94,22 +194,11 @@ function ParamPanel({
       {/* Input map */}
       <div>
         <p style={sectionTitle}>Input map</p>
-        <select
+        <MapGroupSelect
+          maps={maps}
           value={maps.some(m => m.path === inputPath) ? inputPath : ''}
-          onChange={e => { setInputPath(e.target.value); setCustomPath('') }}
-          style={{ ...fieldStyle, marginBottom: 8 }}
-        >
-          <option value="">— select a pipeline map —</option>
-          {Object.entries(
-            maps.reduce((acc, m) => { (acc[m.job_id] = acc[m.job_id] || { job_type: m.job_type, items: [] }).items.push(m); return acc }, {})
-          ).map(([job_id, { job_type, items }]) => (
-            <optgroup key={job_id} label={`${job_type}: ${job_id}`}>
-              {items.map(m => (
-                <option key={m.path} value={m.path}>{m.file}</option>
-              ))}
-            </optgroup>
-          ))}
-        </select>
+          onChange={v => { setInputPath(v); setCustomPath('') }}
+        />
         <input
           type="text" placeholder="…or paste a project-relative .mrc path"
           value={customPath}
