@@ -238,25 +238,34 @@ py2rely pipelines sta \
 !!! warning "Auto-Class Selection"
     Auto class selection only works when two classes are used in Class3D. For more than two classes, use `--class-selection manual` so the pipeline stops after the Class3D job.
 
-    Then use `py2rely routines select` to pick which classes to keep and combine their particles into a single STAR file. To keep particles from more than one class, pass a comma-separated list to `--keep-classes` (e.g. `--keep-classes 1,2,3`).
+    Then use `py2rely routines select` to pick which classes to keep and combine their particles into a single STAR file. To keep particles from more than one class, pass a comma-separated list to `--classes` (e.g. `--classes 1,2,3`).
 
     ??? note "📋 `py2rely routines select` Parameters"
         | Parameter | Short | Description | Default |
         |-----------|-------|-------------|---------|
-        | `--parameter` | `-p` | Path to pipeline parameter JSON file | `sta_parameters.json` *(required)* |
-        | `--class-job` | `-cj` | Class3D job directory name (e.g. job001) | `job001` |
-        | `--keep-classes` | `-kc` | Comma-separated class numbers to keep | `1,2,3` |
-        | `--best-class` | `-bc` | Class number to use as reference for refinement | `1` |
-        | `--run-refinement` | `-rr` | Run 3D refinement after selection | `False` |
-        | `--mask-path` | `-mp` | Optional path to mask for refinement | — |
+        | `--particles` | `-p` | Path to particles StarFile | *required* |
+        | `--classes` | `-c` | Comma-separated 1-based class numbers to keep (e.g. `1,3,5`) | *required* |
+        | `--output` | `-o` | Output path for the selected `particles.star`. If omitted, runs via the RELION pipeliner and appends a Select job to the project history | `None` |
 
-        !!! example "Example"
+        !!! warning "`--output` vs. omitting it"
+            These two modes are **not** interchangeable:
+
+            - **Omit `--output`** (recommended when continuing the `py2rely pipelines sta` pipeline): the selection runs as a tracked RELION pipeliner job, written into the project's job history at the location the pipeline expects. Re-running `py2rely pipelines sta` detects this completed Select job and automatically continues into refinement with the filtered particles.
+            - **Pass `--output <path>`**: the particles are filtered locally and written straight to `<path>`. No pipeliner job is created or recorded in the job history, so `py2rely pipelines sta` will **not** recognize the selection as done and will exit again asking for manual selection. Use this mode only when you want a standalone filtered STAR file (e.g. for inspection or an external workflow), not when you intend to resume the pipeline.
+
+        !!! example "Example (resume the pipeline)"
             ```bash
             py2rely routines select \
-                --parameter sta_parameters.json \
-                --class-job job001 \
-                --keep-classes 1,2,3 \
-                --best-class 1
+                --particles Class3D/job005/run_it025_data.star \
+                --classes 1,2,3
+            ```
+
+        !!! example "Example (standalone STAR file)"
+            ```bash
+            py2rely routines select \
+                --particles Class3D/job005/run_it025_data.star \
+                --classes 1,2,3 \
+                --output selected_particles.star
             ```
 
 
