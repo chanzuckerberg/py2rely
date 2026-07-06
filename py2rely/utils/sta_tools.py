@@ -405,10 +405,13 @@ class PipelineHelper:
         existing_subdirs = set(Path(job.OUT_DIR).glob('job*'))
 
         # Submit the Job and Wait for Result
-        executor.submit(self._execute_job, job, jobTag, self.timeout)
+        slurm_job = executor.submit(self._execute_job, job, jobTag, self.timeout)
 
-        # Get the result of the job from SLURM
-        result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
+        try:
+            result, job.output_dir = slurm_job.result()
+        except Exception as exc:
+            print(f"[{jobTag}] submitit job did not complete cleanly: {exc}")
+            result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
         return result
 
     def _execute_job(self, job, jobTag: str, nHours: int):
@@ -436,11 +439,11 @@ class PipelineHelper:
             ('Succeeded' | 'Failed', path_to_job_subdir)
         """
         job_path = Path(job.OUT_DIR)
-        deadline = time.monotonic() + self.timeout_min * 60
 
         # Phase 1: wait for a new jobXXX subdirectory to appear
+        phase1_deadline = time.monotonic() + self.timeout_min * 60
         job_subdir = None
-        while time.monotonic() < deadline:
+        while time.monotonic() < phase1_deadline:
             new_subdirs = set(job_path.glob('job*')) - existing
             if new_subdirs:
                 job_subdir = max(new_subdirs, key=lambda p: p.stat().st_mtime)
@@ -453,10 +456,11 @@ class PipelineHelper:
             return "Failed", str(job_path)
 
         # Phase 2: poll that subdirectory for sentinel files
-        while time.monotonic() < deadline:
+        phase2_deadline = time.monotonic() + self.timeout_min * 60
+        while time.monotonic() < phase2_deadline:
             if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists() or (job_subdir / "PIPELINER_JOB_EXIT_FAILED").exists():
                 return "Failed", out_dir
-            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists() or (job_subdir / "RELION_JOB_EXIT_SUCCESS").exists():
+            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists():
                 return "Succeeded", out_dir
             time.sleep(30)
 
