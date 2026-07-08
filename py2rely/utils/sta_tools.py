@@ -20,6 +20,29 @@ import numpy as np
 # Suppress all future warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
+def _run_pipeliner_job(pipeline_name: str, job, jobTag: str, nHours: int):
+    """
+    Module-level submitit target: executes a single job (run + wait), no bookkeeping.
+
+    Takes only the pipeline name (not the live PipelinerProject/PipelineHelper) and the
+    job itself, instead of a bound method, so cloudpickle never has to serialize `self`.
+    `self` accumulates every already-run *_job object across a pipeline's lifetime, and
+    those job objects each accumulate growing input_nodes/output_nodes lists every time
+    they're re-run (pipeliner's PipelinerJob.prepare_to_run() only ever appends to those
+    lists, it never clears them) -- pickling that ever-growing, cross-linked graph is
+    what eventually blows past the recursion limit during long polishing loops.
+
+    Returns:
+        result - Results provided by the CCPEM-pipeliner.
+    """
+    from pipeliner.api.manage_project import PipelinerProject
+
+    print(f'\n[{jobTag}] Starting Job...')
+    project = PipelinerProject(pipeline_name=pipeline_name, make_new_project=False)
+    project.run_job(job)
+    result = job_manager.wait_for_job_to_finish(job, timeout=nHours * 3600)
+    return result, job.output_dir
+
 class PipelineHelper:
     """
     A helper class for managing and running a Relion-based pipeline in a cryo-EM project.
@@ -404,8 +427,18 @@ class PipelineHelper:
         # Snapshot existing jobXXX subdirs before submission so we can detect the new one
         existing_subdirs = set(Path(job.OUT_DIR).glob('job*'))
 
-        # Submit the Job and Wait for Result
-        executor.submit(self._execute_job, job, jobTag, self.timeout)
+        # Reset any input/output nodes accumulated from previous runs of this same job
+        # object (py2rely reuses *_job objects across polishing loop iterations, but
+        # pipeliner's create_input_nodes()/create_output_nodes() only ever append --
+        # they never clear -- so stale nodes from earlier iterations would otherwise
+        # keep piling up here). prepare_to_run() rebuilds these fresh before running.
+        job.input_nodes = []
+        job.output_nodes = []
+
+        # Submit the Job and Wait for Result. Pass only the pipeline name and job
+        # (not a bound method / self) so cloudpickle doesn't have to serialize every
+        # other *_job attribute this PipelineHelper has accumulated.
+        executor.submit(_run_pipeliner_job, self.myProject.pipeline_name, job, jobTag, self.timeout)
 
         # Get the result of the job from SLURM
         result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
