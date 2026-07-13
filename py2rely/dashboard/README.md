@@ -33,6 +33,18 @@ py2rely ui
 This starts a local web server (default: `http://127.0.0.1:3000`) and opens the browser
 automatically.
 
+### Interactive Mask Tuner
+
+The dashboard includes an interactive tuner for the RELION **MaskCreate** job. It reimplements
+`relion_mask_create` in Python (`maskcreate.py`) and renders the resulting mask over the input
+density map in 3D, so you can adjust parameters and preview the mask before saving it.
+
+Open it from the **Mask Tuner** button in the top bar, or launch it directly on a map:
+
+```bash
+py2rely create-mask /path/to/map.mrc
+```
+
 ### Options
 
 | Flag | Default | Description |
@@ -100,18 +112,20 @@ shipped to other users without requiring them to install Node.js.
 
 ```
 py2rely/dashboard/
-├── cli.py                          # `py2rely ui` entry point — options, lazy-loads server
+├── cli.py                          # `py2rely ui` + `py2rely create-mask` entry points
 ├── server.py                       # FastAPI app — REST + WebSocket, serves frontend dist/
 ├── parser.py                       # Parses RELION project (jobs, edges, params, star files)
-├── models.py                       # Pydantic response models (JobNode, Pipeline, etc.)
+├── models.py                       # Pydantic response models (JobNode, Pipeline, Mask*, etc.)
+├── maskcreate.py                   # Python reimplementation of relion_mask_create (Mask Tuner)
 ├── watcher.py                      # Watchdog handler — pushes pipeline updates over WebSocket
 └── frontend/
     ├── index.html
     ├── vite.config.js
     ├── dist/                       # Pre-built bundle (committed — no Node.js required)
     └── src/
-        ├── main.jsx                # React entry point
+        ├── main.jsx                # React entry point + hash routing (dashboard / mask-tune)
         ├── App.jsx                 # Root component — layout, WebSocket subscription
+        ├── MaskTunePage.jsx        # Mask Tuner page — parameter panel + 3D preview
         ├── theme.js                # Colour tokens and STATUS_COLOR / TYPE_COLOR maps
         ├── api/
         │   ├── http.js             # Fetch wrappers for REST endpoints
@@ -124,6 +138,7 @@ py2rely/dashboard/
             ├── LogViewer.jsx       # Live-streaming job log
             ├── ResultsViewer.jsx   # Output file browser
             ├── Volume3DViewer.jsx  # Interactive 3D isosurface viewer (NGL)
+            ├── MaskTuneViewer.jsx  # Dual-volume viewer — mask overlaid on input map (NGL)
             ├── Slice2DViewer.jsx   # Orthogonal 2D slice viewer
             ├── AnalysisPanel.jsx   # Dispatches to job-type-specific analysis component
             ├── Refine3DAnalysis.jsx    # Resolution convergence + gold-standard FSC
