@@ -47,3 +47,65 @@ def ui(port: int, host: str, no_browser: bool, poll_interval: int, sync: bool) -
     from py2rely.dashboard.server import launch
 
     launch(host=host, port=port, open_browser=not no_browser, poll_interval=poll_interval, sync=sync)
+
+
+@click.command(name="mask-create", context_settings=cli_context)
+@click.argument("input_map", type=click.Path(exists=True, dir_okay=False), required=True)
+@click.option("-p", "--port", type=int, default=3000, show_default=True, help="Port to serve on.")
+@click.option(
+    "--host",
+    type=str,
+    default="127.0.0.1",
+    show_default=True,
+    help="Host to bind to. Use 0.0.0.0 to expose on all interfaces.",
+)
+@click.option("-nb", "--no-browser", is_flag=True, default=False, help="Do not automatically open the browser on startup.")
+@click.option("-s", "--sync", is_flag=True, default=False, help="Force sync frontend assets from GitHub Releases.")
+def create_mask(input_map: str, port: int, host: str, no_browser: bool, sync: bool) -> None:
+    """Interactive MaskCreate GUI.
+
+    Opens a dedicated browser page preloaded with the given density map. Adjust
+    the RELION MaskCreate parameters, click "Generate Mask" to preview the new
+    mask over the input map in 3D, then save the result as mask.mrc.
+    """
+    try:
+        import fastapi  # noqa: F401
+        import uvicorn  # noqa: F401
+        import watchdog  # noqa: F401
+    except ImportError:
+        click.echo(
+            "\n[relion-ui] Required dependencies are not installed.\n"
+            "Install them with:\n\n"
+            "    pip install py2rely[dashboard]\n"
+            "    # or\n"
+            "    uv add py2rely[dashboard]\n"
+        )
+        sys.exit(1)
+
+    from pathlib import Path
+
+    from py2rely.dashboard.server import launch
+
+    # Resolve the input map and pick a project root that can serve it.
+    # If the map lives under the current directory, keep the cwd as project root
+    # (so the pipeline map dropdown still works); otherwise serve from its parent.
+    map_path = Path(input_map).expanduser().resolve()
+    cwd = Path.cwd().resolve()
+    try:
+        rel = map_path.relative_to(cwd)
+        project_dir = cwd
+    except ValueError:
+        project_dir = map_path.parent
+        rel = Path(map_path.name)
+
+    launch(
+        host=host,
+        port=port,
+        open_browser=not no_browser,
+        poll_interval=5,
+        sync=sync,
+        open_path="/#/mask-tune",
+        project_dir=project_dir,
+        require_project=False,
+        masktune_init_path=str(rel),
+    )

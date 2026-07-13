@@ -78,19 +78,26 @@ def _local_call(particles_fname: str, classes: List[int], output: str) -> str:
 def _relion_call(particles: str, classes: List[int]) -> str:
     """Run subset selection via RELION pipeliner, appending a Select job to history."""
     from py2rely.utils.sta_tools import PipelineHelper as pipeline
+    from py2rely.routines.helper import get_bin_factor
     from pipeliner.api.manage_project import PipelinerProject
-    import os
+    import os, starfile
 
+    # Initialize the pipeliner project
     my_project = PipelinerProject(make_new_project=True)
     utils = pipeline(my_project)
     utils.read_json_directories_file("output_directories.json")
 
+    # Print the progress
+    print(f'Extracting Classes ({classes}) from {particles}...')
+
+    # Get the BinFactor from the particles starfile
+    utils.binning = get_bin_factor(particles)
+
+    # Initialize the selection and run
     utils.initialize_selection()
     utils.tomo_select_job.joboptions["fn_data"].value = particles
     utils.tomo_select_job.joboptions["select_minval"].value = classes[0]
     utils.tomo_select_job.joboptions["select_maxval"].value = classes[0]
-
-    # pipeline's custom_select adds 1 internally (expects 0-based), so convert
     utils.run_subset_select(keepClasses=None, rerunSelect=True)
 
     # Manually filter the particles with local call

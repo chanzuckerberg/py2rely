@@ -2,7 +2,7 @@ from py2rely.utils.progress import get_console
 from py2rely import snap_box_size
 from rich.table import Table
 from typing import Optional
-import json, os
+import json, os, starfile
 
 def compute_boxsize_from_project(parameter, utils, binfactor):
 
@@ -102,3 +102,22 @@ def validate_crop_box_size(boxsize: int, cropsize: int):
         print('[Warning] Box size is smaller than crop size. Setting crop size to box size.')
         cropsize = boxsize
     return boxsize, cropsize
+
+def get_bin_factor(particles: str):
+    """
+    Get the bin factor from a particles starfile.
+
+    Args:
+        particles: The path to the particles starfile.
+
+    Returns:
+        bin_factor: The bin factor.
+    """
+    import starfile
+
+    df = starfile.read(particles)
+
+    if 'rlnTomoSubtomogramBinning' in df['optics']:
+        return int(df['optics']['rlnTomoSubtomogramBinning'][0])
+    else:
+        return 1 # Assume particles is slab-projection
