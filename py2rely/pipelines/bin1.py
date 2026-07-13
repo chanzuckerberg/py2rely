@@ -106,9 +106,8 @@ class HighResolutionRefinement:
             auto_mask_create(self.utils, low_pass)
             mask = self.utils.mask_create_job.output_dir + 'mask.mrc'
 
-        # Processing Parameters for Auto Refine
-        self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24
-        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass 
+        # Processing Parameters for Auto Refine (nr_threads kept from configured parameters)
+        self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass
         self.utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
         self.utils.tomo_refine3D_job.joboptions['sampling'].value = self.utils.sampling[5]
         self.utils.tomo_refine3D_job.joboptions['auto_local_sampling'].value = self.utils.sampling[5]    

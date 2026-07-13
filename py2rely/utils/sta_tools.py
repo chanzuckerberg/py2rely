@@ -438,10 +438,13 @@ class PipelineHelper:
         # Submit the Job and Wait for Result. Pass only the pipeline name and job
         # (not a bound method / self) so cloudpickle doesn't have to serialize every
         # other *_job attribute this PipelineHelper has accumulated.
-        executor.submit(_run_pipeliner_job, self.myProject.pipeline_name, job, jobTag, self.timeout)
+        slurm_job = executor.submit(_run_pipeliner_job, self.myProject.pipeline_name, job, jobTag, self.timeout)
 
-        # Get the result of the job from SLURM
-        result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
+        try:
+            result, job.output_dir = slurm_job.result()
+        except Exception as exc:
+            print(f"[{jobTag}] submitit job did not complete cleanly: {exc}")
+            result, job.output_dir = self._get_slurm_result(job, existing_subdirs)
         return result
 
     def _execute_job(self, job, jobTag: str, nHours: int):
@@ -469,11 +472,11 @@ class PipelineHelper:
             ('Succeeded' | 'Failed', path_to_job_subdir)
         """
         job_path = Path(job.OUT_DIR)
-        deadline = time.monotonic() + self.timeout_min * 60
 
         # Phase 1: wait for a new jobXXX subdirectory to appear
+        phase1_deadline = time.monotonic() + self.timeout_min * 60
         job_subdir = None
-        while time.monotonic() < deadline:
+        while time.monotonic() < phase1_deadline:
             new_subdirs = set(job_path.glob('job*')) - existing
             if new_subdirs:
                 job_subdir = max(new_subdirs, key=lambda p: p.stat().st_mtime)
@@ -486,10 +489,11 @@ class PipelineHelper:
             return "Failed", str(job_path)
 
         # Phase 2: poll that subdirectory for sentinel files
-        while time.monotonic() < deadline:
+        phase2_deadline = time.monotonic() + self.timeout_min * 60
+        while time.monotonic() < phase2_deadline:
             if (job_subdir / "RELION_JOB_EXIT_FAILURE").exists() or (job_subdir / "PIPELINER_JOB_EXIT_FAILED").exists():
                 return "Failed", out_dir
-            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists() or (job_subdir / "RELION_JOB_EXIT_SUCCESS").exists():
+            elif (job_subdir / "PIPELINER_JOB_EXIT_SUCCESS").exists():
                 return "Succeeded", out_dir
             time.sleep(30)
 
@@ -853,10 +857,10 @@ class PipelineHelper:
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
         else:               maskCreateJobIter = None
-        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create', jobIter = maskCreateJobIter)   
+        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create', jobIter = maskCreateJobIter)
 
-        try:    
-            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
+        try:
+            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'
 
             # Update The Refinement and Classification Job with the New Mask (If Available)    
             refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
@@ -916,9 +920,9 @@ class PipelineHelper:
             return None
 
 
-    def get_reconstruction_std(self, 
-        reconstruction_path: str, 
-        low_pass: float = -1, 
+    def get_reconstruction_std(self,
+        reconstruction_path: str,
+        low_pass: float = -1,
         save_vol: bool = False
     ):
         """
