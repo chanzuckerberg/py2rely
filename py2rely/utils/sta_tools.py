@@ -824,10 +824,10 @@ class PipelineHelper:
         # If Completed Mask Create Already Exists, Start Logging New Iterations if rerunMaskCreate is True. 
         if rerunMaskCreate: maskCreateJobIter = self.return_job_iter(f'bin{self.binning}', 'mask_create')
         else:               maskCreateJobIter = None
-        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create', jobIter = maskCreateJobIter)   
+        self.run_job(self.mask_create_job, 'mask_create', 'Mask Create', jobIter = maskCreateJobIter)
 
-        try:    
-            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
+        try:
+            self.post_process_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc'
 
             # Update The Refinement and Classification Job with the New Mask (If Available)    
             refine3D_job.joboptions['fn_mask'].value = self.mask_create_job.output_dir + 'mask.mrc' 
@@ -887,9 +887,9 @@ class PipelineHelper:
             return None
 
 
-    def get_reconstruction_std(self, 
-        reconstruction_path: str, 
-        low_pass: float = -1, 
+    def get_reconstruction_std(self,
+        reconstruction_path: str,
+        low_pass: float = -1,
         save_vol: bool = False
     ):
         """

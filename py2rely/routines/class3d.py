@@ -110,7 +110,7 @@ def run_class3d(
 
     # If a Path for Refined Tomograms is Provided, Assign it 
     if tomogram is not None:
-        utils.set_new_tomograms_star_file(tomogram)    
+        utils.set_new_tomograms_starfile(tomogram)
 
     # Get Binning
     particlesdata = starfile.read( particles )

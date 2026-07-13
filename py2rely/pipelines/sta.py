@@ -29,7 +29,7 @@ def average(
     cpu_list = list(map(int, cpu_constraint.split(',')))
     run_average(
         parameter, reference_template,
-        run_denovo_generation, run_class3d, 
+        run_denovo_generation, run_class3d,
         class_selection, extract3d, manual_masking,
         submitit, cpu_list, gpu_constraint, num_gpus, timeout
     )
