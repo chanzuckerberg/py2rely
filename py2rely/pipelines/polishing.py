@@ -69,7 +69,6 @@ class ThePolisher:
         
         # Processing Parameters for Auto Refine
         low_pass = self.utils.get_half_fsc(self.utils.post_process_job.output_dir)
-        self.utils.tomo_refine3D_job.joboptions['nr_threads'].value = 24 
         self.utils.tomo_refine3D_job.joboptions['ini_high'].value = low_pass * 1.3
         self.utils.tomo_refine3D_job.joboptions['do_solvent_fsc'].value = "yes"
         self.utils.tomo_refine3D_job.joboptions['sampling'].value = self.utils.sampling[5]

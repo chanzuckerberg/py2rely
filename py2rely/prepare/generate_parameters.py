@@ -46,7 +46,7 @@ def cli(ctx):
 def relion5_parameters(
     output: str,
     tilt_series: str,
-    particles: str, 
+    particles: str,
     tilt_series_pixel_size: float,
     symmetry: str,
     low_pass: float,
@@ -65,9 +65,9 @@ def relion5_parameters(
     """
 
     create_relion5_parameters(
-        output, tilt_series, particles, 
+        output, tilt_series, particles,
         tilt_series_pixel_size, symmetry, low_pass, max_dose,
-        protein_diameter, denovo_generation, box_scaling, 
+        protein_diameter, denovo_generation, box_scaling,
         binning_list, nclasses, ninit_models, nthreads, nprocesses
     )
 
@@ -86,7 +86,7 @@ def create_relion5_parameters(
     nclasses: int,
     ninit_models: int,
     nthreads: int,
-    nprocesses: int
+    nprocesses: int,
     ):
     import py2rely.prepare.parameters as parameters
     from py2rely.utils import sta_tools
@@ -288,10 +288,10 @@ def relion5_pipeline(
     ):
     """
     Generate a SLURM Shell Script to Submit the Relion5 STA Pipeline.
-    """    
+    """
 
     run_relion5_pipeline(
-        parameter, reference_template, run_denovo_generation, 
+        parameter, reference_template, run_denovo_generation,
         run_class3d, class_selection, num_gpus, num_days, new_pipeline,
         extract3d, manual_masking, cpu_constraint, gpu_constraint, timeout
     )
@@ -308,7 +308,7 @@ def run_relion5_pipeline(
     extract3d: bool,
     manual_masking: bool,
     cpu_constraint: str,
-    gpu_constraint: str, 
+    gpu_constraint: str,
     timeout: int
     ):
     from rich.console import Console
