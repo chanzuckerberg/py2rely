@@ -1,5 +1,32 @@
 # Changelog
 
+## [0.7.0](https://github.com/chanzuckerberg/py2rely/compare/py2rely-v0.6.0...py2rely-v0.7.0) (2026-07-31)
+
+
+### ✨ Features
+
+* **dashboard:** interactive MaskCreate parameter tuner ([da3a99d](https://github.com/chanzuckerberg/py2rely/commit/da3a99d5a931411004720e0749098c028a60030e))
+* **dashboard:** interactive MaskCreate parameter tuner ([61bd64b](https://github.com/chanzuckerberg/py2rely/commit/61bd64bd4083d1d1e6a7c790ee1357e666fec38b))
+
+
+### 🐞 Bug Fixes
+
+* add support for zarr-particle-tools ctf refine and polishing jobs ([5023078](https://github.com/chanzuckerberg/py2rely/commit/50230783d57050cecbdade86f9cf75e5c424de1c))
+* add support for zarr-particle-tools ctf refine and polishing jobs ([29fbc41](https://github.com/chanzuckerberg/py2rely/commit/29fbc4159deecebad4b435a8ce07d9ed987b1e8d))
+* better detection of failed RELION jobs / ccpem-pipeliner jobs ([86349db](https://github.com/chanzuckerberg/py2rely/commit/86349dbababe0359e500c50e9ef36e2dccb136be))
+* better detection of failed RELION jobs / ccpem-pipeliner jobs ([37a14ff](https://github.com/chanzuckerberg/py2rely/commit/37a14ff0dfdbf7de1cf47a05a648c3e8d73114d0))
+* **bin1:** register missing --submitit CLI option ([2207a50](https://github.com/chanzuckerberg/py2rely/commit/2207a5073a90220f316e2a7dd8497fe59bc93d27))
+* Fix select routine CLI/bin-factor propagation ([003be9e](https://github.com/chanzuckerberg/py2rely/commit/003be9e185f8081c3e39991ef6d2203150526933))
+* pass thread (compute) params to bin1 refinement and polishing ([55f8411](https://github.com/chanzuckerberg/py2rely/commit/55f8411637fd0558298b9e39c184e731be896bad))
+* select routine CLI/bin-factor propagation ([f3d3b41](https://github.com/chanzuckerberg/py2rely/commit/f3d3b41577463cba2bb37f6b05d5c19cb1c52d7e))
+* submitit option missing for bin1 pipeline ([4029bbe](https://github.com/chanzuckerberg/py2rely/commit/4029bbef8e07d16ac676418b25029161e69d12c5))
+* use nr_threads from configured params for bin1 3d refinement, bayesian polishing ([2fb2f56](https://github.com/chanzuckerberg/py2rely/commit/2fb2f567ecacdf13e656558e6290632cc5b86fa2))
+
+
+### 🧹 Miscellaneous Chores
+
+* fix function call, clean up spacing ([005cd46](https://github.com/chanzuckerberg/py2rely/commit/005cd46ecdcf9a0dcf0b84576e73705d4c63af74))
+
 ## [0.6.0](https://github.com/chanzuckerberg/py2rely/compare/py2rely-v0.5.0...py2rely-v0.6.0) (2026-06-22)
 
 
