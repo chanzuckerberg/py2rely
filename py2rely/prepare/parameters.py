@@ -86,6 +86,9 @@ class Refine3D(BaseModel):
     gpu_ids: str
     nr_threads: int
     mpi_command: str
+    # Inverted in pipeliner: "yes" suppresses --dont_combine_weights_via_disc, whose
+    # in-memory combine is implicated in the relion_refine heap abort (upstream #1308).
+    do_combine_thru_disc: str = "yes"
     other_args: str
 
 class Class3D(BaseModel):
@@ -113,6 +116,7 @@ class Class3D(BaseModel):
     gpu_ids: str
     nr_threads: int
     mpi_command: str
+    do_combine_thru_disc: str = "yes"
     sigma_tilt: int
     other_args: str
 

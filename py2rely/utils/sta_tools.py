@@ -1,4 +1,4 @@
-from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range, get_cpus_per_node
+from py2rely.routines.submit_slurm import check_gpus, get_gpu_node_range
 from pipeliner.jobs.relion import select_job, maskcreate_job, postprocess_job
 from py2rely.utils.custom_jobs import CustomPostprocessJob
 from py2rely.utils.progress import get_console
@@ -95,6 +95,13 @@ class PipelineHelper:
         self.ntasks = self.num_gpus + 1
         self.gpu_constraint = None
         self.ncpus, self.mem_per_cpu = 4, 16
+        self.cpu_nodes = 1
+        # Use the CPUs available to this process for local jobs.
+        self.cpu_budget = (
+            len(os.sched_getaffinity(0))
+            if hasattr(os, 'sched_getaffinity')
+            else (os.cpu_count() or 1)
+        )
         self.submitit_ignore_jobs = (
             select_job.RelionSelectOnValue, 
             maskcreate_job.RelionMaskCreate,
@@ -121,6 +128,7 @@ class PipelineHelper:
         self.gpu_constraint = gpu_constraint
         # CPU Constraints
         self.ncpus, self.mem_per_cpu = cpu_constraint
+        self.cpu_budget = self.ncpus
 
         # Validate GPU Constraint
         self.gpu_constraint = check_gpus(self.gpu_constraint)
@@ -130,11 +138,8 @@ class PipelineHelper:
         # nodes are requested even if Slurm allocates the sparsest GPU node type).
         self.gpu_nodes = get_gpu_node_range(ngpus, self.gpu_constraint)
 
-        # Compute CPU job resources independently of GPU task count.
-        # Size tasks to fill one node: floor(cpus_per_node / ncpus) MPI ranks per node.
-        # cpus_per_task will be set to ncpus × cpu_ntasks so SLURM reserves the full budget.
-        self.cpu_ntasks = get_cpus_per_node() // self.ncpus
-        self.cpu_nodes = 2
+        # CPU jobs use one node and the requested CPU budget.
+        self.cpu_nodes = 1
 
         # Warn if no GPU constraint specified
         if self.gpu_constraint is None:
@@ -143,7 +148,7 @@ class PipelineHelper:
             print(f'\nSubmiting GPU Jobs on {self.gpu_constraint} Queues...')
             print(f'  GPU nodes: {self.gpu_nodes} (≥{ngpus} GPUs)')
 
-        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_ntasks} MPI ranks × {self.ncpus} CPUs)\n')
+        print(f'  CPU nodes: {self.cpu_nodes} ({self.cpu_budget} CPUs, ranks sized per job)\n')
 
     def print_pipeline_parameters(self, process: str, header: str = None, **kwargs):
         """
@@ -351,7 +356,10 @@ class PipelineHelper:
         # Check if Job Already Completed
         if self.check_if_job_already_completed(job, jobName) and not jobIter:
             job.output_dir = self.outputDirectories[f'bin{self.binning}'][jobName]
-            return 'Already Completed' 
+            return 'Already Completed'
+
+        # After routine-level overrides (use_gpu, align_particles), before dispatch.
+        self.apply_parallelism(job, jobName)
 
         # If the job is post-processing, mask create or select - run on the master process.
         if self.use_submitit and not isinstance(job, self.submitit_ignore_jobs):
@@ -371,6 +379,48 @@ class PipelineHelper:
         self._post_job_completion( job, jobName, jobIter, keepClasses)
         return result
 
+    @staticmethod
+    def job_uses_gpu(job) -> bool:
+        """Return whether the job is configured to use a GPU."""
+        jo = job.joboptions.get("use_gpu")
+        return jo.get_boolean() if jo is not None else False
+
+    def job_threads(self, job) -> int:
+        """Return the number of threads used by each rank."""
+        if 'nr_threads' not in job.joboptions:
+            return self.ncpus
+        return max(1, int(job.joboptions['nr_threads'].value))
+
+    def cpu_ranks_for(self, job) -> int:
+        """Return the number of MPI ranks that fit within the CPU budget."""
+        return max(1, self.cpu_budget // self.job_threads(job))
+
+    def apply_parallelism(self, job, jobName: str):
+        """
+        Size a job's MPI ranks to this pipeline's compute constraints.
+
+        Jobs without an nr_mpi option are left unchanged.
+        """
+
+        if 'nr_mpi' not in job.joboptions:
+            return
+
+        # GPU jobs use one leader plus one rank per GPU.
+        mpi_ranks = self.ntasks if self.job_uses_gpu(job) else self.cpu_ranks_for(job)
+
+        # Auto-refine requires at least three ranks and an odd rank count.
+        if jobName.endswith('refine3D'):
+            if mpi_ranks % 2 == 0:
+                mpi_ranks -= 1
+            mpi_ranks = max(3, mpi_ranks)
+
+        job.joboptions['nr_mpi'].value = mpi_ranks
+        if 'mpi_command' in job.joboptions:
+            job.joboptions['mpi_command'].value = 'mpirun --oversubscribe -n XXXmpinodesXXX'
+
+        threads = job.joboptions['nr_threads'].value if 'nr_threads' in job.joboptions else 1
+        print(f'[{jobName}] Parallelism: nr_mpi={mpi_ranks} x nr_threads={threads}')
+
     def submit_job(self, job, jobTag: str):
         """
         Submit job to submitit: run on cluster, then do bookkeeping here.
@@ -385,34 +435,48 @@ class PipelineHelper:
         os.makedirs(log_dir, exist_ok=True)
         executor = submitit.AutoExecutor(folder=log_dir)
     
-        # Adjust MPI command if present.
-        # Both nr_mpi and mpi_command must be set: the pipeliner gates MPI on nr_mpi > 1
-        # and substitutes XXXmpinodesXXX in mpi_command with the nr_mpi value.
-        # GPU jobs use ntasks (1 leader + 1 per GPU); CPU jobs use cpu_ntasks
-        # (fills one node cleanly at ncpus per rank, no oversubscribe needed).
-        use_gpu = job.joboptions["use_gpu"].value if "use_gpu" in job.joboptions else False
-        mpi_ranks = self.ntasks if use_gpu else self.cpu_ntasks
-        if 'nr_mpi' in job.joboptions:
-            job.joboptions['nr_mpi'].value = mpi_ranks
-        if 'mpi_command' in job.joboptions:
-            job.joboptions['mpi_command'].value = f'mpirun --oversubscribe -n XXXmpinodesXXX'
+        # MPI sizing already applied in run_job
+        use_gpu = self.job_uses_gpu(job)
+
+        # Match the CPU reservation to nr_mpi × nr_threads.
+        if use_gpu:
+            tasks_per_node, cpus_per_task = 1, self.ncpus
+        else:
+            if 'nr_mpi' in job.joboptions:
+                nr_mpi = max(1, int(job.joboptions['nr_mpi'].value))
+                tasks_per_node, cpus_per_task = nr_mpi, self.job_threads(job)
+            else:
+                tasks_per_node, cpus_per_task = 1, self.ncpus
 
         # Update Executor Parameters.
-        executor.update_parameters(
+        executor_parameters = dict(
             slurm_partition = 'gpu' if use_gpu else 'cpu',
             slurm_job_name=job.OUT_DIR,
             timeout_min=self.timeout_min,
-            tasks_per_node=1,
+            tasks_per_node=tasks_per_node,
             slurm_use_srun=False,
-            cpus_per_task=self.ncpus,
-            slurm_mem_per_cpu=f"{self.mem_per_cpu}G",
+            cpus_per_task=cpus_per_task,
         )
+        if use_gpu:
+            executor_parameters['slurm_mem_per_cpu'] = f"{self.mem_per_cpu}G"
+        else:
+            executor_parameters['slurm_mem'] = f"{self.ncpus * self.mem_per_cpu}G"
+        executor.update_parameters(**executor_parameters)
 
         # Add GPU Queue and Constraints if Needed
         if use_gpu:
-            additional_params = {'nodes': f'{self.gpu_nodes[0]}-{self.gpu_nodes[1]}'}
-            additional_params['gpus'] = f"{self.num_gpus}"
-        else: 
+            nodes = self.gpu_nodes[0]
+            if nodes > 1:
+                raise ValueError(
+                    f'{self.num_gpus} GPUs require {nodes} nodes, but multi-node GPU jobs '
+                    'are not supported by the current launcher.'
+                )
+            # Pack all requested GPUs onto one node.
+            additional_params = {
+                'nodes': nodes,
+                'gpus_per_node': self.num_gpus,
+            }
+        else:
             additional_params = {'nodes': self.cpu_nodes}
         executor.update_parameters(
             slurm_additional_parameters=additional_params,
