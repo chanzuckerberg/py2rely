@@ -91,7 +91,7 @@ class ThePolisher:
 
         return instance
 
-    def run(self, particles: str, mask: str, num_iterations: int = 5):
+    def run(self, particles: str, mask: str, num_iterations: int = 10):
         """Execute the main polishing pipeline."""
 
         # Initialize the Best Resolution
@@ -99,7 +99,7 @@ class ThePolisher:
         self.max_counts = 3
         self.counter = 0
 
-        # For now, lets start off with 5 iterations
+        # For now, lets start off with 10 iterations
         for ii in range(num_iterations):
 
             # Half Map from Refinement

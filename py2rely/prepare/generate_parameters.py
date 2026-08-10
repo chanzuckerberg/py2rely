@@ -122,12 +122,9 @@ def create_relion5_parameters(
     table.add_row("Nprocesses", str(nprocesses))
     console.print(table)
 
-    my_mpi_command = f"mpirun -n {nprocesses}" if nprocesses else "mpirun"
-
-    # TODO: validate:
-    # - each job that can use mpi has parameters set to use mpi
-    # - the mpi parameters set are actual being applied to the job
-    # - pass in the ntasks value and cpus-per-task value into here and use that instead of hard coded numbers(or ensure they align somehow)
+    # pipeliner substitutes nr_mpi into XXXmpinodesXXX. apply_parallelism overwrites this
+    # at run time; the fallback only applies to jobs run outside that path.
+    my_mpi_command = f"mpirun -n {nprocesses}" if nprocesses else "mpirun -n XXXmpinodesXXX"
     default_config = parameters.ProcessingConfigRelion5(
         resolutions=parameters.ResolutionParameters(
             angpix=tilt_series_pixel_size,
@@ -191,6 +188,7 @@ def create_relion5_parameters(
             gpu_ids= "",
             nr_threads=nthreads,
             mpi_command=my_mpi_command,
+            do_combine_thru_disc="yes",
             other_args="" # --maxsig 3000
         ),
         class3D=parameters.Class3D(
@@ -219,6 +217,7 @@ def create_relion5_parameters(
             gpu_ids= "",
             nr_threads=nthreads,
             mpi_command=my_mpi_command,
+            do_combine_thru_disc="yes",
             sigma_tilt= 0,
             other_args=""
         ),
