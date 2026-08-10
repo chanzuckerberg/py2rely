@@ -95,7 +95,7 @@ class PipelineHelper:
         self.ntasks = self.num_gpus + 1
         self.gpu_constraint = None
         self.ncpus, self.mem_per_cpu = 4, 16
-        self.cpu_nodes = 2
+        self.cpu_nodes = 1
         # Use the CPUs available to this process for local jobs.
         self.cpu_budget = (
             len(os.sched_getaffinity(0))
@@ -139,7 +139,7 @@ class PipelineHelper:
         self.gpu_nodes = get_gpu_node_range(ngpus, self.gpu_constraint)
 
         # CPU jobs use one node and the requested CPU budget.
-        self.cpu_nodes = 2
+        self.cpu_nodes = 1
 
         # Warn if no GPU constraint specified
         if self.gpu_constraint is None:
@@ -393,7 +393,7 @@ class PipelineHelper:
 
     def cpu_ranks_for(self, job) -> int:
         """Return the number of MPI ranks that fit within the CPU budget."""
-        return max(3, self.cpu_budget // self.job_threads(job))
+        return max(5, self.cpu_budget // self.job_threads(job))
 
     def apply_parallelism(self, job, jobName: str):
         """
