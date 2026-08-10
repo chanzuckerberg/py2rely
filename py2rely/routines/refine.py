@@ -168,10 +168,18 @@ def run_refine3d(
         'auto_local_sampling': local_sampling_angle
     }
     if parameter:
-        df = starfile.read(particles) 
+        df = starfile.read(particles)
         utils.binning = int(df['optics']['rlnTomoSubtomogramBinning'])
         utils.read_json_params_file(parameter)
+        # read_json_params_file() only loads self.params + the binning list; it does
+        # not set any joboptions. Apply the refine3D block to the job so that ini_high,
+        # particle_diameter, offset_*, sampling and other_args (e.g. "--firstiter_cc")
+        # from the JSON actually reach relion_refine (mirrors initialize_auto_refine()).
+        utils.tomo_refine3D_job = utils.parse_params(utils.tomo_refine3D_job, 'refine3D')
         utils.get_new_sampling(utils.tomo_refine3D_job)
+        # Re-assert the CLI-provided required inputs so they take precedence over the JSON
+        # (particles / tomograms / ref / mask / mpi / threads / pool / gpu / greyscale).
+        helper.set_parameters(utils.tomo_refine3D_job, required_parameters)
     else:
         # Set Parameters
         helper.set_parameters(utils.tomo_refine3D_job, parameters)
