@@ -121,3 +121,18 @@ def get_bin_factor(particles: str):
         return int(df['optics']['rlnTomoSubtomogramBinning'][0])
     else:
         return 1 # Assume particles is slab-projection
+
+def check_if_file_exists(file_path):
+    """
+    Check if a file exists and return the file path.
+
+    Args:
+        file_path: The path to the file.
+
+    Returns:
+        file_path: The path to the file.
+    """
+    if os.path.exists(file_path):
+        return file_path
+    else:
+        raise FileNotFoundError(f"File {file_path} does not exist.")

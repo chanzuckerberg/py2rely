@@ -173,7 +173,8 @@ def generate_template_from_map(
         vol = nd_shift(vol, shift=delta, order=1, mode="constant", cval=0.0)
         logging.debug("COM before %s; after %s", np.round(com, 2), np.round(center_of_mass(vol ** 2), 2))
 
-    # Optionally expand to accommodate a larger final box before filtering
+    # Optionally expand (pad) or shrink (crop) to hit an exact final box size
+    crop_to: Optional[int] = None
     if output_box_size is not None:
         final_vox_if_no_pad = (vol.shape[0] * float(input_spacing)) // float(output_spacing)
         if output_box_size > final_vox_if_no_pad:
@@ -183,17 +184,11 @@ def generate_template_from_map(
                 pad3 = tuple((pad // 2, pad // 2 + pad % 2) for _ in range(3))
                 vol = np.pad(vol, pad3, mode="constant", constant_values=0)
         elif output_box_size < final_vox_if_no_pad:
-            snapped = snap_box_size(int(final_vox_if_no_pad), side="right")
-            logging.warning(
-                "Requested box (%d) smaller than downsampled size (%d); snapping up %d.",
-                output_box_size, int(final_vox_if_no_pad), snapped,
+            logging.info(
+                "Requested box (%d) smaller than downsampled size (%d); cropping after resampling.",
+                output_box_size, int(final_vox_if_no_pad),
             )
-            output_box_size = snapped
-            target_pre = int(output_box_size * (float(output_spacing) / float(input_spacing)))
-            pad = max(0, target_pre - vol.shape[0])
-            if pad > 0:
-                pad3 = tuple((pad // 2, pad // 2 + pad % 2) for _ in range(3))
-                vol = np.pad(vol, pad3, mode="constant", constant_values=0)
+            crop_to = output_box_size
 
     # LPF in Fourier (1x rfftn + 1x irfftn)
     lpf = create_gaussian_low_pass(vol.shape, float(input_spacing), float(filter_to_resolution))
@@ -202,7 +197,23 @@ def generate_template_from_map(
     # Resample to output spacing; scale = input/ output
     scale = float(input_spacing) / float(output_spacing)
     out = zoom(filtered, scale, order=1, mode="constant", cval=0.0, prefilter=False)
+    if crop_to is not None:
+        out = _center_crop_to_box(out, crop_to)
     return out.astype(np.float32, copy=False)
+
+
+def _center_crop_to_box(
+    volume: npt.NDArray[np.floating], box_size: int
+) -> npt.NDArray[np.floating]:
+    """Center-crop a volume down to box_size along each axis; leaves shorter axes untouched."""
+    slices = []
+    for dim in volume.shape:
+        if dim <= box_size:
+            slices.append(slice(None))
+            continue
+        start = (dim - box_size) // 2
+        slices.append(slice(start, start + box_size))
+    return volume[tuple(slices)]
 
 
 def phase_randomize_template(template: npt.NDArray[np.floating], seed: int = 321) -> npt.NDArray[np.floating]:
@@ -296,7 +307,8 @@ POSINT = LargerThanZeroInt()
 @click.option(
     "-b", "--box-size", type=POSINT, required=False,
     help=(
-        "Desired final template box size (voxels). Only applied if larger than downsampled size."
+        "Desired final template box size (voxels). Pads to grow, or center-crops to "
+        "shrink, the downsampled map to exactly this size."
     ),
 )
 @click.option(
