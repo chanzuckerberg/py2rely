@@ -208,8 +208,12 @@ def run_import_tilt_series(
             if not os.path.isfile(tiltSeriesName):
                 os.symlink(tiltSeriesNameAbs, tiltSeriesName)
 
+        # Read the TLT File to get the true dose per tilt
+        tltPath = os.path.join(tomoPath, tomoID + '_TLT.txt')
+        tltText = np.loadtxt(tltPath)
+        nTilts = tltText.shape[0]
+
         # Iterate Through the Alignment File
-        nTilts = orderList.shape[0]
         for tiltInd in range(len(alnDF)):
 
             # Determine the Tilt Index from the Alignment File

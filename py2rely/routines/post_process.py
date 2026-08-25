@@ -81,10 +81,11 @@ def run(utils, mask, half_map, low_pass):
         low_pass: Optional low-pass filter (Å).  If None, only automatic
                   B-factor sharpening is applied.
     """
+    from py2rely.routines.helper import check_if_file_exists
 
     # Update the Post Process Job with the Mask and Half Map
-    utils.post_process_job.joboptions['fn_in'].value = half_map
-    utils.post_process_job.joboptions['fn_mask'].value = mask
+    utils.post_process_job.joboptions['fn_in'].value = check_if_file_exists(half_map)
+    utils.post_process_job.joboptions['fn_mask'].value = check_if_file_exists(mask)
 
     if low_pass is not None:
         utils.post_process_job.joboptions['low_pass'].value = low_pass  
