@@ -1,4 +1,7 @@
 # py2rely - The Python Pipeline To Rely On 
+[![License](https://img.shields.io/pypi/l/py2rely.svg?color=green)](https://github.com/chanzuckerberg/py2rely/raw/main/LICENSE)
+[![PyPI](https://img.shields.io/pypi/v/py2rely.svg?color=green)](https://pypi.org/project/py2rely/)
+
 Pythonic to Relion interface for streamlined sub-tomogram averaging on SLURM HPC clusters.
 
 ## Introduction
