@@ -25,7 +25,19 @@ authors = [
   ]
 description = "Command line tools to Run Automated Sub-Tomogram Averaging with Relion and CCPEM Pipeline."
 readme = "README.md"
-license = { file = "LICENSE" }
+license = {text = "MIT"}
+classifiers = [
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",        
+    "Programming Language :: Python :: 3.9",    
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Scientific/Engineering :: Artificial Intelligence",
+    "Topic :: Scientific/Engineering :: Image Processing",
+    "Topic :: Scientific/Engineering :: Image Recognition",
+]
 
 [project.optional-dependencies]
 web = ["gradio", "pytz"]
