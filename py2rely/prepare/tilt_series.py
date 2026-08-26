@@ -69,11 +69,6 @@ def tilt_series(
     Do I need to provide --total-dose?
     ----------------------------------
 
-    Usually not. Recent versions of AreTomo3 record the dose delivered to each
-    tilt in a third column of {tomoID}_TLT.txt, and py2rely uses those values to
-    compute the true per-tilt pre-exposure (rlnMicrographPreExposure). When that
-    column is present, --total-dose is ignored.
-
     --total-dose is only needed with older AreTomo3 versions, whose _TLT.txt has
     just two columns. In that case py2rely falls back to assuming a uniform dose
     of (total-dose / number-of-tilts) per tilt, accumulated in the acquisition
