@@ -1,4 +1,4 @@
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 # Box sizes considered valid by RELION (FFT-friendly dimensions).
 # Used wherever a computed box size must be snapped to the nearest allowed value.
