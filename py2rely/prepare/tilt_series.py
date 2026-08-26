@@ -21,7 +21,9 @@ def cli(ctx):
 @click.option("-ps","--pixel-size",type=float,required=False, default=1.54,
               help="Unbinned Tilt Tilt Series Pixel Size (Å)")
 @click.option("-td","--total-dose",type=float,required=False, default=60,
-              help="Total Accumulated Dose (e-/Å^2)")
+              help="Total Accumulated Dose (e-/Å^2). Only used as a fallback when AreTomo's "
+                   "_TLT.txt file has no per-tilt dose column (older AreTomo3 versions); "
+                   "otherwise the true per-tilt dose is read from _TLT.txt and this is ignored.")
 @click.option("-sym","--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
@@ -63,6 +65,19 @@ def tilt_series(
         - _CTF.txt (CTF parameters)
 
     are parsed to construct Relion5 tilt-series STAR files.
+
+    Do I need to provide --total-dose?
+    ----------------------------------
+
+    Usually not. Recent versions of AreTomo3 record the dose delivered to each
+    tilt in a third column of {tomoID}_TLT.txt, and py2rely uses those values to
+    compute the true per-tilt pre-exposure (rlnMicrographPreExposure). When that
+    column is present, --total-dose is ignored.
+
+    --total-dose is only needed with older AreTomo3 versions, whose _TLT.txt has
+    just two columns. In that case py2rely falls back to assuming a uniform dose
+    of (total-dose / number-of-tilts) per tilt, accumulated in the acquisition
+    order given by _order_list.csv.
     """
 
     run_import_tilt_series(
