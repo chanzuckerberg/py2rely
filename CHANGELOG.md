@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.7.1](https://github.com/chanzuckerberg/py2rely/compare/py2rely-v0.7.0...py2rely-v0.7.1) (2026-08-26)
+
+
+### 🐞 Bug Fixes
+
+* **prepare:** use true per-tilt dose from `_TLT.txt` for pre-exposure ([1ba1d2d](https://github.com/chanzuckerberg/py2rely/commit/1ba1d2d428eac0443e358f8d61b3c5ed3e2f120e))
+* **prepare:** use true per-tilt dose from `_TLT.txt` for pre-exposure ([587b51c](https://github.com/chanzuckerberg/py2rely/commit/587b51ce7800cd1ec35166a28494dbd8c1cdaea6))
+
 ## [0.7.0](https://github.com/chanzuckerberg/py2rely/compare/py2rely-v0.6.0...py2rely-v0.7.0) (2026-08-25)
 
 
