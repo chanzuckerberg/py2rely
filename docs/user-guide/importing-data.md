@@ -218,6 +218,25 @@ py2rely requires two input files for sub-tomogram averaging:
         {base-project}/{session}/*_CTF.txt
         ```
 
+    !!! note "Do I need to pass `--total-dose`?"
+
+        **Usually not.** Recent versions of AreTomo3 write the dose delivered to
+        each tilt as a third column in `{tomoID}_TLT.txt`. When that column is
+        present, `py2rely` uses it to compute the true per-tilt pre-exposure
+        (`rlnMicrographPreExposure`) and **`--total-dose` is ignored**.
+
+        `--total-dose` is only needed with **older AreTomo3 versions**, whose
+        `_TLT.txt` has only two columns (tilt angle and acquisition order). In
+        that case `py2rely` falls back to assuming a uniform dose of
+        `total-dose / n_tilts` per tilt, accumulated in the acquisition order
+        listed in `_order_list.csv`.
+
+        Quick check — if the third column is there, you can leave `--total-dose` off:
+
+        ```bash
+        head -3 /path/to/aretomo/{session}/{run}/{tomoID}_TLT.txt
+        ```
+
     **Output structure:**
     ```bash
         input/tiltSeries/
@@ -237,7 +256,7 @@ py2rely requires two input files for sub-tomogram averaging:
     | `-r, --run` | Run identifier | `run001` |
     | `-o, --output` | Output directory for STAR files | `input` |
     | `-ps, --pixel-size` | Unbinned pixel size (Å) | `1.54` |
-    | `-td, --total-dose` | Total dose (e⁻/Å²) | `60` |
+    | `-td, --total-dose` | Total dose (e⁻/Å²) — *fallback only, for older AreTomo3 without per-tilt dose in `_TLT.txt`* | `60` |
     | `-v, --voltage` | Acceleration voltage (kV) | `300` |
     | `-sa, --spherical-aberration` | Cs value (mm) | `2.7` |
     | `-ac, --amplitude-contrast` | Amplitude contrast | `0.07` |

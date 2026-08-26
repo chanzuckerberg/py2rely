@@ -21,7 +21,9 @@ def cli(ctx):
 @click.option("-ps","--pixel-size",type=float,required=False, default=1.54,
               help="Unbinned Tilt Tilt Series Pixel Size (Å)")
 @click.option("-td","--total-dose",type=float,required=False, default=60,
-              help="Total Accumulated Dose (e-/Å^2)")
+              help="Total Accumulated Dose (e-/Å^2). Only used as a fallback when AreTomo's "
+                   "_TLT.txt file has no per-tilt dose column (older AreTomo3 versions); "
+                   "otherwise the true per-tilt dose is read from _TLT.txt and this is ignored.")
 @click.option("-sym","--symlinks",type=str,required=False, default=None,
               help="Output directory path for the MRCS symlinks")
 @add_optics_options
@@ -63,6 +65,14 @@ def tilt_series(
         - _CTF.txt (CTF parameters)
 
     are parsed to construct Relion5 tilt-series STAR files.
+
+    Do I need to provide --total-dose?
+    ----------------------------------
+
+    --total-dose is only needed with older AreTomo3 versions, whose _TLT.txt has
+    just two columns. In that case py2rely falls back to assuming a uniform dose
+    of (total-dose / number-of-tilts) per tilt, accumulated in the acquisition
+    order given by _order_list.csv.
     """
 
     run_import_tilt_series(
@@ -212,6 +222,11 @@ def run_import_tilt_series(
         tltPath = os.path.join(tomoPath, tomoID + '_TLT.txt')
         tltText = np.loadtxt(tltPath)
         nTilts = tltText.shape[0]
+        # Compute Pre-Exposure if Present in TLT File
+        pre_exposure = (
+            dosePerTilt2preExposure(tltText) if tltText.shape[1] == 3 
+            else None
+        )
 
         # Iterate Through the Alignment File
         for tiltInd in range(len(alnDF)):
@@ -236,9 +251,13 @@ def run_import_tilt_series(
             # Get phase shift information
             phase_shift.append(float(ctfText[ind-1, 4]) * 180.0 / np.pi)  # Convert from radians to degrees
 
-            # Get the Total Exposure from the Order List
-            acqNum = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
-            totalExposure.append( total_dose / nTilts * (orderList[acqNum,0] - 1) )
+            # Either use the Pre-Exposure from the TLT File or Assume Uniform Dose per Tilt
+            if pre_exposure is not None:
+                tltRow = int(np.argmin(np.abs(tltText[:, 0] - alnDF['TILT'][tiltInd])))
+                totalExposure.append( pre_exposure[tltRow] )
+            else:
+                tltRow = np.argmin( np.abs(orderList[:,1] - alnDF['TILT'][tiltInd]) )
+                totalExposure.append( total_dose / nTilts * (orderList[tltRow,0] - 1) )
 
         # Get Number of Rows for the STAR file
         num_rows = len(tiltSeriesNames)
@@ -301,6 +320,23 @@ def run_import_tilt_series(
     # Inform the user that the file has been written successfully
     console.rule("[bold green]Done")
     console.print(f"[b]Relion5 Tilt-Series STAR file saved to:[/b] {fn}\n")  
+
+def dosePerTilt2preExposure(tltTxt):
+    import numpy as np
+
+    # step 1: determine the list of indexes from column for the order list
+    acq_id_list = np.argsort(tltTxt[:,1])
+
+    # step 2: calculate the pre-exposure for each tilt
+    dose = 0 
+    nTilts = tltTxt.shape[0]
+    pre_exposure = np.zeros(nTilts, dtype=float)
+
+    # step 3: calculate the pre-exposure for each tilt
+    for ind in acq_id_list:
+        pre_exposure[ind] = dose
+        dose += tltTxt[ind, 2]
+    return pre_exposure
 
 ###########################################################################################
 
